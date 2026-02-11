@@ -1,111 +1,100 @@
 # Shipkit: Bounded-Context Orchestration for Claude Code
 
-A minimal bootstrap package for running multi-agent Claude Code sessions with structured handoffs.
-
-## The Problem
-
-Claude Code sessions have finite context. Long-running work leads to "context rot" - degraded performance as the context fills with stale information. The solution is structured handoffs between fresh agent sessions.
-
-## The Solution
-
-Ship uses a nautical metaphor for role-based orchestration:
+A specification for running multi-agent Claude Code sessions with structured handoffs. Ship uses a nautical metaphor for role-based orchestration:
 
 - **Captain** (human): Sets priorities, resolves escalations, makes strategic decisions
 - **First Mate** (Claude): Coordinates operations, dispatches crew, manages the queue
-- **Crew** (Claude agents): Execute bounded work sessions, write logs, terminate cleanly
+- **Crew** (Claude subagents): Execute bounded work sessions, write logs, terminate cleanly
 
-## Quick Start
+## Bootstrap: Setting Up a New Ship
 
-### 1. Copy shipkit to your project
+**This is designed to be executed by a Claude Code session.** Tell Claude Code:
 
-```bash
-cp -r shipkit/ your-project/ship/
-```
+> Read the shipkit docs at `{path-to-shipkit}/` and set up Ship for this project.
 
-### 2. Set up the directory structure
+Claude Code should read this file, then the role docs, and execute the setup below. If you're a coding agent reading this: follow these steps, adapting paths and details to the current project.
 
-```bash
-cd your-project/ship
-mkdir -p inbox/escalations inbox/responses
-mkdir -p projects/main/tickets
-mkdir -p logs/main logs/mate
-```
-
-### 3. Configure your captain.md
-
-Edit `captain.md` to set your:
-- Current situation and context
-- Priorities (Mate uses these to order the queue)
-- Constraints on how work should be done
-- Standing orders that apply to all work
-
-### 4. Create your first ticket
-
-You can create tickets manually or have the Mate do it:
-
-**Manual:** Copy `templates/ticket.md` to `projects/main/tickets/FIRST-TICKET.md` and fill it in.
-
-**Via Mate (recommended):** Add a note to `inbox/captain.md` describing the work, and tell the Mate to process it. The Mate will triage it and create a properly formatted ticket. This is often faster and ensures consistent formatting.
-
-### 5. Add the ticket to the queue
-
-Edit `queue.md` and add your ticket under "## Ready":
-```
-1. [FIRST-TICKET](projects/main/tickets/FIRST-TICKET.md) - description | last: 2024-01-15
-```
-
-### 6. Start the Mate
-
-Tell Claude: "You're First Mate on this ship. Read ship/mate.md for your standing orders."
-
-The Mate will:
-- Read ship state
-- Report status to you
-- Dispatch crew when you give the go-ahead
-
-### 7. Dispatch crew
-
-Tell the Mate to dispatch on a ticket. They'll prepare watch orders and can launch crew as background agents.
-
-## File Structure
+### 1. Create the ship directory structure
 
 ```
-ship/
-  CLAUDE.md          # Entry point - explains the system
-  captain.md         # Your priorities and constraints
-  mate.md            # First Mate standing orders
-  crew.md            # Crew standing orders
-  queue.md           # Work queue (Mate-owned)
+{project}/ship/
+  captain.md         # Captain's priorities (create from template)
+  queue.md           # Work queue (create from template)
   inbox/
-    captain.md       # Your inbox for quick thoughts
-    escalations/     # Mate's messages to you
-    responses/       # Your async responses
+    captain.md       # Captain's inbox for quick thoughts
+    drops/           # Items from external processes
+      .gitkeep
   projects/
-    {project}/
+    {project-name}/
       tickets/       # Work tickets
   logs/
-    {project}/
-      {ticket}/      # Watch logs per ticket
+    {project-name}/  # Watch logs per ticket
     mate/            # Daily mate logs
-  templates/
-    ticket.md        # Ticket template
+  docs/
+    knowledge/       # Accumulated project knowledge
+  scripts/           # Hook scripts (copy from shipkit)
 ```
+
+### 2. Install hook scripts
+
+Copy `scripts/validate-crew-bash.sh` and `scripts/validate-reviewer-bash.sh` from shipkit to the project's `ship/scripts/` directory. Make them executable.
+
+### 3. Install subagent definitions
+
+Ship uses custom Claude Code subagents defined in `~/.claude/agents/`. Copy the files from `agents/` in this repo to `~/.claude/agents/`, **replacing the `{SHIP_DIR}` placeholder** in hook command paths with the absolute path to the project's `ship/` directory.
+
+**Multi-project considerations:** The agent files are user-level (shared across all projects). If multiple Ship instances exist:
+- The hook script paths in agent files will point to whichever project was last set up
+- The hook scripts are functionally identical across projects (they enforce generic git safety, not project-specific rules), so this is usually fine
+- If you need project-specific hooks, use project-level agents (`.claude/agents/`) instead of user-level
+- Exercise judgment: if the existing agents look correct and the hooks are generic, you may not need to overwrite them
+
+### 4. Copy role documents
+
+Copy `mate.md`, `crew.md`, and `CLAUDE.md` from shipkit to the project's `ship/` directory. These are the generic standing orders. The project will customize them over time.
+
+### 5. Set up captain.md
+
+Create `ship/captain.md` from the template. This is where the human sets priorities and constraints. Ask the Captain what their current situation, priorities, and constraints are if working interactively.
+
+### 6. Create queue.md
+
+Create `ship/queue.md` from the template. Start empty — the Mate will populate it as work comes in.
+
+### 7. Verify
+
+After setup, the Mate should be able to read ship state and report status. Test by telling Claude Code: "You're First Mate on this ship. Read ship/mate.md for your standing orders."
+
+## What's in Shipkit
+
+| Directory | Contents | Purpose |
+|-----------|----------|---------|
+| `agents/` | `ship-crew.md`, `ship-lookout.md`, `ship-reviewer.md` | Custom subagent definitions (install to `~/.claude/agents/`) |
+| `scripts/` | `validate-crew-bash.sh`, `validate-reviewer-bash.sh` | PreToolUse hook scripts for enforced safety |
+| `templates/` | `ticket.md`, `captain.md`, `queue.md` | Templates for project-specific files |
+| Root | `mate.md`, `crew.md`, `CLAUDE.md` | Role standing orders (copy to project) |
 
 ## Key Concepts
 
+### Subagent Types
+
+Crew are dispatched as custom subagents with enforced tool restrictions:
+
+| Type | Purpose | Write access | Safety |
+|------|---------|-------------|--------|
+| `ship-crew` | Standard watches (research + implementation) | Yes | Hook blocks git commit/push/reset |
+| `ship-lookout` | Quick read-only checks | No (enforced) | Cannot write or edit files |
+| `ship-reviewer` | PR triage in agent teams | No (enforced) | Hook blocks gh approve/comment |
+
+Standing orders are baked into each subagent's system prompt. The Mate dispatches using `subagent_type: "ship-crew"` (or lookout/reviewer) instead of `"general-purpose"`.
+
 ### Logs are the handoff mechanism
 
-When a crew session ends, it writes a log with:
-- What was accomplished
-- Current state
-- Next steps
-- Handoff confidence (1-5)
-
-A fresh crew session reads the log and continues from there. No context is assumed to persist between sessions.
+When a crew session ends, it writes a log with what was accomplished, current state, next steps, and handoff confidence (1-5). A fresh crew session reads the log and continues. No context is assumed to persist between sessions.
 
 ### Crew never touch queue.md
 
-The queue is owned by the Mate. Crew only work on their assigned ticket and write logs. This prevents coordination conflicts.
+The queue is owned by the Mate. Crew only work on their assigned ticket and write logs. This is enforced by a PreToolUse hook.
 
 ### Bias toward checkpointing
 
@@ -113,31 +102,16 @@ If you'd be sad to lose it, commit it and write a log. Better to checkpoint too 
 
 ### The Mate runs the loop
 
-The Mate continuously:
-1. Checks inbox
-2. Checks active work
-3. Dispatches if capacity
-4. Stays present for steering
-
-This keeps the ship responsive to your input while work progresses.
+The Mate continuously: checks inbox, checks active work, dispatches if capacity, stays present for steering. This keeps the ship responsive while work progresses in background.
 
 ## Customization
 
 Shipkit is a starting point. As you use it, you'll likely want to:
 
-- Add project-specific context to role files
-- Create additional templates
-- Add knowledge docs for your domain
-- Evolve the ticket format for your workflow
+- Add project-specific knowledge docs (`ship/docs/knowledge/`)
+- Add environment config for your dev setup
+- Add PR triage workflows if you have a review tool
+- Create additional subagent types for specialized work
+- Add project-specific hooks for domain-specific safety rules
 
-The system is designed to be adapted to your needs while preserving the core handoff mechanism.
-
-## Troubleshooting
-
-**Crew seems confused**: Check that logs have high handoff confidence. Low-confidence handoffs often indicate missing context.
-
-**Queue gets stale**: Use the `last:` timestamps to spot tickets that haven't moved. Investigate blockers.
-
-**Too much coordination overhead**: You may be over-decomposing work. Larger tickets can reduce dispatch frequency.
-
-**Merge conflicts**: Parallel crew on the same repo can conflict. Consider work decomposition or serializing work.
+The system is designed to evolve. The core handoff mechanism (watches + logs + structured dispatch) stays stable while everything else adapts to your needs.
