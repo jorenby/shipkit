@@ -18,7 +18,6 @@ Crew are dispatched as custom subagents (`~/.claude/agents/ship-*.md`) with enfo
 |------|---------|-------------|--------|
 | `ship-crew` | Standard watches (research + implementation) | Yes | Hook blocks commit/push/reset |
 | `ship-lookout` | Quick read-only checks | No (enforced) | Cannot write or edit files |
-| `ship-reviewer` | PR triage in agent teams | No (enforced) | Hook blocks gh approve/comment |
 
 Standing orders are baked into each subagent's system prompt. See `mate.md` for dispatch patterns.
 

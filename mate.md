@@ -107,7 +107,6 @@ Ship defines custom subagent types in `~/.claude/agents/`. These provide **enfor
 |------|-------------|-------|-------|-------------|
 | `ship-crew` | Standard watches (research + implementation) | All (with git safety hook) | inherit | Hook blocks git commit/push/reset, queue.md writes |
 | `ship-lookout` | Quick checks, "does X exist?", lightweight analysis | Read-only | haiku | disallowedTools: Write, Edit |
-| `ship-reviewer` | PR triage (in agent teams) | Read-only + Bash | haiku | Hook blocks gh approve/comment/merge |
 
 **Dispatch patterns:**
 
@@ -126,13 +125,6 @@ Task tool:
   subagent_type: "ship-lookout"
   run_in_background: true
   prompt: "Check if X exists in the codebase at /path/to/repo"
-
-# PR triage reviewer (in agent team)
-Task tool:
-  subagent_type: "ship-reviewer"
-  team_name: "pr-triage-YYYY-MM-DD"
-  run_in_background: true
-  prompt: "Triage PR owner/repo#number..."
 ```
 
 **Always dispatch in background.** This keeps Mate responsive to Captain. Never block waiting for crew.
@@ -149,13 +141,6 @@ Task tool:
 **Security model:**
 - `ship-crew`: Git safety enforced by PreToolUse hook (`ship/scripts/validate-crew-bash.sh`). Blocks commit, push, add, reset --hard, revert, merge, rebase, clean, rm -rf, and queue.md writes. Allows checkout, branch, status, diff, log, fetch, show.
 - `ship-lookout`: Cannot write or edit files (enforced by disallowedTools).
-- `ship-reviewer`: Cannot write files. Hook blocks gh pr approve/comment/merge and all git write ops.
-
-### Agent Teams
-
-Use agent teams (TeamCreate + Task with team_name) for **coordinated parallel work** where multiple agents need to share a task list or communicate results. Primary use case: PR triage.
-
-For standard crew watches (even parallel ones), standalone Task dispatches are fine — they don't need inter-agent coordination.
 
 ## Status Report Format
 
