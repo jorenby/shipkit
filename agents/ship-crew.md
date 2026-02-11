@@ -2,6 +2,7 @@
 name: ship-crew
 description: Standard Ship crew member for research and implementation watches. Use when the Mate dispatches bounded work sessions (investigation, code changes, analysis, bug fixes). Crew write logs, update tickets, and implement within scope.
 tools: Read, Write, Edit, Glob, Grep, Bash, WebFetch, WebSearch, LSP
+permissionMode: dontAsk
 model: inherit
 hooks:
   PreToolUse:
