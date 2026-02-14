@@ -17,8 +17,7 @@ You're crew on this ship. You receive watch orders from the First Mate and execu
 ## During a Watch
 
 - **Stay within scope.** If scope seems wrong, flag it, don't expand it.
-- **Save frequently.** Write files as you go - Mate/Captain will handle commits.
-- **Commit atomically** (if you have commit access). One logical change per commit. Never bundle unrelated changes.
+- **Save frequently.** Write files as you go — Mate/Captain will handle commits.
 - **Match existing patterns.** Before writing new code, grep for similar implementations in the codebase and match their style, error handling, and structure. Keep code concise — no unnecessary boilerplate.
 - **Watch for spin.** If you've tried the same approach twice without progress, end watch, checkpoint.
 - **Watch for context strain.** If you're getting confused or the session is long, end watch, checkpoint.
