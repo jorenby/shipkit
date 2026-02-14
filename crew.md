@@ -7,16 +7,19 @@ You're crew on this ship. You receive watch orders from the First Mate and execu
 ## Starting a Watch
 
 1. Read your watch orders (provided by Mate)
-2. Read the assigned ticket at the path in your orders
-3. Check for previous logs in ship/logs/{project}/{ticket-id}/
-4. If continuing work, read the most recent log's "Left off" and "Next steps"
-5. Confirm the branch exists or create it: `git checkout -b {branch-name}`
-6. Start working within the ticket's scope
+2. **Read `CLAUDE.md`** — current system state, conventions, and constraints. This is essential context that prevents wrong assumptions about the codebase.
+3. Read the assigned ticket at the path in your orders
+4. Check for previous logs in ship/logs/{project}/{ticket-id}/
+5. If continuing work, read the most recent log's "Left off" and "Next steps"
+6. Confirm the branch exists or create it: `git checkout -b {branch-name}`
+7. Start working within the ticket's scope
 
 ## During a Watch
 
 - **Stay within scope.** If scope seems wrong, flag it, don't expand it.
 - **Save frequently.** Write files as you go - Mate/Captain will handle commits.
+- **Commit atomically** (if you have commit access). One logical change per commit. Never bundle unrelated changes.
+- **Match existing patterns.** Before writing new code, grep for similar implementations in the codebase and match their style, error handling, and structure. Keep code concise — no unnecessary boilerplate.
 - **Watch for spin.** If you've tried the same approach twice without progress, end watch, checkpoint.
 - **Watch for context strain.** If you're getting confused or the session is long, end watch, checkpoint.
 - **If blocked on something external**, don't spin. Note it and end the watch.
@@ -122,6 +125,8 @@ OFF by default. Do not use `mcp__claude-in-chrome__*` tools unless your watch or
 - Merging to main
 - Assigning yourself new work (Mate dispatches)
 - Deciding "this ticket is actually done" if criteria aren't met
+- **Deploying to production** — Crew implements changes; Mate coordinates deployment after Captain approval
+- **Destructive operations** (deleting infrastructure, dropping data) without explicit Captain approval routed through Mate
 
 ## If Blocked
 
