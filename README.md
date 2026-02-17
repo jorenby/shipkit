@@ -1,4 +1,4 @@
-# Shipkit: Bounded-Context Orchestration for Claude Code
+# Ship: Bounded-Context Orchestration for Claude Code
 
 Ship is a system for coordinating multiple Claude Code agent sessions around your engineering work. It structures handoffs between fresh sessions so context rot doesn't eat your progress.
 
