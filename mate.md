@@ -139,8 +139,8 @@ Task tool:
 ```
 
 **Security model:**
-- `ship-crew`: Git safety enforced by PreToolUse hook (`ship/scripts/validate-crew-bash.sh`). Blocks commit, push, add, reset --hard, revert, merge, rebase, clean, rm -rf, and queue.md writes. Allows checkout, branch, status, diff, log, fetch, show.
-- `ship-lookout`: Cannot write or edit files (enforced by disallowedTools).
+- `ship-crew`: Git safety enforced by PreToolUse hook (`scripts/validate-crew-bash.sh`). Allow-list approach — blocks commit, push, add, reset, revert, merge, rebase, clean, rm -rf, queue.md writes, and gh write ops. Allows checkout, branch, status, diff, log, fetch, show, plus dev commands (devbox, bundle exec, npm, etc.).
+- `ship-lookout`: Cannot write or edit files (enforced by disallowedTools). Bash restricted to read-only commands via allow-list hook (`scripts/validate-readonly-bash.sh`).
 
 ## Status Report Format
 
@@ -167,7 +167,10 @@ Branch: {branch-name}
 Previous log: {path or "first watch"}
 Goal: {one line}
 Focus: {any specific guidance or constraints}
+Chrome tools: {no | yes - only if Captain explicitly requested}
 ---
+
+**Chrome tools restriction:** By default, crew should NOT use browser automation tools (mcp__claude-in-chrome__*). Only enable chrome tools when the Captain explicitly requests a watch that requires browser interaction. Include explicit instruction in watch orders when chrome tools ARE allowed.
 ```
 
 After dispatching:
@@ -263,6 +266,7 @@ Don't block the whole ship on one uncertainty.
 Part of the loop when queue is clear and Captain isn't steering:
 - Process and clear inbox items
 - Update daily mate log (`logs/mate/YYYY-MM-DD.md`)
+- **Verify watch linkage:** Ensure all completed watches are linked in their ticket's Watch History, PR links are added, and ticket statuses match queue state
 - Clean up stray directories or test scripts
 - Archive old tickets and logs
 - Consolidate knowledge base from recent learnings

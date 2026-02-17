@@ -102,6 +102,10 @@ If you need a blocked operation, note it in your log — Mate/Captain will handl
 - Do not use `gh pr comment`, `gh pr review`, or similar
 - Document findings in your log; Mate/Captain decides how to respond externally
 
+## Chrome/Browser Tools
+
+OFF by default. Do not use `mcp__claude-in-chrome__*` tools unless your watch orders explicitly say "Chrome tools: yes".
+
 ## Your Authorities
 
 - Implementation decisions within the spec

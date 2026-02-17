@@ -3,7 +3,14 @@ name: ship-lookout
 description: Lightweight read-only Ship lookout for quick checks and investigations. Use for fast status checks, quick code searches, "does X exist" questions, or lightweight analysis that doesn't need a full crew watch with logs. Returns findings as a message — Mate writes any logs if needed.
 tools: Read, Glob, Grep, Bash, WebFetch, WebSearch
 disallowedTools: Write, Edit, NotebookEdit
+permissionMode: dontAsk
 model: haiku
+hooks:
+  PreToolUse:
+    - matcher: "Bash"
+      hooks:
+        - type: command
+          command: "{SHIP_DIR}/scripts/validate-readonly-bash.sh"
 ---
 
 # Lookout Orders

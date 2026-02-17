@@ -16,8 +16,8 @@ Crew are dispatched as custom subagents (`~/.claude/agents/ship-*.md`) with enfo
 
 | Type | Purpose | Write access | Safety |
 |------|---------|-------------|--------|
-| `ship-crew` | Standard watches (research + implementation) | Yes | Hook blocks commit/push/reset |
-| `ship-lookout` | Quick read-only checks | No (enforced) | Cannot write or edit files |
+| `ship-crew` | Standard watches (research + implementation) | Yes | Allow-list hook blocks git writes, rm -rf, gh writes |
+| `ship-lookout` | Quick read-only checks | No (enforced) | disallowedTools + allow-list hook for Bash |
 
 Standing orders are baked into each subagent's system prompt. See `mate.md` for dispatch patterns.
 

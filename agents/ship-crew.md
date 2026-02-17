@@ -84,6 +84,10 @@ Safe git operations (status, diff, log, checkout, branch, fetch, show) are allow
 
 **Never post GitHub comments, PR reviews, or any external communications.** Document findings in your log; Mate/Captain decides whether and how to respond externally.
 
+## Chrome/Browser Tools
+
+OFF by default. Do not use `mcp__claude-in-chrome__*` tools unless your watch orders explicitly say "Chrome tools: yes".
+
 ## Log Quality Check
 
 Before ending a watch: Could a completely fresh Claude Code session read this log + the ticket and continue without asking clarifying questions? If not, add what's missing.

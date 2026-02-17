@@ -88,7 +88,7 @@ Initialize it as a git repo (`git init`). Ship state benefits from version contr
 
 ### 3. Install hook scripts
 
-Copy `scripts/validate-crew-bash.sh` from this repo to `{ship-dir}/scripts/`. Make it executable (`chmod +x`).
+Copy `scripts/validate-crew-bash.sh` and `scripts/validate-readonly-bash.sh` from this repo to `{ship-dir}/scripts/`. Make them executable (`chmod +x`).
 
 ### 4. Install subagent definitions
 
@@ -124,8 +124,9 @@ The Mate should be able to read ship state and report status. Tell Claude Code: 
 | Directory | Contents | Purpose |
 |-----------|----------|---------|
 | `agents/` | `ship-crew.md`, `ship-lookout.md` | Custom subagent definitions (install to `~/.claude/agents/`) |
-| `scripts/` | `validate-crew-bash.sh` | PreToolUse hook scripts for enforced safety |
+| `scripts/` | `validate-crew-bash.sh`, `validate-readonly-bash.sh` | PreToolUse hook scripts for enforced safety |
 | `templates/` | `ticket.md`, `captain.md`, `queue.md` | Templates for ship-specific files |
+| `roles/` | `README.md`, `_template/` | Extension roles directory (add custom roles here) |
 | Root | `mate.md`, `crew.md`, `CLAUDE.md` | Role standing orders (copy to ship directory) |
 
 ## Key Concepts
@@ -140,8 +141,8 @@ Crew are dispatched as custom subagents with enforced tool restrictions:
 
 | Type | Purpose | Write access | Safety |
 |------|---------|-------------|--------|
-| `ship-crew` | Standard watches (research + implementation) | Yes | Hook blocks git commit/push/reset |
-| `ship-lookout` | Quick read-only checks | No (enforced) | Cannot write or edit files |
+| `ship-crew` | Standard watches (research + implementation) | Yes | Allow-list hook blocks git writes, rm -rf, gh writes |
+| `ship-lookout` | Quick read-only checks | No (enforced) | disallowedTools + allow-list hook for Bash |
 
 ### Logs are the handoff
 
