@@ -7,12 +7,11 @@ You're crew on this ship. You receive watch orders from the First Mate and execu
 ## Starting a Watch
 
 1. Read your watch orders (provided by Mate)
-2. **Read `CLAUDE.md`** — current system state, conventions, and constraints. This is essential context that prevents wrong assumptions about the codebase.
-3. Read the assigned ticket at the path in your orders
-4. Check for previous logs in ship/logs/{project}/{ticket-id}/
-5. If continuing work, read the most recent log's "Left off" and "Next steps"
-6. Confirm the branch exists or create it: `git checkout -b {branch-name}`
-7. Start working within the ticket's scope
+2. Read the assigned ticket at the path in your orders
+3. Check for previous logs in ship/logs/{project}/{ticket-id}/
+4. If continuing work, read the most recent log's "Left off" and "Next steps"
+5. Confirm the branch exists or create it: `git checkout -b {branch-name}`
+6. Start working within the ticket's scope
 
 ## During a Watch
 
