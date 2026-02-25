@@ -162,7 +162,12 @@ Shipkit is a starting point. As you use it, you'll likely:
 
 - Add knowledge docs for your environment (`docs/knowledge/env-config.md`)
 - Create additional subagent types for specialized work
+- Extend crew permissions with `scripts/crew-allow-local.sh` (see below)
 - Add project-specific hooks for domain-specific safety rules
 - Evolve the role docs as you learn what works for your team
 
 The core mechanism (watches + logs + structured dispatch) stays stable while everything else adapts.
+
+### Extending crew permissions
+
+The crew bash allow-list (`scripts/validate-crew-bash.sh`) is synced from upstream. To add project-specific commands (e.g., `aws`, `kubectl`) without losing them on upstream pulls, copy `templates/crew-allow-local.sh` to `scripts/crew-allow-local.sh` in your ship directory and add your rules. The validation script sources it automatically if present.
