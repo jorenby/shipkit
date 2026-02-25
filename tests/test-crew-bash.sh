@@ -1,11 +1,11 @@
 #!/bin/bash
 # Test suite for validate-crew-bash.sh
-# Usage: ./scripts/test-crew-bash.sh
+# Usage: ./tests/test-crew-bash.sh
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-HOOK="$SCRIPT_DIR/validate-crew-bash.sh"
+HOOK="$SCRIPT_DIR/../scripts/validate-crew-bash.sh"
 PASS=0
 FAIL=0
 
@@ -81,7 +81,7 @@ echo "=== queue.md (BLOCK) ==="
 check BLOCK 'cat queue.md'
 check BLOCK 'echo "test" > queue.md'
 
-echo "=== gh operations (all blocked — crew documents in logs) ==="
+echo "=== gh ops (BLOCK — not on allow-list) ==="
 check BLOCK 'gh pr list'
 check BLOCK 'gh pr view 123'
 check BLOCK 'gh issue list'
