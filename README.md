@@ -166,3 +166,24 @@ Shipkit is a starting point. As you use it, you'll likely:
 - Evolve the role docs as you learn what works for your team
 
 The core mechanism (watches + logs + structured dispatch) stays stable while everything else adapts.
+
+## Staying up to date
+
+Shipkit ships a `scripts/pull-upstream.sh` script that syncs framework files from this repo into your ship directory. It knows which files are framework (role docs, agents, scripts, templates) and which are yours (captain.md, queue.md, projects, logs) — it never touches yours.
+
+```bash
+# See what's changed (dry run, safe to run anytime)
+# Clones from GitHub automatically — no local checkout needed
+./scripts/pull-upstream.sh
+
+# Pull only new files you don't have yet
+./scripts/pull-upstream.sh --new-only
+
+# Pull everything (overwrites your copies of framework files)
+./scripts/pull-upstream.sh --apply
+
+# Or point at a local checkout instead
+./scripts/pull-upstream.sh --apply /path/to/shipkit
+```
+
+**When to run it:** There's no automatic notification. Run the dry run periodically (e.g., when starting a new project phase) to see if upstream has improvements worth pulling.
