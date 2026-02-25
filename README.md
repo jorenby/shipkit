@@ -162,28 +162,16 @@ Shipkit is a starting point. As you use it, you'll likely:
 
 - Add knowledge docs for your environment (`docs/knowledge/env-config.md`)
 - Create additional subagent types for specialized work
+- Extend crew permissions with `scripts/crew-allow-local.sh` (see below)
 - Add project-specific hooks for domain-specific safety rules
 - Evolve the role docs as you learn what works for your team
 
 The core mechanism (watches + logs + structured dispatch) stays stable while everything else adapts.
 
+### Extending crew permissions
+
+The crew bash allow-list (`scripts/validate-crew-bash.sh`) is synced from upstream. To add project-specific commands (e.g., `aws`, `kubectl`) without losing them on upstream pulls, copy `templates/crew-allow-local.sh` to `scripts/crew-allow-local.sh` in your ship directory and add your rules. The validation script sources it automatically if present, and `pull-upstream.sh` never touches it.
+
 ## Staying up to date
 
-Shipkit ships a `scripts/pull-upstream.sh` script that syncs framework files from this repo into your ship directory. It knows which files are framework (role docs, agents, scripts, templates) and which are yours (captain.md, queue.md, projects, logs) — it never touches yours.
-
-```bash
-# See what's changed (dry run, safe to run anytime)
-# Clones from GitHub automatically — no local checkout needed
-./scripts/pull-upstream.sh
-
-# Pull only new files you don't have yet
-./scripts/pull-upstream.sh --new-only
-
-# Pull everything (overwrites your copies of framework files)
-./scripts/pull-upstream.sh --apply
-
-# Or point at a local checkout instead
-./scripts/pull-upstream.sh --apply /path/to/shipkit
-```
-
-**When to run it:** There's no automatic notification. Run the dry run periodically (e.g., when starting a new project phase) to see if upstream has improvements worth pulling.
+`scripts/pull-upstream.sh` syncs framework files (role docs, agents, scripts, templates) from upstream shipkit into your ship directory. It never touches project-specific files (`captain.md`, `queue.md`, projects, logs). Dry run by default — run `./scripts/pull-upstream.sh --help` for options. Run it periodically (e.g., when starting a new project phase) to check for upstream improvements.
