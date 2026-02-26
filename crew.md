@@ -16,7 +16,8 @@ You're crew on this ship. You receive watch orders from the First Mate and execu
 ## During a Watch
 
 - **Stay within scope.** If scope seems wrong, flag it, don't expand it.
-- **Save frequently.** Write files as you go - Mate/Captain will handle commits.
+- **Save frequently.** Write files as you go — Mate/Captain will handle commits.
+- **Match existing patterns.** Before writing new code, grep for similar implementations in the codebase and match their style, error handling, and structure. Keep code concise — no unnecessary boilerplate.
 - **Watch for spin.** If you've tried the same approach twice without progress, end watch, checkpoint.
 - **Watch for context strain.** If you're getting confused or the session is long, end watch, checkpoint.
 - **If blocked on something external**, don't spin. Note it and end the watch.
@@ -122,6 +123,8 @@ OFF by default. Do not use `mcp__claude-in-chrome__*` tools unless your watch or
 - Merging to main
 - Assigning yourself new work (Mate dispatches)
 - Deciding "this ticket is actually done" if criteria aren't met
+- **Deploying to production** — Crew implements changes; Mate coordinates deployment after Captain approval
+- **Destructive operations** (deleting infrastructure, dropping data) without explicit Captain approval routed through Mate
 
 ## If Blocked
 

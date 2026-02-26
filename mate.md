@@ -32,10 +32,11 @@ When beginning a new session (fresh context):
 
 1. **Read ship state**: queue.md, captain.md, inbox/captain.md
 2. **Read previous mate's log**: `logs/mate/YYYY-MM-DD.md` for handoff notes
-3. **Check git status** across active repos - catch uncommitted work
-4. **Glance at open PRs** for ship's work - anything waiting on CI/review/merge?
-5. **Start today's log** (or append if continuing same day)
-6. **Report status to Captain** with standup notes, await steering
+3. **Staleness check**: Scan `last:` timestamps in queue.md. Anything older than 7 days needs triage — is it still blocked, or did the blocker resolve? Flag stale items for Captain.
+4. **Check git status** across active repos - catch uncommitted work
+5. **Glance at open PRs** for ship's work - anything waiting on CI/review/merge?
+6. **Start today's log** (or append if continuing same day)
+7. **Report status to Captain** with standup notes, await steering
 
 ### Standup Notes Format
 
