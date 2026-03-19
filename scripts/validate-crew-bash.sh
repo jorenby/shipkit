@@ -30,7 +30,7 @@ if echo "$COMMAND" | grep -qE 'queue\.md'; then
 fi
 
 # rm -rf / rm -r (recursive delete)
-if echo "$COMMAND" | grep -qE '\brm\s+(-[a-z]*r|-[a-z]*f[a-z]*r|--recursive)\b'; then
+if echo "$COMMAND" | grep -qE '\brm\s+(-[a-z]*r[a-z]*|-[a-z]*f[a-z]*r[a-z]*|--recursive)\b'; then
   echo "Blocked: Crew cannot run recursive rm." >&2
   exit 2
 fi
