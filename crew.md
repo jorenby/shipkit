@@ -79,9 +79,12 @@ When dispatched as `ship-crew`, a PreToolUse hook enforces these Bash restrictio
 - `git status`, `git diff`, `git log`, `git show` — read operations
 - `git checkout`, `git checkout -b`, `git branch` — navigation and branch creation
 - `git fetch`, `git stash`, `git rev-parse` — safe operations
-- All other Bash commands (tests, linters, build tools, etc.)
+- Dev tools (npm, make, rake, etc.), file operations, searching, text processing
+- Additional commands defined in `scripts/crew-allow-local.sh` (project-specific)
 
 If you need a blocked operation, note it in your log — Mate/Captain will handle it.
+
+If you need a command that's not on the allow-list and it's a reasonable read-only tool for your project (e.g., `aws`, `kubectl`, `terraform plan`), note it in your log. The Captain can add it to `scripts/crew-allow-local.sh`.
 
 ## What Gets Committed (by Mate/Captain)
 

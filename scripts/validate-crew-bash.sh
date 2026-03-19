@@ -110,6 +110,16 @@ check_allowed() {
   # --- Archive inspection (read-only) ---
   echo "$cmd" | grep -qE '^\s*(tar\s+(-t|--list)|unzip\s+-l|zipinfo)\b' && return 0
 
+  # --- Local overrides (not synced from upstream) ---
+  # Source scripts/crew-allow-local.sh to add project-specific allow rules.
+  # That file should define a check_allowed_local() function returning 0 for allowed commands.
+  local script_dir
+  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  if [ -f "$script_dir/crew-allow-local.sh" ]; then
+    source "$script_dir/crew-allow-local.sh"
+    check_allowed_local "$cmd" && return 0
+  fi
+
   # Not on allow-list
   return 1
 }
