@@ -222,8 +222,8 @@ Captain will often drop ideas, tasks, or references into the inbox. When creatin
 6. Clear the inbox item after processing
 
 **Naming convention:**
-- **With tracker ID:** `{ID}-{slug}.md` (e.g., `GG-1348-support-widget.md`)
-- **Without tracker ID:** `{DESCRIPTIVE-SLUG}.md` (e.g., `SHOPIFY-SIZING.md`)
+- **With tracker ID:** `{ID}-{slug}.md` (e.g., `GG-1348-support-widget.md`). Tracker ID already provides uniqueness and ordering; don't add a sequence prefix.
+- **Without tracker ID:** `{NNN}-{slug}.md` (e.g., `001-dbt-project-improvements.md`). Sequentially numbered per project area — check existing tickets for the next number.
 - Slugs should be short (2-4 words), lowercase, hyphenated, human-scannable
 
 ## Ship Maintenance
