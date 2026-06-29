@@ -127,7 +127,6 @@ The Mate should be able to read ship state and report status. Tell Claude Code: 
 | `skills/` | `ship-watch-start`, `bosun-tick`, `shipkit-init` | The boot / heartbeat-tick / onboarding skills |
 | `scripts/` | `validate-{mate,bosun,crew,readonly}-bash.sh`, `validate-mate-mcp.sh`, `bosun_emit.py`, `status_writer.py`, `classify_input.py`, `wake_monitor.py`, `mate-lock.{rb,py}`, `ship-up.sh`, `launch-bosun.sh`, `shipkit_init.py` | Bright-line hooks + the autonomous kernel's tooling |
 | `modules/` | `bosun-loop`, `mate-event-driven`, `subagent-roster`, `pull-requests`, `review-cycle`, `dispatch-bands`, `sensors`, `wake-monitor` | Optional/depth doctrine layered on the core docs |
-| `examples/` | `status-surface/` | Reference browser PWA console (renders `status.json` + a steer box) |
 | `templates/` | `ticket.md`, `captain.md`, `queue.md`, `crew-allow-local.sh`, `bosun-allow-local.sh` | Templates + per-deployment hook-extension stubs |
 | Root | `mate.md`, `bosun.md`, `crew.md`, `mate.local.example.md`, `loop.config.json`, `CLAUDE.md` | Role standing orders + config seam |
 
