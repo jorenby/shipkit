@@ -123,11 +123,13 @@ The Mate should be able to read ship state and report status. Tell Claude Code: 
 
 | Directory | Contents | Purpose |
 |-----------|----------|---------|
-| `agents/` | `ship-crew.md`, `ship-lookout.md` | Custom subagent definitions (install to `~/.claude/agents/`) |
-| `scripts/` | `validate-crew-bash.sh`, `validate-readonly-bash.sh` | PreToolUse hook scripts for enforced safety |
-| `templates/` | `ticket.md`, `captain.md`, `queue.md` | Templates for ship-specific files |
-| `roles/` | `README.md`, `_template/` | Extension roles directory (add custom roles here) |
-| Root | `mate.md`, `crew.md`, `CLAUDE.md` | Role standing orders (copy to ship directory) |
+| `agents/` | `ship-mate`, `ship-bosun`, `ship-crew`, `ship-lookout`, `ship-reviewer`, `ship-pilot` | Custom subagent definitions (`/shipkit-init` installs to `~/.claude/agents/`, substituting the ship path) |
+| `skills/` | `ship-watch-start`, `bosun-tick`, `shipkit-init` | The boot / heartbeat-tick / onboarding skills |
+| `scripts/` | `validate-{mate,bosun,crew,readonly}-bash.sh`, `validate-mate-mcp.sh`, `bosun_emit.py`, `status_writer.py`, `classify_input.py`, `wake_monitor.py`, `mate-lock.{rb,py}`, `ship-up.sh`, `launch-bosun.sh`, `shipkit_init.py` | Bright-line hooks + the autonomous kernel's tooling |
+| `modules/` | `bosun-loop`, `mate-event-driven`, `subagent-roster`, `pull-requests`, `review-cycle`, `dispatch-bands`, `sensors`, `wake-monitor` | Optional/depth doctrine layered on the core docs |
+| `examples/` | `status-surface/` | Reference browser PWA console (renders `status.json` + a steer box) |
+| `templates/` | `ticket.md`, `captain.md`, `queue.md`, `crew-allow-local.sh`, `bosun-allow-local.sh` | Templates + per-deployment hook-extension stubs |
+| Root | `mate.md`, `bosun.md`, `crew.md`, `mate.local.example.md`, `loop.config.json`, `CLAUDE.md` | Role standing orders + config seam |
 
 ## Key Concepts
 
@@ -137,12 +139,18 @@ One ship directory coordinates all your work across repos. Crew agents work in w
 
 ### Subagent types
 
-Crew are dispatched as custom subagents with enforced tool restrictions:
+Ship defines custom subagents with enforced tool restrictions. Two are long-running **role agents** (the autonomous shape); the rest are dispatched **worker agents**:
 
 | Type | Purpose | Write access | Safety |
 |------|---------|-------------|--------|
+| `ship-mate` | The First Mate as a bg agent — event-driven coordination | Yes (broad) | Deny-list hook blocks the bright lines (merge/ready/comment/deploy/prod/push-to-main) + confirm-gates MCP writes |
+| `ship-bosun` | Heartbeat-owner — runs its own `/loop`, surfaces findings to the Mate via drops | Read-only + `bosun_emit.py` | No Write/Edit/Task; allow-list hook (sole write path is `bosun_emit.py`) |
 | `ship-crew` | Standard watches (research + implementation) | Yes | Allow-list hook blocks git writes, rm -rf, gh writes |
 | `ship-lookout` | Quick read-only checks | No (enforced) | disallowedTools + allow-list hook for Bash |
+| `ship-reviewer` | Independent (non-maker) PR/code review | No (enforced) | Read-only hook |
+| `ship-pilot` | Browser interaction (Captain-authorized) | Yes + Chrome MCP | Same git safety as crew |
+
+**Every hook must be executable (`chmod +x`)** — a non-exec hook fails OPEN (silent zero enforcement). `shipkit-init` and `ship-up.sh` set/self-heal the bit.
 
 ### Logs are the handoff
 
@@ -152,9 +160,13 @@ When a crew session ends, it writes a log with what was accomplished, current st
 
 Crew write code and logs, but destructive git operations (commit, push, reset) are blocked by a PreToolUse hook. The Mate or Captain handles commits. This keeps handoffs clean and prevents runaway agents from pushing broken code.
 
-### The Mate runs the loop
+### Two modes: request/response, and the autonomous two-agent kernel
 
-The Mate continuously: checks inbox, checks active work, dispatches if capacity, stays present for steering. Crew run in the background. The Captain can steer the Mate at any time without waiting for crew to finish.
+**Base mode is request/response.** The Captain drives the Mate turn by turn: the Mate checks inbox, checks active work, dispatches if capacity, stays present for steering. Crew run in the background. The Captain can steer at any time. `mate.md` alone is a complete doctrine for this.
+
+**Autonomous mode is a two-agent split** (the optional kernel this repo ships). A **Bosun** owns the heartbeat — it runs its own `/loop` (`bosun-tick`): periodic curate/reconcile/librarian sweeps, surfacing findings to the Mate via wake-class **drops** only when something needs Mate action (it's read-only; its sole write path is `bosun_emit.py`). The **Mate is event-driven** — it boots once via `/ship-watch-start` (re-anchor → mate-lock → arm the wake-monitor → bootstrap the Bosun → preflight → idle), then idles, waking only on events (Captain drops, Bosun drops, crew completions). The Mate does **not** run `/loop` or own a heartbeat tick.
+
+The doctrine lives in `bosun.md` + `mate.md` (event-driven section) and the paired modules [`modules/bosun-loop.md`](modules/bosun-loop.md) + [`modules/mate-event-driven.md`](modules/mate-event-driven.md). Bring it up with `scripts/ship-up.sh` (the Mate) — which itself bootstraps the Bosun via `scripts/launch-bosun.sh`. **Running the agents in a sandbox is recommended** (defense-in-depth on top of the bright-line hooks); on macOS [agent-safehouse.dev](https://agent-safehouse.dev/) is a good option. Bare `claude` is the no-sandbox fallback. `/shipkit-init` installs the agent defs (substituting the ship path into the hook commands), sets the hook +x bit, and seeds state.
 
 ## Customization
 

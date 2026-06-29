@@ -1,0 +1,17 @@
+__pycache__/
+*.pyc
+
+# Generated behavioral-prefs overlay (yours; pull-upstream never touches it).
+mate.local.md
+
+# Local hook allow-list extensions (per-deployment; not synced from upstream).
+scripts/crew-allow-local.sh
+scripts/bosun-allow-local.sh
+
+# Runtime state (regenerated; not durable).
+state/.wake_monitor_state.json
+state/bosun-heartbeat.log
+state/bosun-last-sweep.json
+state/mate-lock.json
+state/mate-mcp-writes.jsonl
+inbox/drops/bosun-*.md

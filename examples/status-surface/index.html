@@ -1,0 +1,1921 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ship — Status</title>
+<!-- PWA: installable shell. Manifest + theme + iOS add-to-home-screen hints. -->
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#0e1116">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Ship">
+<link rel="apple-touch-icon" href="/icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png">
+<style>
+  :root {
+    --bg: #0e1116; --card: #171c24; --line: #2a323d;
+    --fg: #e6edf3; --muted: #8b98a8; --accent: #4493f8; --ok: #3fb950;
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--fg);
+    font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  }
+  main { max-width: 640px; margin: 0 auto; padding: 16px 16px 48px; }
+  h1 { font-size: 15px; font-weight: 600; color: var(--muted); margin: 4px 0 16px; letter-spacing: .04em; text-transform: uppercase; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; margin-bottom: 14px; }
+  .label { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-bottom: 6px; }
+  .now-doing { font-size: 18px; font-weight: 600; }
+  .meta { color: var(--muted); font-size: 13px; margin-top: 8px; }
+  .meta span { white-space: nowrap; }
+  .row { display: flex; gap: 12px; flex-wrap: wrap; }
+  .row .card { flex: 1 1 140px; margin-bottom: 0; }
+  .big { font-size: 22px; font-weight: 600; }
+  .validator.ok { color: var(--ok); }
+  ul.actions { list-style: none; margin: 8px 0 0; padding: 0; }
+  ul.actions li { padding: 8px 0; border-top: 1px solid var(--line); font-size: 14px; }
+  ul.actions li:first-child { border-top: 0; }
+  textarea {
+    width: 100%; min-height: 84px; resize: vertical; background: var(--bg);
+    color: var(--fg); border: 1px solid var(--line); border-radius: 8px;
+    padding: 10px; font: inherit; font-size: 16px;
+  }
+  .steer-row { display: flex; gap: 10px; align-items: center; margin-top: 10px; }
+  button {
+    background: var(--accent); color: #fff; border: 0; border-radius: 8px;
+    padding: 10px 18px; font: inherit; font-weight: 600; cursor: pointer;
+  }
+  button:disabled { opacity: .5; cursor: default; }
+  .steer-msg { color: var(--muted); font-size: 13px; }
+  .steer-msg.ok { color: var(--ok); }
+  .err { color: #f85149; }
+
+  /* ── steer-first: pin the steer box so it leads the view and stays reachable.
+     It is the primary action — give it an accent edge and a sticky top on the
+     Status tab so it stays put while the rich status (below it) scrolls. */
+  .steer-card {
+    border-color: var(--accent); border-width: 1px;
+    position: sticky; top: 8px; z-index: 5;
+    box-shadow: 0 6px 18px rgba(0,0,0,.35);
+  }
+  .steer-card .label { color: var(--accent); }
+
+  /* ── collapsible rich-status panel: one tappable summary line that expands.
+     Collapsed by default so status/metadata never dominate the screen. */
+  details.status-panel {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: var(--radius); margin-bottom: 14px; overflow: hidden;
+  }
+  details.status-panel > summary {
+    list-style: none; cursor: pointer; padding: 12px 14px; min-height: 44px;
+    display: flex; align-items: center; gap: 8px; font-size: 14px;
+    -webkit-tap-highlight-color: transparent;
+  }
+  details.status-panel > summary::-webkit-details-marker { display: none; }
+  .sum-dot {
+    width: 8px; height: 8px; border-radius: 50%; background: var(--muted);
+    flex: 0 0 auto;
+  }
+  .sum-dot.ok { background: var(--ok); }
+  .sum-dot.warn { background: #f0a020; }
+  .sum-doing { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sum-meta { color: var(--muted); font-size: 12px; white-space: nowrap; margin-left: auto; }
+  .sum-caret { color: var(--muted); flex: 0 0 auto; transition: transform .15s; }
+  details.status-panel[open] .sum-caret { transform: rotate(180deg); }
+  .status-detail { padding: 0 14px 14px; }
+
+  /* ── activity feed: scrollable, newest-first, compact rows. */
+  .activity-list { display: flex; flex-direction: column; gap: 6px; }
+  .a-row {
+    padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px;
+    background: var(--card); font-size: 13px;
+  }
+  .a-head { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+  .a-time { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .a-tick { color: var(--accent); font-weight: 700; }
+  .a-wake { color: var(--fg); font-weight: 600; overflow-wrap: anywhere; }
+  .a-crew { margin-left: auto; color: var(--muted); font-size: 12px; white-space: nowrap; }
+  .a-crew.busy { color: var(--ok); }
+  .a-did { color: var(--muted); margin-top: 4px; overflow-wrap: anywhere; }
+  .a-date { color: var(--muted); font-size: 11px; text-transform: uppercase;
+            letter-spacing: .06em; margin: 10px 0 2px; }
+
+  /* tabs */
+  nav.tabs { display: flex; gap: 4px; margin-bottom: 16px; }
+  nav.tabs button {
+    background: var(--card); color: var(--muted); border: 1px solid var(--line);
+    padding: 8px 14px; font-size: 13px; font-weight: 600;
+  }
+  nav.tabs button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .tab { display: none; }
+  .tab.active { display: block; }
+
+  /* ── nav count badge (For You) ── a small pill on the Decisions tab button
+     showing how many items are blocked on the Captain. Urgent (any 🔴) turns
+     it red; otherwise it carries the accent. Hidden at zero. */
+  .nav-badge {
+    display: inline-block; margin-left: 7px; min-width: 18px; padding: 0 6px;
+    font-size: 11px; font-weight: 700; line-height: 18px; text-align: center;
+    border-radius: 999px; background: var(--accent); color: #fff;
+    vertical-align: middle;
+  }
+  .nav-badge.urgent { background: #f85149; }
+  nav.tabs button.active .nav-badge { background: #fff; color: var(--accent); }
+  nav.tabs button.active .nav-badge.urgent { background: #fff; color: #f85149; }
+
+  /* ── Decisions / "For You" view ──────────────────────────────────────────
+     A short intro line, then one card per decision: a small header row
+     (urgency dot + "Decision N" + optional ticket link), the rendered ask, and
+     a pre-targeted steer box that posts to /steer-ticket (or /steer when the
+     item names no ticket). Urgent cards get a red left edge. */
+  .dec-intro { color: var(--muted); font-size: 13px; margin-bottom: 14px; }
+  .dec-empty {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: var(--radius); padding: 20px 16px; text-align: center;
+    color: var(--muted); font-size: 14px;
+  }
+  .dec-card {
+    background: var(--card); border: 1px solid var(--line); border-left: 3px solid var(--line);
+    border-radius: var(--radius); padding: 14px 16px; margin-bottom: 14px;
+  }
+  .dec-card.urgent { border-left-color: #f85149; }
+  .dec-head { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+  .dec-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); flex: 0 0 auto; }
+  .dec-card.urgent .dec-dot { background: #f85149; }
+  .dec-n { font-size: 11px; text-transform: uppercase; letter-spacing: .06em;
+    color: var(--muted); font-weight: 700; }
+  .dec-urgent-tag { font-size: 10px; text-transform: uppercase; letter-spacing: .04em;
+    color: #f85149; border: 1px solid #f85149; border-radius: 999px; padding: 1px 7px; font-weight: 700; }
+  .dec-ticket-link { margin-left: auto; color: var(--accent); font-size: 12px;
+    font-weight: 600; cursor: pointer; background: none; border: 0; padding: 0; }
+  .dec-ask { font-size: 14px; }
+  .dec-ask.md-body { margin: 0; }
+  .dec-steer { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+  .dec-steer .label { color: var(--accent); }
+  .dec-steer textarea { min-height: 64px; }
+  .dec-steer .steer-row { margin-top: 8px; }
+
+  /* ── dismiss + acted-on states ──────────────────────────────────────────
+     A small ghost "Dismiss" button sits in the card header (right of the
+     ticket link). Once a decision steer is submitted the whole card goes to a
+     greyed, acted-on state: the steer box is replaced by a threaded
+     Captain→Mate exchange (pending until the ack lands, then the response). */
+  .dec-dismiss {
+    margin-left: 8px; color: var(--muted); font-size: 12px; font-weight: 600;
+    background: none; border: 1px solid var(--line); border-radius: 999px;
+    padding: 3px 10px; cursor: pointer; min-height: 0; line-height: 1.3;
+  }
+  .dec-dismiss:hover { color: var(--fg); border-color: var(--muted); }
+  /* When a ticket link is present it pushes itself to the right (margin-left
+     auto); the dismiss button then sits to ITS right with a fixed gap. */
+  .dec-ticket-link + .dec-dismiss { margin-left: 8px; }
+  /* No ticket link → the dismiss button is the one that floats right. */
+  .dec-head > .dec-dismiss:not(.dec-ticket-link + .dec-dismiss) { margin-left: auto; }
+
+  /* Acted-on: greyed/desaturated, no longer the bright "needs you" card. */
+  .dec-card.acted {
+    opacity: .72; border-left-color: var(--muted);
+  }
+  .dec-card.acted .dec-dot { background: var(--muted); }
+  .dec-card.acted.urgent { border-left-color: var(--muted); }
+  .dec-acted-tag {
+    font-size: 10px; text-transform: uppercase; letter-spacing: .04em;
+    color: var(--muted); border: 1px solid var(--line); border-radius: 999px;
+    padding: 1px 7px; font-weight: 700;
+  }
+  /* The post-submit response area reuses the bubble/thread CSS. */
+  .dec-response { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+  .dec-response .label { color: var(--muted); }
+
+  /* "Show dismissed (N)" affordance below the decision list. */
+  .dec-dismissed-bar {
+    margin-top: 4px; text-align: center;
+  }
+  .dec-dismissed-bar button {
+    background: none; border: 1px solid var(--line); color: var(--muted);
+    font-size: 12px; font-weight: 600; border-radius: 999px; padding: 5px 14px;
+    min-height: 0; cursor: pointer;
+  }
+  .dec-dismissed-bar button:hover { color: var(--fg); border-color: var(--muted); }
+  .dec-restore {
+    margin-top: 10px; color: var(--accent); font-size: 12px; font-weight: 600;
+    background: none; border: 0; padding: 0; cursor: pointer; min-height: 0;
+  }
+
+  /* queue */
+  .q-section { margin-bottom: 18px; }
+  .q-section h2 {
+    font-size: 12px; text-transform: uppercase; letter-spacing: .06em;
+    color: var(--muted); margin: 0 0 8px; display: flex; gap: 8px; align-items: baseline;
+  }
+  .q-section h2 .count { color: var(--accent); font-weight: 700; }
+  .q-item {
+    padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px;
+    background: var(--card); margin-bottom: 6px; font-size: 14px; cursor: pointer;
+  }
+  .q-item:hover { border-color: var(--accent); }
+  .q-item .qid { font-weight: 600; color: var(--fg); }
+  .q-item .qtext { color: var(--muted); font-size: 13px; margin-top: 3px; }
+  .q-empty { color: var(--muted); font-size: 13px; }
+
+  /* tickets */
+  .filter-row { margin-bottom: 12px; }
+  .filter-row input {
+    width: 100%; background: var(--bg); color: var(--fg); border: 1px solid var(--line);
+    border-radius: 8px; padding: 9px 10px; font: inherit; font-size: 15px;
+  }
+  .badge {
+    display: inline-block; font-size: 11px; text-transform: uppercase; letter-spacing: .04em;
+    padding: 2px 7px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted);
+  }
+  .badge.ready { color: var(--accent); border-color: var(--accent); }
+  .badge.active { color: var(--ok); border-color: var(--ok); }
+  .badge.blocked, .badge.waiting { color: #f0a020; border-color: #f0a020; }
+  .t-item { padding: 12px; border: 1px solid var(--line); border-radius: 8px;
+            background: var(--card); margin-bottom: 8px; cursor: pointer; }
+  .t-item:hover { border-color: var(--accent); }
+  .t-item .thead { display: flex; gap: 8px; align-items: center; justify-content: space-between; }
+  .t-item .tid { font-weight: 600; }
+  .t-item .tproj { color: var(--muted); font-size: 12px; }
+  .t-item .tgoal { color: var(--muted); font-size: 13px; margin-top: 6px; }
+  .ticket-body {
+    white-space: pre-wrap; font: 13px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    color: var(--fg); background: var(--bg); border: 1px solid var(--line);
+    border-radius: 8px; padding: 12px; max-height: 50vh; overflow: auto; margin-top: 10px;
+  }
+  .back-link { color: var(--accent); font-size: 13px; cursor: pointer; background: none;
+               border: 0; padding: 0; font-weight: 600; }
+  input.steer-id { background: var(--bg); }
+
+  /* ── queue sort controls: a small segmented control above the queue. */
+  .sort-row { display: flex; gap: 6px; align-items: center; margin-bottom: 14px;
+              flex-wrap: wrap; }
+  .sort-row .sort-label { font-size: 11px; text-transform: uppercase;
+    letter-spacing: .06em; color: var(--muted); margin-right: 2px; }
+  .sort-row button {
+    background: var(--card); color: var(--muted); border: 1px solid var(--line);
+    padding: 7px 12px; font-size: 13px; font-weight: 600; border-radius: 8px;
+    min-height: 38px;
+  }
+  .sort-row button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  /* When sorted into a flat list (not by section), the section heading is the
+     item's status — show it as a small inline badge on the row instead. */
+  .q-item .qbadge { font-size: 10px; text-transform: uppercase; letter-spacing: .04em;
+    color: var(--muted); border: 1px solid var(--line); border-radius: 999px;
+    padding: 1px 6px; margin-left: 6px; vertical-align: middle; }
+  .q-item .qlast { color: var(--muted); font-size: 12px; margin-top: 3px;
+    font-variant-numeric: tabular-nums; }
+
+  /* ── derived ticket header: exec summary + asks (not stored). */
+  .td-summary, .td-asks { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+  .td-summary-text { font-size: 15px; }
+  ul.asks-list { list-style: none; margin: 4px 0 0; padding: 0; }
+  ul.asks-list li { font-size: 14px; padding: 5px 0; display: flex; gap: 8px; align-items: baseline; }
+  ul.asks-list li .ask-k { color: var(--muted); font-size: 11px; text-transform: uppercase;
+    letter-spacing: .04em; flex: 0 0 auto; min-width: 64px; }
+  ul.asks-list li.ask-todo .ask-k { color: #f0a020; }
+  ul.asks-list li .ask-v { overflow-wrap: anywhere; }
+
+  /* ── readable rendered markdown body (replaces the raw <pre> dump). */
+  .md-body { white-space: normal; font: 14px/1.6 -apple-system, BlinkMacSystemFont,
+    "Segoe UI", system-ui, sans-serif; }
+  .md-body h1, .md-body h2, .md-body h3, .md-body h4 {
+    margin: 16px 0 6px; line-height: 1.3; }
+  .md-body h1 { font-size: 19px; }
+  .md-body h2 { font-size: 16px; }
+  .md-body h3 { font-size: 14px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+  .md-body h4 { font-size: 13px; color: var(--muted); }
+  .md-body p { margin: 8px 0; }
+  .md-body ul, .md-body ol { margin: 8px 0; padding-left: 22px; }
+  .md-body li { margin: 3px 0; }
+  .md-body a { color: var(--accent); }
+  .md-body code {
+    font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    background: var(--bg); border: 1px solid var(--line); border-radius: 4px;
+    padding: 1px 5px; overflow-wrap: anywhere;
+  }
+  .md-body pre {
+    background: var(--bg); border: 1px solid var(--line); border-radius: 8px;
+    padding: 10px 12px; overflow: auto; margin: 10px 0;
+  }
+  .md-body pre code { background: none; border: 0; padding: 0; display: block;
+    white-space: pre; }
+  .md-body hr { border: 0; border-top: 1px solid var(--line); margin: 14px 0; }
+  .md-body strong { color: var(--fg); }
+
+  /* ── steers: threaded conversation (Captain bubble + Mate ack reply). */
+  .steers-list { display: flex; flex-direction: column; gap: 18px; }
+  .steer-thread { display: flex; flex-direction: column; gap: 8px; }
+  .bubble { border: 1px solid var(--line); border-radius: 12px; padding: 10px 13px;
+    max-width: 88%; }
+  .bubble .b-head { display: flex; gap: 8px; align-items: baseline; margin-bottom: 4px;
+    flex-wrap: wrap; }
+  .bubble .b-who { font-size: 11px; text-transform: uppercase; letter-spacing: .05em;
+    font-weight: 700; }
+  .bubble .b-time { color: var(--muted); font-size: 11px; }
+  .bubble .b-text { font-size: 14px; overflow-wrap: anywhere; white-space: pre-wrap; }
+  /* Captain message: accent-tinted, leads the thread, left-aligned. */
+  .bubble.captain { align-self: flex-start; background: rgba(68,147,248,.10);
+    border-color: rgba(68,147,248,.35); }
+  .bubble.captain .b-who { color: var(--accent); }
+  /* Mate reply: right-aligned, indented beneath. */
+  .bubble.mate { align-self: flex-end; background: var(--card); }
+  .bubble.mate .b-who { color: var(--ok); }
+  .bubble.mate.pending { align-self: flex-end; border-style: dashed; }
+  .bubble.mate.pending .b-who { color: var(--muted); }
+  .ack-status { display: inline-block; font-size: 10px; text-transform: uppercase;
+    letter-spacing: .04em; border: 1px solid var(--line); border-radius: 999px;
+    padding: 1px 7px; color: var(--muted); }
+  .ack-status.done { color: var(--ok); border-color: var(--ok); }
+  .ack-status.dispatched { color: var(--accent); border-color: var(--accent); }
+  .ack-status.noted { color: #f0a020; border-color: #f0a020; }
+
+  /* ── Console: the unified chat-style home view ──────────────────────────
+     A column that fills the viewport below the tab bar: a segmented toggle on
+     top, a scrollable feed in the middle, and a pinned input at the bottom.
+     The input stays put (thumb-reachable above a phone keyboard) while the
+     feed scrolls. The feed reuses the existing steers/activity row CSS. */
+  .console {
+    display: flex; flex-direction: column;
+    /* Fill from just under the tab bar to the bottom safe-area inset. The
+       64px offset covers <h1> + the tab strip + page top padding. */
+    height: calc(100dvh - 150px);
+    min-height: 320px;
+  }
+  .console-seg { display: flex; gap: 6px; margin-bottom: 10px; flex: 0 0 auto; }
+  .console-seg button {
+    background: var(--card); color: var(--muted); border: 1px solid var(--line);
+    padding: 7px 14px; font-size: 13px; font-weight: 600; border-radius: 8px;
+    min-height: 38px;
+  }
+  .console-seg button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  /* The scrolling feed region. Bubbles/activity render inside; it grows to
+     fill the space between the toggle and the input. */
+  .console-feed {
+    flex: 1 1 auto; overflow-y: auto; -webkit-overflow-scrolling: touch;
+    padding: 2px 2px 8px; min-height: 0;
+  }
+  .feed-pane { min-height: 100%; }
+  /* Pinned input row. Sits at the bottom of the console column; the textarea
+     auto-grows a little and the Send button stays beside it. */
+  .console-input {
+    display: flex; gap: 8px; align-items: flex-end; flex: 0 0 auto;
+    padding-top: 10px; border-top: 1px solid var(--line);
+  }
+  .console-input textarea {
+    flex: 1 1 auto; min-height: 44px; max-height: 38vh; resize: none;
+    margin: 0; line-height: 1.4;
+  }
+  .console-input button { flex: 0 0 auto; align-self: stretch; }
+  .console-msg { flex: 0 0 auto; min-height: 18px; margin-top: 6px; }
+  /* Newest-at-bottom chat convention inside the conversation pane. */
+  #console-conversation .steers-list { gap: 18px; }
+
+  /* ── live-detail strip: compact, glanceable header above the console feed.
+     Auto-populated from status.json (now + crew[]). Never grows tall — the
+     crew list is a few short rows; the feed below remains the main scroller. */
+  .live-strip {
+    flex: 0 0 auto; background: var(--card); border: 1px solid var(--line);
+    border-radius: var(--radius); padding: 10px 12px; margin-bottom: 10px;
+  }
+  .ls-now { display: flex; align-items: baseline; gap: 8px; }
+  .ls-dot {
+    width: 8px; height: 8px; border-radius: 50%; background: var(--muted);
+    flex: 0 0 auto; align-self: center;
+  }
+  .ls-dot.ok { background: var(--ok); }
+  .ls-dot.warn { background: #f0a020; }
+  .ls-doing {
+    font-weight: 600; font-size: 14px; overflow: hidden; text-overflow: ellipsis;
+    white-space: nowrap; min-width: 0;
+  }
+  .ls-meta { color: var(--muted); font-size: 12px; white-space: nowrap; margin-left: auto;
+    flex: 0 0 auto; }
+  .ls-crew { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); }
+  .ls-crew-head {
+    font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted);
+  }
+  .ls-crew-head.busy { color: var(--ok); }
+  .ls-crew-list { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+  .ls-crew-list:empty { display: none; }
+  .ls-crew-row {
+    display: flex; align-items: baseline; gap: 8px; font-size: 13px; flex-wrap: wrap;
+  }
+  .ls-crew-row .lc-label { font-weight: 600; overflow-wrap: anywhere; }
+  .ls-crew-row .lc-model {
+    color: var(--accent); font-size: 11px; text-transform: uppercase; letter-spacing: .03em;
+    border: 1px solid var(--line); border-radius: 999px; padding: 0 6px; flex: 0 0 auto;
+  }
+  .ls-crew-row .lc-out { color: var(--muted); font-size: 12px; margin-left: auto;
+    white-space: nowrap; font-variant-numeric: tabular-nums; flex: 0 0 auto; }
+
+  /* ── mobile / touch ─────────────────────────────────────────────────────
+     Phone-first niceties: honour the notch (safe-area), give every tap target
+     >=44px, never let a row force a horizontal scroll, keep type readable.   */
+  html { -webkit-text-size-adjust: 100%; }
+  body { overflow-x: hidden; }   /* no sideways scroll on small screens */
+  main {
+    /* viewport-fit=cover -> pad in from the notch / home indicator */
+    padding-left: max(16px, env(safe-area-inset-left));
+    padding-right: max(16px, env(safe-area-inset-right));
+    padding-bottom: max(48px, env(safe-area-inset-bottom));
+  }
+  /* Long ids / words must wrap, not overflow the card. */
+  .q-item, .t-item, .now-doing, .ticket-body, .qtext, .tgoal { overflow-wrap: anywhere; }
+  .meta { display: flex; flex-wrap: wrap; gap: 4px 12px; }
+
+  /* Tab bar: horizontally scrollable strip rather than wrapping/squashing,
+     with comfortable touch targets. */
+  nav.tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  nav.tabs::-webkit-scrollbar { display: none; }
+  nav.tabs button { white-space: nowrap; min-height: 44px; }
+
+  /* Make form controls finger-friendly. font-size:16px also stops iOS Safari
+     zooming the page when a field is focused. */
+  button { min-height: 44px; }
+  textarea, .filter-row input, input.steer-id { font-size: 16px; }
+  .q-item, .t-item { min-height: 44px; }
+  /* Hover styles are a desktop affordance — on touch they stick after a tap,
+     so only apply them where a real hover is available. */
+  @media (hover: none) {
+    .q-item:hover, .t-item:hover { border-color: var(--line); }
+    .q-item:active, .t-item:active { border-color: var(--accent); }
+  }
+
+  @media (max-width: 480px) {
+    main { padding-top: 12px; }
+    h1 { margin: 2px 0 12px; }
+    .card { padding: 14px; }
+    .now-doing { font-size: 17px; }
+    .big { font-size: 20px; }
+    /* Stack the Tick / Next wake / Validator trio instead of cramming 3-up. */
+    .row .card { flex: 1 1 100%; }
+    .steer-row { flex-wrap: wrap; }
+    .steer-row button { flex: 1 1 auto; }
+    .ticket-body { max-height: 60vh; }
+  }
+
+  /* ── ticket comment thread (per-ticket conversation) ─────────────────────
+     On a ticket's detail view: the steers dropped against THIS ticket + the
+     Mate's acks, threaded exactly like the Console conversation (reuses the
+     .steers-list / .steer-thread / .bubble CSS). Lives in its own card under
+     the ticket body + "Steer this ticket" box. */
+  .td-thread { max-height: 50vh; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  .td-thread .steers-list { gap: 16px; }
+
+  /* ══ DESKTOP LAYOUT (preserve mobile) ════════════════════════════════════
+     Below ~820px the layout is the original mobile-first single column with a
+     scrollable top tab strip. At >=820px we switch to a persistent left
+     SIDEBAR nav + a wider content pane, and let the roomy views (tickets,
+     console) use the extra width. Mobile is untouched by anything in here. */
+  @media (min-width: 820px) {
+    /* The app becomes a two-pane shell: sidebar + content. We flex the <main>
+       children: the <h1> + <nav> form the sidebar, the rest is the pane. */
+    main {
+      max-width: 1200px; display: grid;
+      grid-template-columns: 200px minmax(0, 1fr);
+      grid-template-rows: auto 1fr; gap: 0 28px;
+      padding: 24px 28px 28px; align-items: start;
+      min-height: 100dvh;
+    }
+    h1 { grid-column: 1; grid-row: 1; margin: 0 0 16px; }
+    /* Sidebar: vertical nav, sticky so it stays put as the pane scrolls. */
+    nav.tabs {
+      grid-column: 1; grid-row: 2; flex-direction: column; gap: 6px;
+      position: sticky; top: 24px; overflow: visible; margin-bottom: 0;
+      align-self: start;
+    }
+    nav.tabs button {
+      width: 100%; text-align: left; padding: 10px 14px; font-size: 14px;
+    }
+    /* All tab sections share the content cell (only the active one displays). */
+    .tab { grid-column: 2; grid-row: 1 / span 2; }
+    /* The console fills the taller desktop viewport too. */
+    .console { height: calc(100dvh - 100px); }
+    /* Wider reading column for ticket bodies; taller raw/markdown panes. */
+    .ticket-body { max-height: 60vh; }
+
+    /* Two-column ticket detail: the ticket card (body + steer box) beside the
+       per-ticket comment thread, so a reader sees the ticket and its
+       conversation at once. Collapses to one column on narrow screens. */
+    #ticket-detail.two-col .td-detail-grid {
+      display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+      gap: 20px; align-items: start;
+    }
+    #ticket-detail.two-col .td-thread { max-height: 70vh; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>Ship</h1>
+
+  <nav class="tabs">
+    <button data-tab="console" class="active">Console</button>
+    <button data-tab="decisions">For You<span class="nav-badge" id="decisions-badge" hidden>0</span></button>
+    <button data-tab="status">Status</button>
+    <button data-tab="queue">Queue</button>
+    <button data-tab="tickets">Tickets</button>
+  </nav>
+
+  <!-- ── Console tab — the unified home view ──────────────────────────────
+       "All in one place": a chat-app shell. A scrollable FEED fills the
+       space; the steer INPUT is pinned at the bottom (thumb-reachable above
+       a phone keyboard). A small segmented toggle flips the feed between the
+       steer↔ack Conversation (/steers.json) and the tick Activity
+       (/activity.json) — both reachable without leaving the console. -->
+  <section class="tab active" id="tab-console">
+    <div class="console">
+      <!-- ── Live-detail strip: glanceable, automatically-populated from
+           status.json. Top line = what the Mate is doing now (+ age + wake);
+           below it a crew roster ("N crew out" + one row per running crew, or
+           "idle — no crew out"). Refreshes on every status poll. -->
+      <div class="live-strip" id="live-strip">
+        <div class="ls-now">
+          <span class="ls-dot" id="ls-dot"></span>
+          <span class="ls-doing" id="ls-doing">—</span>
+          <span class="ls-meta" id="ls-meta"></span>
+        </div>
+        <div class="ls-crew" id="ls-crew">
+          <div class="ls-crew-head" id="ls-crew-head">idle — no crew out</div>
+          <div class="ls-crew-list" id="ls-crew-list"></div>
+        </div>
+      </div>
+      <div class="console-seg" id="console-seg">
+        <button data-feed="conversation" class="active">Conversation</button>
+        <button data-feed="activity">Activity</button>
+      </div>
+      <div class="console-feed" id="console-feed">
+        <div id="console-conversation" class="feed-pane">
+          <span class="q-empty">loading conversation…</span>
+        </div>
+        <div id="console-activity" class="feed-pane" style="display:none">
+          <span class="q-empty">loading activity…</span>
+        </div>
+      </div>
+      <div class="console-input">
+        <textarea id="steer-text" rows="1"
+          placeholder="Steer the Mate — type and send…"></textarea>
+        <button id="steer-send">Send</button>
+      </div>
+      <div class="console-msg"><span class="steer-msg" id="steer-msg"></span></div>
+    </div>
+  </section>
+
+  <!-- ── Decisions / "For You" tab ─────────────────────────────────────────
+       The Captain's focused view: ONLY what's blocked on them to unblock
+       autonomous ops, parsed from queue.md's `## ⚓ Awaiting Captain` section.
+       Each decision is a card — the ask (rendered markdown) + a ticket link if
+       present + a pre-targeted steer box so the Captain can decide inline. The
+       steer rides the same POST /steer-ticket → ack pipeline as everywhere
+       else. Urgent (🔴) items lead. The nav badge shows the open count. -->
+  <section class="tab" id="tab-decisions">
+    <div class="dec-intro" id="dec-intro">
+      Decisions blocked on you — each with the specific ask and an inline way to
+      resolve it. The antidote to a sea of tickets.
+    </div>
+    <div id="decisions-body"><span class="q-empty">loading decisions…</span></div>
+  </section>
+
+  <!-- ── Status tab — rich status + validator ─────────────────────────────
+       The steer box now lives in the Console (home) tab. This tab keeps the
+       full rich status: the live now/tick/next-wake/validator + last actions.
+       The collapsible summary expands to the full detail. -->
+  <section class="tab" id="tab-status">
+
+    <!-- Compact, collapsible rich status. A tappable one-line summary expands
+         to the full detail. Collapsed by default so it never dominates. -->
+    <details class="status-panel" id="status-panel">
+      <summary>
+        <span class="sum-dot" id="sum-dot"></span>
+        <span class="sum-doing" id="sum-doing">—</span>
+        <span class="sum-meta" id="sum-meta"></span>
+        <span class="sum-caret" aria-hidden="true">▾</span>
+      </summary>
+
+      <div class="status-detail">
+        <div class="card">
+          <div class="label">Now</div>
+          <div class="now-doing" id="now-doing">—</div>
+          <div class="meta">
+            <span id="now-since"></span>
+            <span id="now-wake"></span>
+          </div>
+        </div>
+
+        <div class="row" style="margin-bottom:14px">
+          <div class="card">
+            <div class="label">Tick</div>
+            <div class="big" id="tick">—</div>
+          </div>
+          <div class="card">
+            <div class="label">Next wake</div>
+            <div id="next-wake" style="font-weight:600">—</div>
+          </div>
+          <div class="card">
+            <div class="label">Validator</div>
+            <div id="validator" class="validator">—</div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-bottom:0">
+          <div class="label">Last actions</div>
+          <ul class="actions" id="last-actions"></ul>
+        </div>
+      </div>
+    </details>
+  </section>
+
+  <!-- ── Queue tab ───────────────────────────────────────────────────── -->
+  <section class="tab" id="tab-queue">
+    <div class="sort-row" id="queue-sort">
+      <span class="sort-label">Sort</span>
+      <button data-sort="section" class="active">Status</button>
+      <button data-sort="updated">Last updated</button>
+      <button data-sort="id">A–Z</button>
+    </div>
+    <div id="queue-body"><span class="q-empty">loading queue…</span></div>
+  </section>
+
+  <!-- ── Tickets tab (list + detail) ─────────────────────────────────── -->
+  <section class="tab" id="tab-tickets">
+    <div id="tickets-list">
+      <div class="filter-row">
+        <input id="ticket-filter" placeholder="Filter tickets by id, goal, status…">
+      </div>
+      <div id="tickets-body"><span class="q-empty">loading tickets…</span></div>
+    </div>
+
+    <div id="ticket-detail" class="two-col" style="display:none">
+      <button class="back-link" id="ticket-back">← all tickets</button>
+      <!-- On desktop this grid splits into [ ticket + steer box | comment
+           thread ]; on mobile it stacks into one column (the grid only kicks
+           in inside the >=820px media query). -->
+      <div class="td-detail-grid">
+       <div class="td-main">
+        <div class="card" style="margin-top:10px">
+          <div class="thead" style="display:flex;justify-content:space-between;align-items:center">
+            <div class="tid" id="td-id" style="font-weight:600"></div>
+            <span class="badge" id="td-status"></span>
+          </div>
+          <div class="tproj" id="td-proj" style="color:var(--muted);font-size:12px;margin-top:4px"></div>
+          <div class="tgoal" id="td-goal" style="display:none"></div>
+
+          <!-- Derived exec summary + asks header. NOT stored — built from the
+               ticket's own Goal / Status / Blocked on / open acceptance items so
+               the file stays the single source of truth. -->
+          <div class="td-summary" id="td-summary" style="display:none">
+            <div class="label">Summary</div>
+            <div class="td-summary-text" id="td-summary-text"></div>
+          </div>
+          <div class="td-asks" id="td-asks" style="display:none">
+            <div class="label">Asks</div>
+            <ul class="asks-list" id="td-asks-list"></ul>
+          </div>
+
+          <!-- Rendered (readable) markdown body. -->
+          <div class="ticket-body md-body" id="td-body"></div>
+        </div>
+        <div class="card">
+          <div class="label">Steer this ticket</div>
+          <textarea id="tsteer-text" placeholder="Drop a steer targeting this ticket…"></textarea>
+          <div class="steer-row">
+            <button id="tsteer-send">Send</button>
+            <span class="steer-msg" id="tsteer-msg"></span>
+          </div>
+        </div>
+       </div>
+       <!-- Per-ticket comment thread: steers dropped against THIS ticket +
+            the Mate's acks/responses, threaded like the Console conversation
+            (reuses steerThreadHTML). Loaded from /ticket-steers?id=. -->
+       <div class="td-comments">
+        <div class="card" style="margin-top:10px">
+          <div class="label">Comments &amp; responses</div>
+          <div class="td-thread" id="td-thread"><span class="q-empty">loading…</span></div>
+        </div>
+       </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+
+  function relAge(iso) {
+    const t = Date.parse(iso);
+    if (isNaN(t)) return "";
+    const s = Math.max(0, Math.round((Date.now() - t) / 1000));
+    if (s < 60) return s + "s ago";
+    if (s < 3600) return Math.round(s / 60) + "m ago";
+    return Math.round(s / 3600) + "h ago";
+  }
+
+  function render(d) {
+    const now = d.now || {};
+    const doing = now.doing || "(idle)";
+    $("now-doing").textContent = doing;
+    $("now-doing").className = "now-doing";
+    $("now-since").textContent = now.since ? "since " + relAge(now.since) : "";
+    $("now-wake").textContent = now.wake ? "· woke on " + now.wake : "";
+
+    $("tick").textContent = (d.tick ?? "—");
+    $("next-wake").textContent = d.next_wake || "—";
+
+    const validatorOk = typeof d.validator === "string" && d.validator.startsWith("CLEAN");
+    const v = $("validator");
+    v.textContent = d.validator || "—";
+    v.classList.toggle("ok", validatorOk);
+
+    const ul = $("last-actions");
+    ul.innerHTML = "";
+    (d.last_actions || []).forEach((a) => {
+      const li = document.createElement("li");
+      li.textContent = a;
+      ul.appendChild(li);
+    });
+    if (!ul.children.length) ul.innerHTML = "<li class='steer-msg'>no recent actions</li>";
+
+    // Collapsed one-line summary: what it's doing now + tick + age. The dot is
+    // green on a clean validator, amber on a known-bad one, muted otherwise.
+    $("sum-doing").textContent = doing;
+    const parts = [];
+    if (d.tick != null) parts.push("tick " + d.tick);
+    if (now.since) parts.push(relAge(now.since));
+    $("sum-meta").textContent = parts.join(" · ");
+    const dot = $("sum-dot");
+    dot.classList.toggle("ok", validatorOk);
+    dot.classList.toggle("warn", typeof d.validator === "string" &&
+      !validatorOk && d.validator !== "NONE" && d.validator !== "");
+
+    renderLiveStrip(d, doing, validatorOk);
+  }
+
+  // ── live-detail strip (Console header) ──────────────────────────────────
+  // Renders the rich `now` (doing + age + wake) plus a crew roster from
+  // status.json.crew[]. Everything is run through esc() — no raw interpolation.
+  function renderLiveStrip(d, doing, validatorOk) {
+    const now = d.now || {};
+    $("ls-doing").textContent = doing;
+    const nm = [];
+    if (now.since) nm.push("since " + relAge(now.since));
+    if (now.wake) nm.push("woke on " + now.wake);
+    if (d.tick != null) nm.push("tick " + d.tick);
+    $("ls-meta").textContent = nm.join(" · ");
+    const dot = $("ls-dot");
+    dot.classList.toggle("ok", validatorOk);
+    dot.classList.toggle("warn", typeof d.validator === "string" &&
+      !validatorOk && d.validator !== "NONE" && d.validator !== "");
+
+    const crew = Array.isArray(d.crew) ? d.crew : [];
+    const head = $("ls-crew-head");
+    const list = $("ls-crew-list");
+    if (!crew.length) {
+      head.textContent = "idle — no crew out";
+      head.classList.remove("busy");
+      list.innerHTML = "";
+      return;
+    }
+    head.textContent = crew.length + " crew out";
+    head.classList.add("busy");
+    list.innerHTML = crew.map((c) => {
+      c = c || {};
+      const name = c.label || c.ticket || c.id || "crew";
+      const out = c.since ? "out " + relAge(c.since).replace(/ ago$/, "") : "";
+      return `<div class="ls-crew-row">` +
+        `<span class="lc-label">${esc(name)}</span>` +
+        (c.model ? `<span class="lc-model">${esc(c.model)}</span>` : "") +
+        (out ? `<span class="lc-out">${esc(out)}</span>` : "") +
+        `</div>`;
+    }).join("");
+  }
+
+  async function refresh() {
+    try {
+      const r = await fetch("/status.json?_=" + Date.now());
+      if (!r.ok) throw new Error("status " + r.status);
+      render(await r.json());
+    } catch (e) {
+      $("now-doing").textContent = "status unavailable";
+      $("now-doing").className = "now-doing err";
+      $("sum-doing").textContent = "status unavailable";
+      $("sum-meta").textContent = "";
+      $("ls-doing").textContent = "status unavailable";
+      $("ls-meta").textContent = "";
+      $("ls-crew-head").textContent = "—";
+      $("ls-crew-head").classList.remove("busy");
+      $("ls-crew-list").innerHTML = "";
+    }
+  }
+
+  async function sendSteer() {
+    const ta = $("steer-text"), btn = $("steer-send"), msg = $("steer-msg");
+    const text = ta.value.trim();
+    if (!text) return;
+    btn.disabled = true; msg.className = "steer-msg"; msg.textContent = "sending…";
+    try {
+      const r = await fetch("/steer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
+      const j = await r.json();
+      if (!r.ok || !j.ok) throw new Error(j.error || "send failed");
+      // Optimistic local echo: show the new steer in the feed immediately,
+      // before the next poll returns it from the server.
+      pendingEchoes.push({ drop: j.drop, text, time: new Date().toISOString() });
+      ta.value = "";
+      ta.style.height = "auto";
+      clearDraft("steer:console");   // sent — drop the saved draft for good
+      announceSteer(j.drop);
+      // Make sure the conversation feed is showing, then render + scroll to it.
+      if (consoleFeed !== "conversation") showConsoleFeed("conversation");
+      else loadSteers();
+      scrollConversation(true);
+      msg.className = "steer-msg ok"; msg.textContent = "steer dropped — the loop will wake";
+    } catch (e) {
+      msg.className = "steer-msg err"; msg.textContent = e.message;
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  $("steer-send").addEventListener("click", sendSteer);
+
+  // ── tabs ──────────────────────────────────────────────────────────────
+  const tabsLoaded = {};
+  function showTab(name) {
+    document.querySelectorAll("nav.tabs button").forEach((b) =>
+      b.classList.toggle("active", b.dataset.tab === name));
+    document.querySelectorAll(".tab").forEach((s) =>
+      s.classList.toggle("active", s.id === "tab-" + name));
+    if (name === "console") { pinFeedToBottom = true; loadConsole(); }
+    if (name === "decisions") loadDecisions();
+    if (name === "queue") loadQueue();
+    if (name === "tickets") loadTickets();
+  }
+  // Nav clicks set the URL hash; the router (hashchange) does the actual
+  // tab-switch. This keeps back/forward + deep-links + nav all on one path.
+  document.querySelectorAll("nav.tabs button").forEach((b) =>
+    b.addEventListener("click", () => { navigate("#/" + b.dataset.tab); }));
+
+  // ── hash router (zero-dep, reverse-proxy-friendly) ──────────────────────
+  // Routes:
+  //   #/console (default)  #/status  #/queue  #/tickets  #/tickets/<id>
+  // On load + on every hashchange (incl. back/forward) we read the hash and
+  // drive the view. navigate() updates the hash (which fires the router), or
+  // re-routes directly when the hash is already current.
+  const VALID_TABS = ["console", "decisions", "status", "queue", "tickets"];
+
+  function parseHash() {
+    // "#/tickets/WISKIT-SURVEY" -> {tab:"tickets", id:"WISKIT-SURVEY"}
+    const raw = (location.hash || "").replace(/^#\/?/, "");
+    const parts = raw.split("/").filter(Boolean);
+    let tab = parts[0] || "console";
+    if (!VALID_TABS.includes(tab)) tab = "console";
+    const id = parts[0] === "tickets" && parts[1]
+      ? decodeURIComponent(parts[1]) : null;
+    return { tab, id };
+  }
+
+  function navigate(hash) {
+    // Setting location.hash triggers the hashchange listener -> router().
+    // If the hash is unchanged (e.g. re-click), force a route() so a re-nav
+    // still refreshes the view.
+    if (location.hash === hash) router();
+    else location.hash = hash;
+  }
+
+  let routing = false;
+  function router() {
+    if (routing) return;          // guard re-entrancy (openTicket may set hash)
+    routing = true;
+    try {
+      const { tab, id } = parseHash();
+      showTab(tab);
+      if (tab === "tickets") {
+        if (id) { showTicketList(false); openTicket(id, { fromRoute: true }); }
+        else { showTicketList(true); }
+      }
+    } finally { routing = false; }
+  }
+  window.addEventListener("hashchange", router);
+
+  const esc = (s) => (s == null ? "" : String(s).replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])));
+
+  // ── draft persistence ───────────────────────────────────────────────────
+  // The 5s live poll rebuilds DOM (innerHTML) for the decision cards (and any
+  // dynamically-rendered steer/response boxes), which would wipe a textarea the
+  // Captain is mid-typing in. To stop drafts ever vanishing we keep a map of
+  // every steer/response box's value keyed by a STABLE id (NOT the DOM node):
+  //   steer:console            — the Console steer box
+  //   steer-ticket:<id>        — a ticket's "Steer this ticket" box
+  //   decision:<n>             — a "For You" decision card (n = the decision's
+  //                              own number, stable across re-renders/reorders)
+  // Every keystroke saves to the map AND localStorage, so the draft survives
+  // both a re-render and a full page reload (PWA relaunch). A draft is removed
+  // only when its steer is actually SENT (successful POST) — see clearDraft.
+  const DRAFT_LS_KEY = "ship-drafts-v1";
+  let drafts = {};
+  try {
+    const raw = localStorage.getItem(DRAFT_LS_KEY);
+    if (raw) drafts = JSON.parse(raw) || {};
+  } catch (_) { drafts = {}; }
+
+  function persistDrafts() {
+    try {
+      if (Object.keys(drafts).length) localStorage.setItem(DRAFT_LS_KEY, JSON.stringify(drafts));
+      else localStorage.removeItem(DRAFT_LS_KEY);
+    } catch (_) { /* storage full / unavailable — in-memory map still works */ }
+  }
+  function getDraft(key) { return drafts[key] || ""; }
+  function saveDraft(key, val) {
+    if (val) drafts[key] = val; else delete drafts[key];
+    persistDrafts();
+  }
+  // Clear a draft for good — only call this after a steer is successfully sent.
+  function clearDraft(key) { delete drafts[key]; persistDrafts(); }
+
+  // Wire a textarea to its stable draft key: seed it from the saved draft, and
+  // save on every input. `also` is an optional extra input handler (e.g. the
+  // console box's auto-grow) so we don't clobber existing behaviour.
+  function bindDraft(ta, key, also) {
+    if (!ta) return;
+    ta.dataset.draftKey = key;
+    const saved = getDraft(key);
+    if (saved && ta.value !== saved) ta.value = saved;
+    ta.addEventListener("input", () => { saveDraft(key, ta.value); if (also) also(); });
+  }
+
+  // Capture the active steer/response textarea (the one the Captain is typing
+  // in) before a re-render, so focus + caret/selection can be restored after.
+  // Keyed by the textarea's stable draft key (resolved per-render after rebuild).
+  function captureActiveTextarea() {
+    const el = document.activeElement;
+    if (!el || el.tagName !== "TEXTAREA") return null;
+    return { key: el.dataset.draftKey || null,
+      start: el.selectionStart, end: el.selectionEnd };
+  }
+  // Restore focus + caret to the textarea carrying the captured draft key.
+  function restoreActiveTextarea(snap) {
+    if (!snap || !snap.key) return;
+    const el = document.querySelector('textarea[data-draft-key="' + snap.key.replace(/"/g, '\\"') + '"]');
+    if (!el) return;
+    el.focus();
+    try { el.setSelectionRange(snap.start, snap.end); } catch (_) { /* detached */ }
+  }
+
+  // ── hand-rolled minimal markdown → HTML ─────────────────────────────────
+  // Zero dependencies. The cardinal rule: input is HTML-ESCAPED FIRST (via esc),
+  // THEN our own formatting tags are added — so no source text can ever inject
+  // markup (no XSS). We only emit a small, fixed set of tags. Not full
+  // CommonMark; covers the cases ship tickets actually use, degrades gracefully.
+
+  // Inline spans, applied to ALREADY-ESCAPED text. Code spans are pulled out
+  // first (placeholdered) so their contents aren't touched by bold/italic/link.
+  function mdInline(escd) {
+    const codes = [];
+    let s = escd.replace(/`([^`]+)`/g, (_, c) => {
+      codes.push(c);
+      return " " + (codes.length - 1) + " ";
+    });
+    // Links: [text](url). url is already escaped; allow only http(s)/relative,
+    // never javascript: etc. (defence-in-depth beyond the escaping).
+    s = s.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (m, t, href) => {
+      if (/^(?:https?:|\/|\.|#)/i.test(href.replace(/&amp;/g, "&")))
+        return `<a href="${href}" target="_blank" rel="noopener noreferrer">${t}</a>`;
+      return m;
+    });
+    s = s.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+    s = s.replace(/(^|[^*])\*([^*\s][^*]*?)\*/g, "$1<em>$2</em>");
+    s = s.replace(/(^|[^_])_([^_\s][^_]*?)_/g, "$1<em>$2</em>");
+    // Restore code spans.
+    s = s.replace(/ (\d+) /g, (_, i) => `<code>${codes[+i]}</code>`);
+    return s;
+  }
+
+  function renderMarkdown(src) {
+    const lines = String(src || "").replace(/\r\n?/g, "\n").split("\n");
+    const out = [];
+    let i = 0;
+    // Open-list tracking: a stack of currently-open <ul>/<ol> tags to close.
+    let listType = null;          // "ul" | "ol" | null
+    const closeList = () => { if (listType) { out.push("</" + listType + ">"); listType = null; } };
+
+    while (i < lines.length) {
+      let line = lines[i];
+
+      // Fenced code block ```…```  (content NOT inline-formatted, just escaped).
+      const fence = /^\s*```/.exec(line);
+      if (fence) {
+        closeList();
+        const buf = [];
+        i++;
+        while (i < lines.length && !/^\s*```/.test(lines[i])) { buf.push(lines[i]); i++; }
+        i++; // skip closing fence
+        out.push("<pre><code>" + esc(buf.join("\n")) + "</code></pre>");
+        continue;
+      }
+
+      // Horizontal rule.
+      if (/^\s*([-*_])(\s*\1){2,}\s*$/.test(line)) {
+        closeList(); out.push("<hr>"); i++; continue;
+      }
+
+      // Heading  #..###### .
+      const h = /^(#{1,6})\s+(.*)$/.exec(line);
+      if (h) {
+        closeList();
+        const lvl = Math.min(h[1].length, 4);
+        out.push(`<h${lvl}>${mdInline(esc(h[2].trim()))}</h${lvl}>`);
+        i++; continue;
+      }
+
+      // Unordered list item  - / * / + .
+      const ul = /^\s*[-*+]\s+(.*)$/.exec(line);
+      if (ul) {
+        if (listType !== "ul") { closeList(); out.push("<ul>"); listType = "ul"; }
+        out.push("<li>" + mdInline(esc(ul[1])) + "</li>");
+        i++; continue;
+      }
+      // Ordered list item  1. .
+      const ol = /^\s*\d+[.)]\s+(.*)$/.exec(line);
+      if (ol) {
+        if (listType !== "ol") { closeList(); out.push("<ol>"); listType = "ol"; }
+        out.push("<li>" + mdInline(esc(ol[1])) + "</li>");
+        i++; continue;
+      }
+
+      // Blank line ends any open list / paragraph.
+      if (!line.trim()) { closeList(); i++; continue; }
+
+      // Paragraph: gather consecutive non-blank, non-block lines.
+      closeList();
+      const para = [line];
+      i++;
+      while (i < lines.length && lines[i].trim() &&
+             !/^\s*```/.test(lines[i]) && !/^(#{1,6})\s/.test(lines[i]) &&
+             !/^\s*[-*+]\s/.test(lines[i]) && !/^\s*\d+[.)]\s/.test(lines[i]) &&
+             !/^\s*([-*_])(\s*\1){2,}\s*$/.test(lines[i])) {
+        para.push(lines[i]); i++;
+      }
+      out.push("<p>" + mdInline(esc(para.join("\n"))) + "</p>");
+    }
+    closeList();
+    return out.join("\n");
+  }
+
+  // ── activity ──────────────────────────────────────────────────────────
+  // Recent per-tick history parsed from the mate-log telemetry (newest-first).
+  // Re-fetched every time the tab is opened so it stays fresh.
+  async function loadActivity() {
+    const box = $("console-activity");
+    try {
+      const r = await fetch("/activity.json?_=" + Date.now());
+      if (!r.ok) throw new Error("activity " + r.status);
+      const rows = (await r.json()).activity || [];
+      if (!rows.length) { box.innerHTML = `<span class="q-empty">no recent activity</span>`; return; }
+      let html = `<div class="activity-list">`;
+      let lastDate = null;
+      rows.forEach((a) => {
+        if (a.date && a.date !== lastDate) {
+          html += `<div class="a-date">${esc(a.date)}</div>`;
+          lastDate = a.date;
+        }
+        const crewBusy = a.crew && a.crew !== "0";
+        html += `<div class="a-row"><div class="a-head">` +
+          `<span class="a-time">${esc(a.time)}</span>` +
+          `<span class="a-tick">tick ${esc(a.tick)}</span>` +
+          (a.wake ? `<span class="a-wake">${esc(a.wake)}</span>` : "") +
+          (a.crew != null ? `<span class="a-crew${crewBusy ? " busy" : ""}">crew ${esc(a.crew)}</span>` : "") +
+          `</div>` +
+          (a.did ? `<div class="a-did">${esc(a.did)}</div>` : "") +
+          `</div>`;
+      });
+      html += `</div>`;
+      box.innerHTML = html;
+    } catch (e) {
+      box.innerHTML = `<span class="q-empty err">${esc(e.message)}</span>`;
+    }
+  }
+
+  // ── queue ─────────────────────────────────────────────────────────────
+  // Raw sections from the server are kept so the sort control can re-render
+  // client-side without a refetch. Default sort = section grouping (as parsed).
+  let queueSections = null;
+  let queueSort = "section";
+
+  // Pull the `| last: YYYY-MM-DD[-HHMM]` suffix off a queue line into a
+  // comparable string (also matches `held: …` on the On Hold section).
+  function lastUpdated(text) {
+    const m = /(?:last|held):\s*(\d{4}-\d{2}-\d{2}(?:-\d{4})?)/i.exec(text || "");
+    return m ? m[1] : "";
+  }
+
+  function qItemHTML(it, opts) {
+    opts = opts || {};
+    const clickable = it.id ? ` data-ticket="${esc(it.id)}"` : "";
+    const badge = opts.section ? `<span class="qbadge">${esc(opts.section)}</span>` : "";
+    const last = lastUpdated(it.text);
+    const lastLine = (opts.showLast && last) ? `<div class="qlast">updated ${esc(last)}</div>` : "";
+    return `<div class="q-item"${clickable}>` +
+      (it.id ? `<span class="qid">${esc(it.id)}</span>${badge}` : badge) +
+      `<div class="qtext">${esc(it.text)}</div>${lastLine}</div>`;
+  }
+
+  function renderQueue() {
+    const box = $("queue-body");
+    if (!queueSections) return;
+    box.innerHTML = "";
+
+    if (queueSort === "section") {
+      // Default: grouped by section, original order.
+      Object.keys(queueSections).forEach((name) => {
+        const items = queueSections[name] || [];
+        const sec = document.createElement("div");
+        sec.className = "q-section";
+        let html = `<h2>${esc(name)} <span class="count">${items.length}</span></h2>`;
+        html += items.length
+          ? items.map((it) => qItemHTML(it)).join("")
+          : `<div class="q-empty">—</div>`;
+        sec.innerHTML = html;
+        box.appendChild(sec);
+      });
+    } else {
+      // Flat list across all sections, sorted by the chosen key. Each row keeps
+      // a small badge naming its section (since the grouping headers are gone).
+      const flat = [];
+      Object.keys(queueSections).forEach((name) => {
+        (queueSections[name] || []).forEach((it) => flat.push({ it, section: name }));
+      });
+      if (queueSort === "updated") {
+        // Newest-updated first; blanks (no `last:`) sink to the bottom.
+        flat.sort((a, b) => (lastUpdated(b.it.text) || "").localeCompare(lastUpdated(a.it.text) || ""));
+      } else if (queueSort === "id") {
+        flat.sort((a, b) => (a.it.id || a.it.text || "").toLowerCase()
+          .localeCompare((b.it.id || b.it.text || "").toLowerCase()));
+      }
+      const sec = document.createElement("div");
+      sec.className = "q-section";
+      sec.innerHTML = flat.length
+        ? flat.map((row) => qItemHTML(row.it, { section: row.section, showLast: true })).join("")
+        : `<div class="q-empty">—</div>`;
+      box.appendChild(sec);
+    }
+
+    box.querySelectorAll(".q-item[data-ticket]").forEach((el) =>
+      el.addEventListener("click", () =>
+        navigate("#/tickets/" + encodeURIComponent(el.dataset.ticket))));
+  }
+
+  $("queue-sort").querySelectorAll("button").forEach((b) =>
+    b.addEventListener("click", () => {
+      queueSort = b.dataset.sort;
+      $("queue-sort").querySelectorAll("button").forEach((x) =>
+        x.classList.toggle("active", x === b));
+      renderQueue();
+    }));
+
+  async function loadQueue() {
+    const box = $("queue-body");
+    try {
+      const r = await fetch("/queue.json?_=" + Date.now());
+      if (!r.ok) throw new Error("queue " + r.status);
+      queueSections = (await r.json()).sections || {};
+      renderQueue();
+    } catch (e) {
+      box.innerHTML = `<span class="q-empty err">${esc(e.message)}</span>`;
+    }
+  }
+
+  // ── decisions / "For You" ───────────────────────────────────────────────
+  // The Captain's focused decision queue, parsed server-side from queue.md's
+  // `## ⚓ Awaiting Captain` section (urgent-first). Each item renders as a card
+  // with the ask (rendered markdown), a ticket link if one is present, and a
+  // pre-targeted steer box so the Captain decides inline → the steer rides the
+  // SAME POST /steer-ticket (or /steer) → ack pipeline as the rest of the app.
+  // ── decision identity (stable, NOT the volatile `n`) ────────────────────
+  // The Awaiting-Captain list reorders/shrinks as items resolve, so `d.n`
+  // (the card's position number) is unstable. To make a DISMISSAL survive a
+  // reorder/reload we key it on a stable identity: the ticket id when present,
+  // else a short FNV-1a hash of the trimmed ask text. Two ticketless asks with
+  // identical text would collide — acceptable, they ARE the same ask.
+  function fnv1a(str) {
+    let h = 0x811c9dc5;
+    for (let i = 0; i < str.length; i++) {
+      h ^= str.charCodeAt(i);
+      h = (h + ((h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24))) >>> 0;
+    }
+    return ("0000000" + h.toString(16)).slice(-8);
+  }
+  function decId(d) {
+    const tid = (d.ticket || "").trim();
+    if (tid) return "t:" + tid.toLowerCase();
+    return "h:" + fnv1a((d.text || "").trim());
+  }
+
+  // ── dismissed decisions (persisted) ─────────────────────────────────────
+  // A set of stable decision ids the Captain has dismissed. Persisted so a
+  // dismissal survives reload (and reorder, since the key is stable). Pruned to
+  // only ids still present in /decisions.json so it can't grow unbounded.
+  const DISMISS_LS_KEY = "ship-dismissed-decisions";
+  let dismissedDecisions = new Set();
+  try {
+    const raw = localStorage.getItem(DISMISS_LS_KEY);
+    if (raw) { const a = JSON.parse(raw); if (Array.isArray(a)) dismissedDecisions = new Set(a); }
+  } catch (_) { dismissedDecisions = new Set(); }
+  function persistDismissed() {
+    try {
+      if (dismissedDecisions.size) localStorage.setItem(DISMISS_LS_KEY, JSON.stringify([...dismissedDecisions]));
+      else localStorage.removeItem(DISMISS_LS_KEY);
+    } catch (_) { /* storage unavailable — in-memory set still works */ }
+  }
+  // Session flag: when true the dismissed cards are shown (with a restore
+  // button) instead of hidden. Reset on reload.
+  let showDismissed = false;
+
+  // ── acted-on decisions (submit → grey → response) ───────────────────────
+  // When a decision steer is submitted we stamp the card's stable id here so
+  // every subsequent render keeps it greyed/acted-on and threads the exchange.
+  // dropId = the drop filename the POST returned, minus its `.md` (so it equals
+  // the steer item's `id` = path.stem on the server). The 5s poll matches the
+  // steer carrying that id in /steers.json (or /ticket-steers) and, once it has
+  // an `ack`, renders the Mate's response inline. In-memory by design: an
+  // "awaiting response" state is only meaningful for the tab that submitted it.
+  const decAwaiting = {};   // decId -> { dropId, ticket, text, time, ack|null }
+  function dropIdOf(drop) { return String(drop || "").replace(/\.md$/, ""); }
+
+  // Latch the ack for any awaiting decisions from a freshly-fetched steer list
+  // (rows from /steers.json). Matches by the stable drop id. Ticketed decisions
+  // are reconciled separately (their steers live in /ticket-steers).
+  function reconcileDecisionAcks(rows) {
+    if (!rows || !rows.length) return false;
+    const byId = new Map(rows.map((s) => [s.id, s]));
+    let changed = false;
+    Object.keys(decAwaiting).forEach((k) => {
+      const w = decAwaiting[k];
+      if (w.ack) return;                         // already resolved
+      const s = byId.get(w.dropId);
+      if (s && s.ack) { w.ack = s.ack; changed = true; }
+    });
+    return changed;
+  }
+
+  function updateDecisionsBadge(decisions) {
+    const badge = $("decisions-badge");
+    // The badge counts only what's still actionable: open, not dismissed.
+    const open = decisions.filter((d) => !dismissedDecisions.has(decId(d)));
+    const n = open.length;
+    badge.textContent = n;
+    badge.hidden = n === 0;
+    badge.classList.toggle("urgent", open.some((d) => d.urgent));
+  }
+
+  function renderDecisions(decisions) {
+    const box = $("decisions-body");
+    updateDecisionsBadge(decisions);
+
+    // Prune the persisted dismissed set + the in-memory awaiting map to ids that
+    // still appear in the feed, so neither grows unbounded as items resolve.
+    const liveIds = new Set(decisions.map(decId));
+    let prunedDismiss = false;
+    dismissedDecisions.forEach((id) => { if (!liveIds.has(id)) { dismissedDecisions.delete(id); prunedDismiss = true; } });
+    if (prunedDismiss) persistDismissed();
+    Object.keys(decAwaiting).forEach((id) => { if (!liveIds.has(id)) delete decAwaiting[id]; });
+
+    if (!decisions.length) {
+      box.innerHTML = `<div class="dec-empty">Nothing needs you right now — ` +
+        `the ship is running autonomously. ⚓</div>`;
+      return;
+    }
+
+    // Split into shown vs dismissed (by stable id). Dismissed cards are hidden
+    // unless the "show dismissed" toggle is on (then they render with a restore
+    // button). An acted-on card stays visible (greyed) — being acted-on is not
+    // the same as being dismissed.
+    const dismissedList = decisions.filter((d) => dismissedDecisions.has(decId(d)));
+    const shownList = showDismissed ? decisions
+      : decisions.filter((d) => !dismissedDecisions.has(decId(d)));
+
+    // The 5s poll re-runs this and rebuilds every card via innerHTML, which
+    // would wipe a decision steer box the Captain is mid-typing in. Snapshot the
+    // focused textarea (by stable draft key + caret) so we can restore it after
+    // the rebuild; each box is re-seeded from its saved draft in the HTML above.
+    const snap = captureActiveTextarea();
+
+    const cardHTML = (d) => {
+      const id = decId(d);
+      const tid = d.ticket;
+      const awaiting = decAwaiting[id];
+      const isDismissed = dismissedDecisions.has(id);
+      const acted = !!awaiting;
+      const cls = "dec-card" + (d.urgent ? " urgent" : "") + (acted ? " acted" : "");
+      // The ask text is rendered through the escape-first markdown renderer.
+      const ask = renderMarkdown(d.text || "");
+      // A ticket link (if present) deep-links into the Tickets detail view.
+      const link = tid
+        ? `<button class="dec-ticket-link" data-ticket="${esc(tid)}">${esc(tid)} →</button>`
+        : "";
+      const dismissBtn = `<button class="dec-dismiss" data-decid="${esc(id)}">Dismiss</button>`;
+
+      // Footer: either the post-submit response thread (acted-on), or the
+      // pre-targeted steer box (still open). Either way wrapped so the poll
+      // re-render restores it correctly.
+      let footer;
+      if (acted) {
+        // Thread the just-submitted steer (Captain bubble) + the Mate's ack, or
+        // a greyed "awaiting response" pending bubble until the ack lands.
+        const thread = steerThreadHTML({
+          time: awaiting.time, text: awaiting.text,
+          handled: false, echo: !awaiting.ack, ack: awaiting.ack || null,
+        });
+        footer = `<div class="dec-response">` +
+          `<div class="label">${awaiting.ack ? "Response" : "Submitted — awaiting response"}</div>` +
+          `<div class="steers-list">${thread}</div>` +
+          `</div>`;
+      } else {
+        // Pre-targeted steer box: tickets steer at that ticket (/steer-ticket);
+        // ticketless items drop a general steer (/steer).
+        const label = tid ? "Decide — steers " + esc(tid) : "Decide — steer the Mate";
+        const placeholder = tid
+          ? "Your decision on " + esc(tid) + " — send to unblock…"
+          : "Your decision — send to the Mate…";
+        footer = `<div class="dec-steer" data-decid="${esc(id)}"${tid ? ` data-ticket="${esc(tid)}"` : ""}>` +
+          `<div class="label">${label}</div>` +
+          `<textarea class="dec-steer-text" data-draft-key="decision:${esc(d.n)}" ` +
+            `placeholder="${placeholder}">${esc(getDraft("decision:" + d.n))}</textarea>` +
+          `<div class="steer-row">` +
+            `<button class="dec-steer-send">Send</button>` +
+            `<span class="steer-msg dec-steer-msg"></span>` +
+          `</div>` +
+        `</div>`;
+      }
+      const restore = isDismissed
+        ? `<button class="dec-restore" data-decid="${esc(id)}">↺ restore this</button>` : "";
+
+      return `<div class="${cls}">` +
+        `<div class="dec-head">` +
+          `<span class="dec-dot"></span>` +
+          `<span class="dec-n">Decision ${esc(d.n)}</span>` +
+          (d.urgent ? `<span class="dec-urgent-tag">urgent</span>` : "") +
+          (acted ? `<span class="dec-acted-tag">${awaiting.ack ? "answered" : "submitted"}</span>` : "") +
+          link +
+          dismissBtn +
+        `</div>` +
+        `<div class="dec-ask md-body">${ask}</div>` +
+        footer + restore +
+      `</div>`;
+    };
+
+    let html = shownList.map(cardHTML).join("");
+    // "Show dismissed (N)" affordance to un-hide. Only when there ARE dismissed
+    // items and we're not already showing them.
+    if (dismissedList.length && !showDismissed) {
+      html += `<div class="dec-dismissed-bar">` +
+        `<button id="dec-show-dismissed">Show dismissed (${dismissedList.length})</button></div>`;
+    } else if (showDismissed && dismissedList.length) {
+      html += `<div class="dec-dismissed-bar">` +
+        `<button id="dec-hide-dismissed">Hide dismissed</button></div>`;
+    }
+    box.innerHTML = html;
+
+    // Ticket links → deep-link into the Tickets detail view.
+    box.querySelectorAll(".dec-ticket-link").forEach((el) =>
+      el.addEventListener("click", () =>
+        navigate("#/tickets/" + encodeURIComponent(el.dataset.ticket))));
+    // Dismiss / restore buttons.
+    box.querySelectorAll(".dec-dismiss").forEach((el) =>
+      el.addEventListener("click", () => dismissDecision(el.dataset.decid)));
+    box.querySelectorAll(".dec-restore").forEach((el) =>
+      el.addEventListener("click", () => restoreDecision(el.dataset.decid)));
+    const showBtn = $("dec-show-dismissed");
+    if (showBtn) showBtn.addEventListener("click", () => { showDismissed = true; loadDecisions(); });
+    const hideBtn = $("dec-hide-dismissed");
+    if (hideBtn) hideBtn.addEventListener("click", () => { showDismissed = false; loadDecisions(); });
+    // Inline steer sends + draft-save, wired per OPEN (non-acted) card. The
+    // textarea saves to its stable decision:<n> key on every keystroke so the
+    // next poll re-render repopulates it (and a reload restores it from LS).
+    box.querySelectorAll(".dec-steer").forEach((card) => {
+      const btn = card.querySelector(".dec-steer-send");
+      btn.addEventListener("click", () => sendDecisionSteer(card));
+      const ta = card.querySelector(".dec-steer-text");
+      const key = ta.dataset.draftKey;
+      ta.addEventListener("input", () => saveDraft(key, ta.value));
+    });
+    // Restore focus + caret to whatever box the Captain was typing in so a poll
+    // firing mid-keystroke never interrupts them.
+    restoreActiveTextarea(snap);
+  }
+
+  // Dismiss / restore a decision by its stable id, then re-render.
+  function dismissDecision(id) {
+    if (!id) return;
+    dismissedDecisions.add(id);
+    persistDismissed();
+    loadDecisions();
+  }
+  function restoreDecision(id) {
+    if (!id) return;
+    dismissedDecisions.delete(id);
+    persistDismissed();
+    loadDecisions();
+  }
+
+  async function sendDecisionSteer(card) {
+    const ta = card.querySelector(".dec-steer-text");
+    const btn = card.querySelector(".dec-steer-send");
+    const msg = card.querySelector(".dec-steer-msg");
+    const text = ta.value.trim();
+    if (!text) return;
+    const tid = card.dataset.ticket || "";
+    btn.disabled = true; msg.className = "steer-msg dec-steer-msg"; msg.textContent = "sending…";
+    try {
+      const r = await fetch(tid ? "/steer-ticket" : "/steer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(tid ? { ticket: tid, text } : { text }),
+      });
+      const j = await r.json();
+      if (!r.ok || !j.ok) throw new Error(j.error || "send failed");
+      // Echo into the right thread so the just-sent steer shows immediately
+      // when the Captain pops over to the ticket/console.
+      const nowIso = new Date().toISOString();
+      if (tid) ticketEchoes.push({ drop: j.drop, text, ticket: tid, time: nowIso });
+      else pendingEchoes.push({ drop: j.drop, text, time: nowIso });
+      if (ta.dataset.draftKey) clearDraft(ta.dataset.draftKey);   // sent — drop draft
+      announceSteer(j.drop);
+      // Mark THIS decision card acted-on: stamp its stable id with the submitted
+      // steer (keyed by the drop id = filename minus .md, which equals the steer
+      // item's `id` on the server). The next render greys the card and threads a
+      // pending "awaiting response" bubble; the 5s poll then latches the Mate's
+      // ack onto it via reconcileDecisionAcks → the response renders inline.
+      const id = card.dataset.decid;
+      if (id) {
+        decAwaiting[id] = { dropId: dropIdOf(j.drop), ticket: tid, text, time: nowIso, ack: null };
+        // For a ticketed decision the ack lands in /ticket-steers, not
+        // /steers.json — poll that thread for this ticket so reconcile can match.
+        if (tid) pollTicketAck(tid);
+      }
+      // Re-render the decisions view so the card flips to its acted-on state.
+      loadDecisions();
+    } catch (e) {
+      msg.className = "steer-msg dec-steer-msg err"; msg.textContent = e.message;
+      btn.disabled = false;
+    }
+  }
+
+  // For a ticketed decision, fetch that ticket's steer thread and reconcile any
+  // awaiting decision acks against it (the ticket steers don't appear in
+  // /steers.json). Re-renders if a new ack was latched. Safe to call repeatedly.
+  async function pollTicketAck(tid) {
+    if (!tid) return;
+    try {
+      const r = await fetch("/ticket-steers?id=" + encodeURIComponent(tid) + "&_=" + Date.now());
+      if (!r.ok) return;
+      const rows = (await r.json()).steers || [];
+      if (reconcileDecisionAcks(rows)) {
+        // Only re-render if Decisions is the visible tab (avoid stomping others).
+        const onDec = document.querySelector('nav.tabs button[data-tab="decisions"]').classList.contains("active");
+        if (onDec) loadDecisions();
+      }
+    } catch (_) { /* transient — next poll retries */ }
+  }
+
+  async function loadDecisions() {
+    const box = $("decisions-body");
+    try {
+      const r = await fetch("/decisions.json?_=" + Date.now());
+      if (!r.ok) throw new Error("decisions " + r.status);
+      renderDecisions((await r.json()).decisions || []);
+    } catch (e) {
+      box.innerHTML = `<span class="q-empty err">${esc(e.message)}</span>`;
+    }
+  }
+
+  // Reconcile acks for any acted-on (awaiting) decisions, then re-render if a
+  // response arrived. General (ticketless) acks come from /steers.json; ticketed
+  // ones from each ticket's /ticket-steers. Called from the 5s poll while the
+  // Decisions tab is open so a response lands at the Mate's pace without a manual
+  // refresh. No-op when nothing is awaiting.
+  async function pollDecisionAcks() {
+    const pending = Object.values(decAwaiting).filter((w) => !w.ack);
+    if (!pending.length) return;
+    let changed = false;
+    // General steers.
+    if (pending.some((w) => !w.ticket)) {
+      try {
+        const r = await fetch("/steers.json?_=" + Date.now());
+        if (r.ok) changed = reconcileDecisionAcks((await r.json()).steers || []) || changed;
+      } catch (_) { /* transient */ }
+    }
+    // Ticketed steers — one fetch per distinct awaiting ticket.
+    const tids = [...new Set(pending.map((w) => w.ticket).filter(Boolean))];
+    for (const tid of tids) {
+      try {
+        const r = await fetch("/ticket-steers?id=" + encodeURIComponent(tid) + "&_=" + Date.now());
+        if (r.ok) changed = reconcileDecisionAcks((await r.json()).steers || []) || changed;
+      } catch (_) { /* transient */ }
+    }
+    if (changed) loadDecisions();
+  }
+
+  // ── tickets ───────────────────────────────────────────────────────────
+  let allTickets = [];
+  function renderTickets() {
+    const body = $("tickets-body");
+    const q = $("ticket-filter").value.trim().toLowerCase();
+    const rows = allTickets.filter((t) => !q ||
+      (t.id + " " + t.goal + " " + t.status + " " + t.project).toLowerCase().includes(q));
+    if (!rows.length) { body.innerHTML = `<span class="q-empty">no tickets</span>`; return; }
+    body.innerHTML = rows.map((t) => {
+      const st = (t.status || "").toLowerCase();
+      return `<div class="t-item" data-ticket="${esc(t.id)}">` +
+        `<div class="thead"><span class="tid">${esc(t.id)}</span>` +
+        `<span class="badge ${esc(st)}">${esc(t.status || "?")}</span></div>` +
+        `<div class="tproj">${esc(t.project)}</div>` +
+        `<div class="tgoal">${esc(t.goal)}</div></div>`;
+    }).join("");
+    body.querySelectorAll(".t-item").forEach((el) =>
+      el.addEventListener("click", () =>
+        navigate("#/tickets/" + encodeURIComponent(el.dataset.ticket))));
+  }
+  async function loadTickets() {
+    if (tabsLoaded.tickets) return;
+    try {
+      const r = await fetch("/tickets.json?_=" + Date.now());
+      if (!r.ok) throw new Error("tickets " + r.status);
+      allTickets = (await r.json()).tickets || [];
+      tabsLoaded.tickets = true;
+      renderTickets();
+    } catch (e) {
+      $("tickets-body").innerHTML = `<span class="q-empty err">${esc(e.message)}</span>`;
+    }
+  }
+  $("ticket-filter").addEventListener("input", renderTickets);
+
+  // Toggle the list view vs the detail view (no routing side-effects here —
+  // the router decides which to show; these just flip display).
+  function showTicketList(showList) {
+    $("tickets-list").style.display = showList ? "block" : "none";
+    $("ticket-detail").style.display = showList ? "none" : "block";
+  }
+
+  let currentTicket = null;
+  // opts.fromRoute = called by the router (don't re-set the hash); otherwise a
+  // direct call canonicalises the hash so the URL reflects the open ticket.
+  async function openTicket(id, opts) {
+    opts = opts || {};
+    if (!opts.fromRoute) {
+      navigate("#/tickets/" + encodeURIComponent(id));
+      return;   // navigate() -> router() -> openTicket(id, {fromRoute:true})
+    }
+    showTicketList(false);
+    // If we're re-opening the same ticket (e.g. a poll re-route), don't wipe
+    // the panes — just refresh the live comment thread below.
+    const sameTicket = currentTicket === id;
+    currentTicket = id;
+    loadTicketComments(id);
+    if (sameTicket) return;
+    $("td-id").textContent = id;
+    $("td-status").textContent = "…";
+    $("td-proj").textContent = ""; $("td-body").textContent = "loading…";
+    $("td-summary").style.display = "none"; $("td-asks").style.display = "none";
+    $("tsteer-msg").textContent = "";
+    // Seed the per-ticket steer box from any saved draft for THIS ticket (so a
+    // half-typed comment survives navigating away and back, or a reload), and
+    // tag it with the ticket's stable draft key for input-save + send-clear.
+    const tsteer = $("tsteer-text");
+    tsteer.dataset.draftKey = "steer-ticket:" + id;
+    tsteer.value = getDraft("steer-ticket:" + id);
+    try {
+      const r = await fetch("/ticket?id=" + encodeURIComponent(id) + "&_=" + Date.now());
+      if (!r.ok) throw new Error("ticket " + r.status);
+      const t = await r.json();
+      $("td-id").textContent = t.id;
+      const st = $("td-status"); st.textContent = t.status || "?";
+      // Badge colour keys off the first word of status (active/done/blocked…).
+      st.className = "badge " + (t.status || "").split(/\s+/)[0].toLowerCase();
+      $("td-proj").textContent = t.project || "";
+
+      // Derived Summary card = the ticket's Goal line.
+      if (t.goal) {
+        $("td-summary-text").textContent = t.goal;
+        $("td-summary").style.display = "block";
+      }
+      // Derived Asks = Status + Blocked on + each unchecked acceptance item.
+      const asks = [];
+      if (t.status) asks.push({ k: "Status", v: t.status, todo: false });
+      if (t.blocked_on) asks.push({ k: "Blocked", v: t.blocked_on, todo: true });
+      (t.open_acceptance || []).forEach((a) =>
+        asks.push({ k: "Todo", v: a, todo: true }));
+      const al = $("td-asks-list");
+      al.innerHTML = asks.map((a) =>
+        `<li class="${a.todo ? "ask-todo" : ""}">` +
+        `<span class="ask-k">${esc(a.k)}</span>` +
+        `<span class="ask-v">${esc(a.v)}</span></li>`).join("");
+      $("td-asks").style.display = asks.length ? "block" : "none";
+
+      // Render the markdown body to readable HTML (escape-first renderer).
+      $("td-body").innerHTML = renderMarkdown(t.body || "");
+    } catch (e) {
+      $("td-body").textContent = e.message;
+    }
+  }
+  // Back to the list = navigate to the bare tickets route (adds a history
+  // entry so the browser back button is consistent with the in-app one).
+  $("ticket-back").addEventListener("click", () => { navigate("#/tickets"); });
+
+  async function sendTicketSteer() {
+    const ta = $("tsteer-text"), btn = $("tsteer-send"), msg = $("tsteer-msg");
+    const text = ta.value.trim();
+    if (!text || !currentTicket) return;
+    btn.disabled = true; msg.className = "steer-msg"; msg.textContent = "sending…";
+    try {
+      const r = await fetch("/steer-ticket", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ticket: currentTicket, text }),
+      });
+      const j = await r.json();
+      if (!r.ok || !j.ok) throw new Error(j.error || "send failed");
+      // Optimistic echo into THIS ticket's thread (matched/dropped by drop id
+      // once the server poll returns it), same pattern as the Console feed.
+      ticketEchoes.push({ drop: j.drop, text, ticket: currentTicket,
+        time: new Date().toISOString() });
+      ta.value = "";
+      clearDraft("steer-ticket:" + currentTicket);   // sent — drop the draft
+      announceSteer(j.drop);
+      loadTicketComments(currentTicket);
+      msg.className = "steer-msg ok";
+      msg.textContent = "steer dropped for " + currentTicket + " — the loop will wake";
+    } catch (e) {
+      msg.className = "steer-msg err"; msg.textContent = e.message;
+    } finally {
+      btn.disabled = false;
+    }
+  }
+  $("tsteer-send").addEventListener("click", sendTicketSteer);
+  // Persist the per-ticket steer draft on every keystroke under its current
+  // ticket's stable key (set by openTicket). Survives re-renders + reloads.
+  $("tsteer-text").addEventListener("input", (e) => {
+    if (currentTicket) saveDraft("steer-ticket:" + currentTicket, e.target.value);
+  });
+
+  // ── steers ────────────────────────────────────────────────────────────
+  // Threaded steer history: each Captain steer is a message bubble; the Mate's
+  // ack (if written) is a reply bubble beneath it. Newest-first. Re-fetched on
+  // open (and on the live poll) so acks appear as the Mate writes them.
+  function steerTime(iso) {
+    const t = Date.parse(iso);
+    if (isNaN(t)) return esc(iso || "");
+    const d = new Date(t);
+    return esc(d.toLocaleString(undefined,
+      { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }))
+      + " · " + relAge(iso);
+  }
+
+  // Optimistic local echoes: steers sent from THIS tab, kept until the server
+  // poll returns them (matched + dropped by drop filename). Lets the new steer
+  // appear in the feed instantly, before the 5s poll catches up.
+  let pendingEchoes = [];   // [{ drop, text, time }]
+
+  // Start-at-bottom: when the console is first shown (initial load or a fresh
+  // tab-open) the feed should LAND on the newest message, not the top. We set
+  // this flag, and the next conversation render force-scrolls to the bottom
+  // once (then clears it) — after that, the gentle near-bottom auto-scroll in
+  // scrollConversation(false) takes over so we never yank a reader upward.
+  let pinFeedToBottom = true;
+
+  // Auto-scroll the conversation feed to the newest (bottom) message, but only
+  // when the user is already near the bottom — don't yank them up if they've
+  // scrolled back to read history.
+  function scrollConversation(force) {
+    const feed = $("console-feed");
+    if (!feed) return;
+    const nearBottom = feed.scrollHeight - feed.scrollTop - feed.clientHeight < 120;
+    if (force || nearBottom) feed.scrollTop = feed.scrollHeight;
+  }
+
+  function steerThreadHTML(s) {
+    let html = `<div class="steer-thread">`;
+    // Captain message bubble.
+    html += `<div class="bubble captain">` +
+      `<div class="b-head"><span class="b-who">Captain</span>` +
+      `<span class="b-time">${steerTime(s.time)}</span></div>` +
+      `<div class="b-text">${esc(s.text || s.title || "")}</div></div>`;
+    // Mate reply bubble — the ack, or a pending placeholder.
+    const ack = s.ack;
+    if (ack) {
+      const st = (ack.status || "noted").toLowerCase();
+      html += `<div class="bubble mate">` +
+        `<div class="b-head"><span class="b-who">Mate</span>` +
+        `<span class="ack-status ${esc(st)}">${esc(ack.status || "noted")}</span>` +
+        (ack.time ? `<span class="b-time">${steerTime(ack.time)}</span>` : "") +
+        `</div>` +
+        (ack.response ? `<div class="b-text">${esc(ack.response)}</div>` : "") +
+        `</div>`;
+    } else {
+      html += `<div class="bubble mate pending">` +
+        `<div class="b-head"><span class="b-who">Mate</span>` +
+        `<span class="ack-status">${s.handled ? "handled"
+          : (s.echo ? "sending" : "pending")}</span></div>` +
+        `<div class="b-text steer-msg">${s.echo
+          ? "dropped — waiting for the loop to pick it up"
+          : (s.handled ? "processed — awaiting acknowledgement"
+            : "pending — not yet picked up")}</div>` +
+        `</div>`;
+    }
+    html += `</div>`;
+    return html;
+  }
+
+  async function loadSteers() {
+    const box = $("console-conversation");
+    try {
+      const r = await fetch("/steers.json?_=" + Date.now());
+      if (!r.ok) throw new Error("steers " + r.status);
+      const rows = (await r.json()).steers || [];
+      // Drop any optimistic echo the server has now caught up on (by drop id).
+      const seen = new Set(rows.map((s) => s.id));
+      pendingEchoes = pendingEchoes.filter((e) => !seen.has(e.drop));
+      // Server rows are newest-first; render oldest-first (chat: newest at the
+      // bottom), then append any still-pending local echoes after them.
+      const ordered = rows.slice().reverse().concat(
+        pendingEchoes.map((e) => ({ id: e.drop, time: e.time, text: e.text,
+          handled: false, ack: null, echo: true })));
+      if (!ordered.length) { box.innerHTML = `<span class="q-empty">no steers yet</span>`; return; }
+      let html = `<div class="steers-list">`;
+      ordered.forEach((s) => { html += steerThreadHTML(s); });
+      html += `</div>`;
+      box.innerHTML = html;
+      // On first show / fresh console-open, jump to the newest (bottom). After
+      // that consume the flag and revert to gentle near-bottom auto-scroll.
+      scrollConversation(pinFeedToBottom);
+      pinFeedToBottom = false;
+    } catch (e) {
+      box.innerHTML = `<span class="q-empty err">${esc(e.message)}</span>`;
+    }
+  }
+
+  // ── per-ticket comment thread ───────────────────────────────────────────
+  // The conversation scoped to ONE ticket: steers dropped via /steer-ticket
+  // (front-matter `ticket: <id>`) + the Mate's acks. Reuses steerThreadHTML so
+  // it threads identically to the Console. Optimistic echoes (ticketEchoes)
+  // surface a just-sent steer instantly, then drop once the server returns it.
+  let ticketEchoes = [];   // [{ drop, text, ticket, time }]
+  async function loadTicketComments(id) {
+    const box = $("td-thread");
+    if (!box || !id) return;
+    try {
+      const r = await fetch("/ticket-steers?id=" + encodeURIComponent(id) +
+        "&_=" + Date.now());
+      if (!r.ok) throw new Error("comments " + r.status);
+      const rows = (await r.json()).steers || [];
+      const seen = new Set(rows.map((s) => s.id));
+      ticketEchoes = ticketEchoes.filter((e) => !seen.has(e.drop));
+      // Server rows are newest-first; render oldest-first (newest at bottom),
+      // then append this ticket's still-pending local echoes.
+      const ordered = rows.slice().reverse().concat(
+        ticketEchoes.filter((e) => e.ticket === id).map((e) =>
+          ({ id: e.drop, time: e.time, text: e.text, handled: false,
+             ack: null, echo: true })));
+      if (!ordered.length) {
+        box.innerHTML = `<span class="q-empty">no comments on this ticket yet — ` +
+          `use “Steer this ticket” below</span>`;
+        return;
+      }
+      let html = `<div class="steers-list">`;
+      ordered.forEach((s) => { html += steerThreadHTML(s); });
+      html += `</div>`;
+      box.innerHTML = html;
+      box.scrollTop = box.scrollHeight;   // land on the newest comment
+    } catch (e) {
+      box.innerHTML = `<span class="q-empty err">${esc(e.message)}</span>`;
+    }
+  }
+
+  // ── console segmented toggle (Conversation / Activity) ──────────────────
+  let consoleFeed = "conversation";
+  function showConsoleFeed(which) {
+    consoleFeed = which;
+    $("console-seg").querySelectorAll("button").forEach((b) =>
+      b.classList.toggle("active", b.dataset.feed === which));
+    $("console-conversation").style.display = which === "conversation" ? "" : "none";
+    $("console-activity").style.display = which === "activity" ? "" : "none";
+    if (which === "conversation") loadSteers(); else loadActivity();
+  }
+  $("console-seg").querySelectorAll("button").forEach((b) =>
+    b.addEventListener("click", () => showConsoleFeed(b.dataset.feed)));
+
+  // Load both panes when the console opens so a toggle is instant; the visible
+  // one drives the auto-scroll.
+  function loadConsole() {
+    loadSteers();
+    loadActivity();
+  }
+
+  // Auto-grow the console textarea up to its max-height as the Captain types.
+  const steerTA = $("steer-text");
+  function autoGrowSteer() {
+    steerTA.style.height = "auto";
+    steerTA.style.height = Math.min(steerTA.scrollHeight, window.innerHeight * 0.38) + "px";
+  }
+  // Persist the Console steer draft on every keystroke (key: steer:console),
+  // seed it from any saved draft, and keep the auto-grow behaviour. Resize once
+  // now so a restored multi-line draft isn't clipped to one row on load.
+  bindDraft(steerTA, "steer:console", autoGrowSteer);
+  autoGrowSteer();
+  // Enter sends; Shift+Enter inserts a newline (chat convention). On a touch
+  // keyboard Enter usually inserts a newline, so the Send button remains primary.
+  steerTA.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
+      e.preventDefault();
+      sendSteer();
+    }
+  });
+
+  // Rich status is collapsed by default (steer-first on a phone). On a roomier
+  // viewport there's space to show it expanded — open it once at load there.
+  if (window.matchMedia("(min-width: 700px)").matches) {
+    $("status-panel").open = true;
+  }
+
+  // Keep the open Console feed live alongside the status poll so new steers,
+  // acks, and ticks land without a manual refresh.
+  function pollOpenTab() {
+    const active = (t) =>
+      document.querySelector('nav.tabs button[data-tab="' + t + '"]').classList.contains("active");
+    if (active("console")) {
+      if (consoleFeed === "conversation") loadSteers(); else loadActivity();
+    }
+    // Keep the Decisions view live while it's open (new asks / resolved ones),
+    // and reconcile acks for any acted-on cards so the Mate's response lands.
+    if (active("decisions")) { loadDecisions(); pollDecisionAcks(); }
+    // Keep an open ticket's comment thread live so the Mate's acks land too.
+    if (active("tickets") && currentTicket &&
+        $("ticket-detail").style.display !== "none") {
+      loadTicketComments(currentTicket);
+    }
+  }
+
+  // Refresh just the nav count badge (without touching the view), so the "For
+  // You" count is live even when the Captain is on another tab.
+  async function refreshDecisionsBadge() {
+    try {
+      const r = await fetch("/decisions.json?_=" + Date.now());
+      if (!r.ok) return;
+      updateDecisionsBadge((await r.json()).decisions || []);
+    } catch (_) { /* leave the badge as-is on a transient failure */ }
+  }
+
+  refresh();
+  // Prime the "For You" nav badge immediately so the count shows even before
+  // the Captain opens that tab.
+  refreshDecisionsBadge();
+  // Honour the URL hash on load (deep-link / fresh tab). The router switches to
+  // the right tab and, for #/tickets/<id>, opens that ticket. A bare/empty hash
+  // routes to the default Console. loadConsole() runs from showTab("console").
+  router();
+  setInterval(() => { refresh(); pollOpenTab(); refreshDecisionsBadge(); }, 5000);
+
+  // ── PWA service worker ──────────────────────────────────────────────────
+  // Registers the shell-caching worker so the page installs + opens offline.
+  // Live JSON/POST are excluded inside sw.js, so polling always hits network.
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("/sw.js").catch((e) =>
+        console.warn("sw register failed:", e));
+    });
+  }
+
+  // ── multi-tab friendliness ──────────────────────────────────────────────
+  // Each tab polls independently (above) and holds only its own local state —
+  // there is no shared/singleton assumption, so N tabs coexist fine. As a
+  // light courtesy signal, when this tab successfully drops a steer it tells
+  // any sibling tabs to refresh immediately rather than wait for their next
+  // poll. BroadcastChannel is built-in; absence is handled gracefully.
+  let steerChannel = null;
+  try { steerChannel = new BroadcastChannel("ship-steer"); } catch (_) {}
+  if (steerChannel) {
+    steerChannel.onmessage = (ev) => {
+      if (ev.data && ev.data.type === "steer-dropped") { refresh(); pollOpenTab(); }
+    };
+  }
+  function announceSteer(drop) {
+    if (steerChannel) {
+      try { steerChannel.postMessage({ type: "steer-dropped", drop, at: Date.now() }); }
+      catch (_) {}
+    }
+  }
+  // Pause polling while the tab is hidden (saves work with many tabs open);
+  // refresh immediately on re-show so a backgrounded tab is never stale.
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) { refresh(); pollOpenTab(); }
+  });
+</script>
+</body>
+</html>

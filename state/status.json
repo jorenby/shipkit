@@ -1,0 +1,13 @@
+{
+  "tick": 0,
+  "wake_reason": "init",
+  "now": {
+    "doing": "",
+    "since": "",
+    "wake": "init"
+  },
+  "next_wake": "",
+  "last_actions": [],
+  "validator": "NONE",
+  "generated_at": ""
+}
