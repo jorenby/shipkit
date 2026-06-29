@@ -13,11 +13,11 @@
     "defs": ["ship-mate", "ship-bosun", "ship-crew", "ship-lookout", "ship-reviewer", "ship-pilot"]
   },
   "hooks": {
-    "mate_bash": "scripts/validate-mate-bash.sh",
-    "mate_mcp": "scripts/validate-mate-mcp.sh",
-    "bosun_bash": "scripts/validate-bosun-bash.sh",
-    "crew_bash": "scripts/validate-crew-bash.sh",
-    "readonly_bash": "scripts/validate-readonly-bash.sh"
+    "mate_bash": "modules/autonomous/hooks/validate-mate-bash.sh",
+    "mate_mcp": "modules/autonomous/hooks/validate-mate-mcp.sh",
+    "bosun_bash": "modules/autonomous/hooks/validate-bosun-bash.sh",
+    "crew_bash": "core/hooks/validate-crew-bash.sh",
+    "readonly_bash": "core/hooks/validate-readonly-bash.sh"
   },
   "launch": {
     "mate_prompt": "/ship-watch-start",

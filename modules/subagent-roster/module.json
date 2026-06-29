@@ -1,0 +1,13 @@
+{
+  "name": "subagent-roster",
+  "tier": "core",
+  "doc": "subagent-roster.md",
+  "agents": [],
+  "hooks": [],
+  "skills": [],
+  "scripts": [],
+  "lib": [],
+  "templates": [],
+  "tests": [],
+  "requires": ["core"]
+}

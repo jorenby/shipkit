@@ -1,0 +1,14 @@
+{
+  "_comment": "TIER 3 slot. The status-surface files (server.py, index.html, icons, status-surface.md) ship on the stacked UI PR, which fills this folder. This manifest reserves the tier so presets.json can reference 'ui' and shipkit_init.py installs it once the files land. The UI consumes the status.json contract (lib/status.schema.md) + the inbox/drops/ steer path at runtime — it does NOT import lib/ Python. That makes ui a runtime-orders-after dependency on autonomous (status.json must exist), expressed here as requires[].",
+  "name": "ui",
+  "tier": "ui",
+  "doc": "status-surface.md",
+  "agents": [],
+  "hooks": [],
+  "skills": [],
+  "scripts": [],
+  "lib": ["status.schema.md"],
+  "templates": [],
+  "tests": [],
+  "requires": ["autonomous"]
+}

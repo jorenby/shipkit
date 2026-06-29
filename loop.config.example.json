@@ -29,14 +29,14 @@
     "install_target": "~/.claude/agents",
     "defs": ["ship-mate", "ship-bosun", "ship-crew", "ship-lookout", "ship-reviewer", "ship-pilot"]
   },
-  "_agents": "The custom subagent defs shipkit installs (from agents/ in this repo) into install_target, substituting {SHIP_DIR} in each def's hook command paths with ship_root. ship-mate + ship-bosun are the long-running role agents; the rest are dispatched workers.",
+  "_agents": "The custom subagent defs shipkit installs (the two role agents from modules/autonomous/agents/, the workers from core/agents/) into install_target, substituting {SHIP_DIR} in each def's hook command paths with ship_root. ship-mate + ship-bosun are the long-running role agents; the rest are dispatched workers.",
 
   "hooks": {
-    "mate_bash": "scripts/validate-mate-bash.sh",
-    "mate_mcp": "scripts/validate-mate-mcp.sh",
-    "bosun_bash": "scripts/validate-bosun-bash.sh",
-    "crew_bash": "scripts/validate-crew-bash.sh",
-    "readonly_bash": "scripts/validate-readonly-bash.sh"
+    "mate_bash": "modules/autonomous/hooks/validate-mate-bash.sh",
+    "mate_mcp": "modules/autonomous/hooks/validate-mate-mcp.sh",
+    "bosun_bash": "modules/autonomous/hooks/validate-bosun-bash.sh",
+    "crew_bash": "core/hooks/validate-crew-bash.sh",
+    "readonly_bash": "core/hooks/validate-readonly-bash.sh"
   },
   "_hooks": "The bright-line PreToolUse hooks (paths relative to ship_root). EVERY hook MUST be executable (chmod +x) — a non-exec hook fails OPEN (silent zero enforcement). shipkit-init + ship-up.sh set/self-heal the bit. Each ships a generic core + a per-deployment override block (mate_bash) or a *-allow-local.sh extension (crew/bosun).",
 

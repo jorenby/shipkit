@@ -1,0 +1,572 @@
+#!/usr/bin/env python3
+"""shipkit_init.py — the deterministic, MANIFEST-DRIVEN apply step for shipkit onboarding.
+
+This is the plumbing the `/shipkit-init` skill calls once it has gathered answers (and the
+skill carries the upgrade JUDGMENT — this script does not). It is intentionally MINIMAL: it
+does only mechanical, safe, deterministic ops and SURFACES findings for the Mate/user to
+judge. It never auto-resolves an idiosyncratic divergence.
+
+What it does:
+  1. Write loop.config.json from loop.config.example.json (untouched unless --force-config).
+  2. Write mate.local.md from core/mate.local.example.md (untouched unless --force-prefs).
+  3. Install the selected tiers' AGENT DEFS, substituting {SHIP_DIR} in each def's hook
+     command paths. (Agent defs are always WRITTEN, never symlinked — a symlink wouldn't get
+     the {SHIP_DIR} substitution.)
+  4. Set +x on every selected hook. LOAD-BEARING: a non-exec hook fails OPEN (silent zero
+     enforcement). It also ASSERTS each installed agent-def hook command path EXISTS and is
+     executable, and reports any that don't (a broken hook path = silent zero enforcement).
+  5. Symlink-or-copy the selected modules' skill dirs into the skills target.
+  6. Seed state/status.json (delegates to lib/status_writer.py --init).
+  7. DETECT-AND-REPORT prior-install state (orphan skills, copied-vs-symlinked skills, missing
+     config keys) WITHOUT resolving it — the SKILL reasons about it with the user.
+
+Source of truth: presets.json (preset -> module-folder list) + each module folder's
+module.json (the module's files + its tier + its declared lib[] deps). This script reads
+those manifests; it does NOT hard-code the module map.
+
+Stdlib only. Cross-platform (pathlib + json + shutil). On Windows the skill/agent install
+defaults to COPY (os.symlink needs admin/Developer Mode there); a failed symlink falls back
+to a copy.
+
+Usage
+-----
+  shipkit_init.py --preset core        --ship-root /abs/path/to/ship
+  shipkit_init.py --preset autonomous  --ship-root .  --install-mode symlink
+  shipkit_init.py --modules ui                       # resolves requires[] transitively
+  shipkit_init.py --preset autonomous --dry-run
+  shipkit_init.py --answers /tmp/answers.json
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import re
+import shutil
+import stat
+import subprocess
+import sys
+from pathlib import Path
+
+SHIPKIT_ROOT = Path(__file__).resolve().parent
+PRESETS_FILE = SHIPKIT_ROOT / "presets.json"
+LIB_DIR = SHIPKIT_ROOT / "lib"
+DEFAULT_SKILLS_TARGET = Path.home() / ".claude" / "skills"
+DEFAULT_AGENTS_TARGET = Path.home() / ".claude" / "agents"
+
+IS_WINDOWS = os.name == "nt"
+DEFAULT_INSTALL_MODE = "copy" if IS_WINDOWS else "symlink"
+
+# A module's folder, keyed by module name. Most live under modules/<name>/; the tier-1
+# anchor is core/ and the tier-3 slot is ui/ (both at root).
+MODULE_DIRS = {
+    "core": SHIPKIT_ROOT / "core",
+    "ui": SHIPKIT_ROOT / "ui",
+}
+
+
+def _err(msg: str) -> None:
+    print(f"ERROR: {msg}", file=sys.stderr)
+    sys.exit(1)
+
+
+def _load_json(path: Path) -> dict:
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        _err(f"manifest missing: {path}")
+    except json.JSONDecodeError as e:
+        _err(f"{path} is not valid JSON: {e}")
+
+
+def module_dir(name: str) -> Path:
+    return MODULE_DIRS.get(name, SHIPKIT_ROOT / "modules" / name)
+
+
+def load_module(name: str) -> dict:
+    d = module_dir(name)
+    manifest = d / "module.json"
+    if not manifest.is_file():
+        _err(f"module {name!r}: no module.json at {manifest}")
+    meta = _load_json(manifest)
+    meta["_dir"] = d
+    return meta
+
+
+def load_presets() -> dict:
+    return _load_json(PRESETS_FILE).get("presets", {})
+
+
+def resolve_modules(preset, modules):
+    presets = load_presets()
+    if modules:
+        seeds = list(modules)
+    elif preset:
+        if preset not in presets:
+            _err(f"unknown preset {preset!r}. Known: {', '.join(presets)}.")
+        seeds = list(presets[preset])
+    else:
+        _err("provide --preset or --modules (or an --answers file with one).")
+
+    # Resolve requires[] transitively; deps install first (stable order).
+    ordered = []
+    seen = set()
+
+    def visit(name):
+        if name in seen:
+            return
+        seen.add(name)
+        meta = load_module(name)
+        for req in meta.get("requires", []):
+            visit(req)
+        ordered.append(name)
+
+    for m in seeds:
+        visit(m)
+    return ordered
+
+
+# ---- config + prefs (machine config vs taste) ---------------------------------------
+
+def build_config(answers: dict) -> dict:
+    example_path = SHIPKIT_ROOT / "loop.config.example.json"
+    example = _load_json(example_path)
+    cfg = {k: v for k, v in example.items() if not k.startswith("_")}
+    cfg["_comment"] = ("Generated by shipkit_init.py from loop.config.example.json. "
+                       "Safe to hand-edit; re-running only rewrites it with --force-config. "
+                       "See loop.config.example.json for field docs.")
+    for key in ("ship_root", "repos", "max_concurrent_crew", "github_org",
+                "chat_surface", "validator_cmd", "headroom_signal_path", "hosts_ports"):
+        if key in answers:
+            cfg[key] = answers[key]
+    cfg.setdefault("ship_root", ".")
+    return cfg
+
+
+def write_config(cfg, dry_run, force_config):
+    target = SHIPKIT_ROOT / "loop.config.json"
+    if target.exists() and not force_config:
+        return ["loop.config.json exists — left untouched (pass --force-config to regenerate)"]
+    serialized = json.dumps(cfg, indent=2, ensure_ascii=False) + "\n"
+    if dry_run:
+        return [f"would write loop.config.json (ship_root={cfg['ship_root']!r})"]
+    tmp = target.with_suffix(".json.tmp")
+    tmp.write_text(serialized, encoding="utf-8")
+    os.replace(tmp, target)
+    return [f"wrote loop.config.json (ship_root={cfg['ship_root']!r})"]
+
+
+PREF_KEYS = {
+    "max_concurrent_crew", "model_default", "model_escalate", "model_lookout", "model_speed",
+    "review_policy", "review_model", "review_standards", "report_format", "chat_surface",
+    "search_tool", "pr_review_cmd", "github_org", "pr_template",
+}
+
+
+def build_prefs(answers: dict) -> dict:
+    raw = answers.get("prefs") or {}
+    if not isinstance(raw, dict):
+        _err("answers 'prefs' must be a JSON object of key -> value.")
+    prefs = {}
+    for key in PREF_KEYS:
+        val = raw.get(key)
+        if val is None and key == "max_concurrent_crew":
+            val = answers.get("max_concurrent_crew")
+        if val is None:
+            continue
+        prefs[key] = str(val)
+    return prefs
+
+
+def _substitute_pref_line(line: str, value: str) -> str:
+    head, sep, comment = line.partition("#")
+    colon = head.index(":")
+    key_part = head[:colon + 1]
+    pad_old = head[colon + 1:]
+    lead_ws = pad_old[:len(pad_old) - len(pad_old.lstrip())]
+    if sep:
+        return f"{key_part}{lead_ws}{value}   {sep}{comment}".rstrip("\n") + "\n"
+    return f"{key_part}{lead_ws}{value}".rstrip() + "\n"
+
+
+def render_prefs(prefs, house_notes, example_path):
+    try:
+        text = example_path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        _err(f"prefs template missing: {example_path}")
+    out_lines = []
+    in_fence = False
+    for line in text.splitlines(keepends=True):
+        if line.strip().startswith("```"):
+            in_fence = not in_fence
+            out_lines.append(line)
+            continue
+        if in_fence:
+            body = line.lstrip()
+            matched = False
+            for key in prefs:
+                if body.startswith(f"{key}:"):
+                    out_lines.append(_substitute_pref_line(line, prefs[key]))
+                    matched = True
+                    break
+            if matched:
+                continue
+        out_lines.append(line)
+    text = "".join(out_lines)
+    text = text.replace("# Mate — Local Preferences (template)\n",
+                        "# Mate — Local Preferences\n", 1)
+    text = text.replace(
+        "Copy this file to **`mate.local.md`** and fill in your values. The Mate reads",
+        "Generated by `/shipkit-init` (shipkit_init.py) from "
+        "`core/mate.local.example.md`.\nHand-edit anytime. The Mate reads", 1)
+    if house_notes:
+        note_block = "\n".join(f"- {n}" for n in house_notes) + "\n"
+        marker = "- (example) Restart service X"
+        idx = text.find(marker)
+        text = (text[:idx] + note_block) if idx != -1 else text.rstrip("\n") + "\n\n" + note_block
+    return text
+
+
+def write_prefs(answers, dry_run, force_prefs):
+    target = SHIPKIT_ROOT / "mate.local.md"
+    example_path = SHIPKIT_ROOT / "core" / "mate.local.example.md"
+    prefs = build_prefs(answers)
+    house_notes = answers.get("house_notes")
+    if house_notes is not None and not isinstance(house_notes, list):
+        _err("answers 'house_notes' must be a JSON list of strings.")
+    supplied = ", ".join(sorted(prefs)) if prefs else "(none — all defaults)"
+    if target.exists() and not force_prefs:
+        return [f"mate.local.md exists — left untouched (pass --force-prefs). "
+                f"Prefs that WOULD apply: {supplied}"]
+    text = render_prefs(prefs, house_notes, example_path)
+    if dry_run:
+        return [f"would write mate.local.md ({len(prefs)} pref(s): {supplied})"]
+    tmp = target.with_suffix(".md.tmp")
+    tmp.write_text(text, encoding="utf-8")
+    os.replace(tmp, target)
+    return [f"wrote mate.local.md ({len(prefs)} pref(s) applied: {supplied})"]
+
+
+# ---- agents, hooks, lib, skills (manifest-driven) -----------------------------------
+
+def install_agents(module_list, agents_target, ship_root_abs, dry_run):
+    """Write each selected module's agent defs into agents_target, substituting {SHIP_DIR}
+    in the hook command paths. Always WRITTEN (never symlinked) so the substitution lands."""
+    lines = []
+    if not dry_run:
+        agents_target.mkdir(parents=True, exist_ok=True)
+    for name in module_list:
+        meta = load_module(name)
+        for rel in meta.get("agents", []):
+            src = meta["_dir"] / rel
+            if not src.is_file():
+                lines.append(f"{rel}: source missing at {src} — skipped")
+                continue
+            dst = agents_target / Path(rel).name
+            content = src.read_text(encoding="utf-8").replace("{SHIP_DIR}", ship_root_abs)
+            if dst.exists():
+                lines.append(f"{dst.name}: exists — left untouched (remove it to refresh; the SKILL judges upgrades)")
+                continue
+            if dry_run:
+                lines.append(f"{dst.name}: would install ({{SHIP_DIR}} -> {ship_root_abs})")
+                continue
+            dst.write_text(content, encoding="utf-8")
+            lines.append(f"{dst.name}: installed ({{SHIP_DIR}} substituted)")
+    return lines
+
+
+def chmod_hooks(module_list, dry_run):
+    """Set +x on every selected module's hooks. A non-exec hook fails OPEN."""
+    lines = []
+    for name in module_list:
+        meta = load_module(name)
+        for rel in meta.get("hooks", []):
+            f = meta["_dir"] / rel
+            if not f.is_file():
+                lines.append(f"{name}/{rel}: MISSING at {f}")
+                continue
+            if os.access(f, os.X_OK):
+                lines.append(f"{name}/{rel}: already +x")
+                continue
+            if dry_run:
+                lines.append(f"{name}/{rel}: would chmod +x (currently non-exec — fails OPEN!)")
+                continue
+            mode = f.stat().st_mode
+            f.chmod(mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+            lines.append(f"{name}/{rel}: chmod +x (was non-exec — fixed)")
+    return lines
+
+
+def assert_hook_paths(agents_target):
+    """Read the JUST-INSTALLED agent defs and assert each hook command path EXISTS and is +x.
+    A broken/non-exec hook command path = silent zero enforcement; surface it loudly."""
+    lines = []
+    token = re.compile(r'command:\s*"([^"]+)"')
+    for f in sorted(agents_target.glob("ship-*.md")):
+        try:
+            text = f.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        for cmd in token.findall(text):
+            if "validate-" not in cmd:
+                continue
+            pth = Path(cmd)
+            if not pth.is_file():
+                lines.append(f"FAIL {f.name}: hook NOT FOUND: {cmd} (FAILS OPEN — fix before relying on it)")
+            elif not os.access(pth, os.X_OK):
+                lines.append(f"FAIL {f.name}: hook NOT EXECUTABLE: {cmd} (FAILS OPEN — chmod +x it)")
+            else:
+                lines.append(f"ok   {f.name}: {pth.name} resolves + executable")
+    if not lines:
+        lines.append("(no installed agent-def hook command paths to assert)")
+    return lines
+
+
+def install_lib(module_list):
+    """Union each selected module's declared lib[] deps; assert lib/ files present + report.
+    lib/ files stay in place (this repo IS the install); the union is verified, not copied."""
+    needed = []
+    for name in module_list:
+        for f in load_module(name).get("lib", []):
+            if f not in needed:
+                needed.append(f)
+    if not needed:
+        return ["(no shared lib deps for the selected modules)"]
+    return [f"lib/{f}: present" if (LIB_DIR / f).exists() else f"lib/{f}: MISSING at {LIB_DIR / f}"
+            for f in needed]
+
+
+def _install_one(src: Path, dst: Path, mode: str, dry_run: bool) -> str:
+    label = dst.name
+    if dst.exists() or dst.is_symlink():
+        if dst.is_symlink():
+            try:
+                if dst.resolve() == src.resolve():
+                    return f"{label}: already linked (no-op)"
+            except OSError:
+                return f"{label}: existing symlink is broken — leaving it (the SKILL judges orphans)"
+            return f"{label}: a symlink already exists pointing elsewhere — left untouched"
+        return f"{label}: target already exists (a COPY, not a symlink) — left untouched (the SKILL judges copied-vs-linked)"
+    if dry_run:
+        return f"{label}: would {mode} -> {dst}"
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    if mode == "symlink":
+        try:
+            os.symlink(src, dst, target_is_directory=True)
+            return f"{label}: symlinked -> {dst}"
+        except OSError as e:
+            shutil.copytree(src, dst)
+            return f"{label}: symlink failed ({e.strerror or e}); copied instead -> {dst}"
+    shutil.copytree(src, dst)
+    return f"{label}: copied -> {dst}"
+
+
+def install_skills(module_list, skills_target, mode, dry_run):
+    lines = []
+    for name in module_list:
+        meta = load_module(name)
+        for rel in meta.get("skills", []):
+            src = meta["_dir"] / rel
+            if not src.is_dir():
+                lines.append(f"{Path(rel).name}: source dir missing at {src} — skipped")
+                continue
+            lines.append(_install_one(src, skills_target / Path(rel).name, mode, dry_run))
+    if not lines:
+        lines.append("(no skill dirs to install for the selected modules)")
+    return lines
+
+
+def detect_prior_state(module_list, skills_target):
+    """SURFACE prior-install findings for the SKILL/user to JUDGE. Resolves nothing.
+    - orphan skills (in the target, not in any selected module) — e.g. a stale ship-tick
+    - copied-vs-symlinked installed skills (a copied old ship-watch-start silently keeps /loop)
+    - missing loop.config.json schema keys (vs the example) — never auto-migrated here"""
+    findings = []
+    selected_skills = {"shipkit-init"}  # the installer skill is always expected
+    for name in module_list:
+        for rel in load_module(name).get("skills", []):
+            selected_skills.add(Path(rel).name)
+
+    if skills_target.is_dir():
+        for entry in sorted(skills_target.iterdir()):
+            if not (entry.name.startswith("ship") or entry.name in ("bosun-tick", "shipkit-init")):
+                continue
+            if entry.is_symlink():
+                try:
+                    target = entry.resolve(strict=True)
+                    kind = "symlink->repo" if str(SHIPKIT_ROOT) in str(target) else "symlink->elsewhere"
+                except OSError:
+                    kind = "BROKEN symlink (target gone)"
+            else:
+                kind = "COPY (frozen — a copied old boot skill can silently keep launching /loop)"
+            orphan = " ORPHAN (not in any selected module)" if entry.name not in selected_skills else ""
+            findings.append(f"skill {entry.name}: {kind}{orphan}")
+
+    cfg = SHIPKIT_ROOT / "loop.config.json"
+    example = SHIPKIT_ROOT / "loop.config.example.json"
+    if cfg.exists() and example.exists():
+        try:
+            have = set(json.loads(cfg.read_text(encoding="utf-8")))
+            want = {k for k in json.loads(example.read_text(encoding="utf-8")) if not k.startswith("_")}
+            missing = sorted(want - have)
+            if missing:
+                findings.append(f"loop.config.json MISSING keys vs example: {', '.join(missing)} "
+                                f"(the SKILL merges these with the user — not auto-migrated here)")
+        except (json.JSONDecodeError, OSError):
+            findings.append("loop.config.json present but unreadable — the SKILL should inspect it")
+
+    if not findings:
+        findings.append("(no prior-install state detected — clean machine)")
+    return findings
+
+
+def seed_state(dry_run):
+    status_path = SHIPKIT_ROOT / "state" / "status.json"
+    writer = LIB_DIR / "status_writer.py"
+    if status_path.exists():
+        try:
+            doc = json.loads(status_path.read_text(encoding="utf-8"))
+            if doc.get("generated_at"):
+                return ["state/status.json already seeded (has generated_at) — no-op"]
+        except (json.JSONDecodeError, OSError):
+            pass
+    if dry_run:
+        return ["would seed state/status.json via lib/status_writer.py --init"]
+    if not writer.exists():
+        _err(f"status_writer.py not found at {writer}")
+    res = subprocess.run([sys.executable, str(writer), "--init", "--force"],
+                         capture_output=True, text=True)
+    if res.returncode != 0:
+        _err(f"status_writer.py --init failed: {res.stderr.strip() or res.stdout.strip()}")
+    return [f"seeded state/status.json ({res.stdout.strip()})"]
+
+
+def smoke_test_lines(module_list, skills_target, agents_target):
+    has_autonomous = "autonomous" in module_list
+    has_ui = "ui" in module_list
+    lines = ["", "Smoke test (the acceptance):"]
+    if not has_autonomous:
+        lines += [
+            "  (tier 1 — core) Open Claude Code in the shipkit dir; say \"you're First Mate\".",
+            "  The Mate reads core/mate.md and runs REQUEST/RESPONSE — a human drives it turn",
+            "  by turn. It dispatches worker crew (ship-crew/lookout/reviewer/pilot) with the",
+            "  crew-safety hooks armed. No Bosun, no loop, no UI at this tier.",
+        ]
+    else:
+        lines += [
+            "  1. Open Claude Code in the shipkit dir; say \"you're First Mate\".",
+            "  2. Run /ship-watch-start — it boots event-driven: re-anchors, acquires the",
+            "     mate-lock, arms the wake-monitor, BOOTSTRAPS THE BOSUN, preflights, IDLES.",
+            "  3. Confirm the Bosun is ticking: tail state/bosun-heartbeat.log (fresh line).",
+            "  4. Drop a directive (inbox/captain.md edit or inbox/drops/) -> the Mate WAKES.",
+            "  5. Flip a bookkeeping item -> NO wake; it reconciles at the next wake.",
+        ]
+    if has_ui:
+        lines += [
+            "  6. (ui) cd ui && start its server, open it in a browser, confirm it renders",
+            "     state/status.json. (UI files ship on the stacked UI PR.)",
+        ]
+    lines += [
+        "",
+        f"Agent defs installed under: {agents_target}  ({{SHIP_DIR}} substituted).",
+        f"Skills installed under:     {skills_target}",
+        "Running the agent in a SANDBOX is recommended (defense-in-depth on top of the hooks).",
+    ]
+    if has_autonomous:
+        lines.append("Launch the bg Mate: modules/autonomous/scripts/ship-up.sh --check (then --launch-mate).")
+    lines.append("Re-run shipkit_init.py any time — idempotent; the SKILL judges upgrades.")
+    return lines
+
+
+def main():
+    p = argparse.ArgumentParser(prog="shipkit_init.py",
+                                description="Manifest-driven apply step for shipkit onboarding.")
+    p.add_argument("--answers", metavar="PATH")
+    p.add_argument("--preset", help="a preset name from presets.json (core / autonomous / ui)")
+    p.add_argument("--modules", nargs="*", help="explicit module set (requires[] resolved transitively)")
+    p.add_argument("--ship-root", help="ship_root for loop.config.json + {SHIP_DIR} substitution (default '.')")
+    p.add_argument("--max-concurrent-crew", type=int, dest="max_crew")
+    p.add_argument("--install-mode", choices=["symlink", "copy"], default=None)
+    p.add_argument("--skills-target", metavar="DIR")
+    p.add_argument("--agents-target", metavar="DIR")
+    p.add_argument("--force-config", action="store_true")
+    p.add_argument("--pref", action="append", metavar="KEY=VALUE", default=[])
+    p.add_argument("--house-note", action="append", metavar="TEXT", default=[])
+    p.add_argument("--force-prefs", action="store_true")
+    p.add_argument("--dry-run", action="store_true")
+    args = p.parse_args()
+
+    answers = _load_json(Path(args.answers)) if args.answers else {}
+    if not isinstance(answers, dict):
+        _err("answers file must be a JSON object.")
+    preset = args.preset or answers.get("preset")
+    modules = args.modules if args.modules is not None else answers.get("modules")
+    if args.ship_root is not None:
+        answers["ship_root"] = args.ship_root
+    if args.max_crew is not None:
+        answers["max_concurrent_crew"] = args.max_crew
+
+    if args.pref:
+        merged = dict(answers.get("prefs") or {})
+        for item in args.pref:
+            if "=" not in item:
+                _err(f"--pref expects KEY=VALUE, got {item!r}")
+            k, v = item.split("=", 1)
+            k = k.strip()
+            if k not in PREF_KEYS:
+                _err(f"unknown pref key {k!r}. Known: {', '.join(sorted(PREF_KEYS))}.")
+            merged[k] = v.strip()
+        answers["prefs"] = merged
+    if args.house_note:
+        answers["house_notes"] = list(args.house_note)
+
+    install_mode = args.install_mode or answers.get("install_mode") or DEFAULT_INSTALL_MODE
+    skills_target = Path(args.skills_target).expanduser() if args.skills_target \
+        else Path(answers.get("skills_target", DEFAULT_SKILLS_TARGET)).expanduser()
+    agents_target = Path(args.agents_target).expanduser() if args.agents_target \
+        else Path(answers.get("agents_target", DEFAULT_AGENTS_TARGET)).expanduser()
+
+    module_list = resolve_modules(preset, modules)
+    ship_root_raw = answers.get("ship_root", ".")
+    if ship_root_raw == ".":
+        ship_root_abs = str(SHIPKIT_ROOT)
+    else:
+        ship_root_abs = str(Path(ship_root_raw).expanduser())
+
+    prefix = "[dry-run] " if args.dry_run else ""
+    print(f"{prefix}shipkit init — preset={preset or 'custom'} modules={module_list} mode={install_mode}")
+    print(f"{prefix}agents target: {agents_target}   skills target: {skills_target}")
+    print(f"{prefix}ship_root (for {{SHIP_DIR}}): {ship_root_abs}")
+    print()
+
+    cfg = build_config(answers)
+    plan = []
+    plan.append("== loop.config.json (machine config) ==")
+    plan += [f"  {ln}" for ln in write_config(cfg, args.dry_run, args.force_config)]
+    plan.append("== mate.local.md (behavioral prefs / taste) ==")
+    plan += [f"  {ln}" for ln in write_prefs(answers, args.dry_run, args.force_prefs)]
+    plan.append("== agents ({SHIP_DIR} substituted) ==")
+    plan += [f"  {ln}" for ln in install_agents(module_list, agents_target, ship_root_abs, args.dry_run)]
+    plan.append("== hooks (+x — a non-exec hook fails OPEN) ==")
+    plan += [f"  {ln}" for ln in chmod_hooks(module_list, args.dry_run)]
+    if not args.dry_run:
+        plan.append("== hook path assertion (a broken hook path = silent zero enforcement) ==")
+        plan += [f"  {ln}" for ln in assert_hook_paths(agents_target)]
+    plan.append("== lib/ (shared infra — unioned from module lib[] deps) ==")
+    plan += [f"  {ln}" for ln in install_lib(module_list)]
+    plan.append("== skills ==")
+    plan += [f"  {ln}" for ln in install_skills(module_list, skills_target, install_mode, args.dry_run)]
+    plan.append("== state/status.json ==")
+    plan += [f"  {ln}" for ln in seed_state(args.dry_run)]
+    plan.append("== prior-install state (REPORTED, not resolved — the SKILL judges) ==")
+    plan += [f"  {ln}" for ln in detect_prior_state(module_list, skills_target)]
+
+    for line in plan:
+        print(f"{prefix}{line}")
+    for line in smoke_test_lines(module_list, skills_target, agents_target):
+        print(f"{prefix}{line}" if line else "")
+
+
+if __name__ == "__main__":
+    main()

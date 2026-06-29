@@ -42,7 +42,7 @@ Claude Code will read these docs, ask you a few questions (where to put the ship
 
 Once bootstrapped, start a Claude Code session with your ship directory as a working directory (or as an additional context path), and tell it:
 
-> You're First Mate on this ship. Read `ship/mate.md` for your standing orders.
+> You're First Mate on this ship. Read `ship/core/mate.md` for your standing orders.
 
 The Mate will read ship state, report status, and ask for steering.
 
@@ -54,7 +54,9 @@ Drop work items into `inbox/captain.md` — the Mate will triage them into ticke
 
 ## Bootstrap Instructions (for Claude Code)
 
-**If you're a coding agent reading this:** follow these steps to set up Ship on this machine. Adapt paths and details to the current environment. Ask the Captain questions where noted.
+**If you're a coding agent reading this:** the install + upgrade is driven by the
+**`/shipkit-init`** skill, NOT by hand. Don't hand-copy hooks/agents — run the skill; it
+carries the judgment and calls the deterministic apply step (`shipkit_init.py`).
 
 ### 1. Choose the ship directory
 
@@ -64,11 +66,11 @@ Ship is **per-machine, not per-project.** It lives in a single directory and coo
 
 ```
 {ship-dir}/
-  captain.md           # Captain's priorities (from templates/captain.md)
-  queue.md             # Work queue (from templates/queue.md)
+  captain.md           # Captain's priorities (from core/templates/captain.md)
+  queue.md             # Work queue (from core/templates/queue.md)
   CLAUDE.md            # System entry point (from this repo)
-  mate.md              # First Mate standing orders (from this repo)
-  crew.md              # Crew standing orders (from this repo)
+  core/mate.md         # First Mate standing orders (request/response base)
+  core/crew.md         # Crew standing orders
   inbox/
     captain.md         # Captain's inbox for quick thoughts
     drops/             # Items from external processes
@@ -81,26 +83,24 @@ Ship is **per-machine, not per-project.** It lives in a single directory and coo
     mate/              # Daily mate logs
   docs/
     knowledge/         # Accumulated knowledge (env config, patterns, etc.)
-  scripts/             # Hook scripts for subagent enforcement
 ```
 
 Initialize it as a git repo (`git init`). Ship state benefits from version control — it's the coordination substrate.
 
-### 3. Install hook scripts
+### 3. Run `/shipkit-init` (it installs hooks + agents + skills)
 
-Copy `scripts/validate-crew-bash.sh` and `scripts/validate-readonly-bash.sh` from this repo to `{ship-dir}/scripts/`. Make them executable (`chmod +x`).
-
-### 4. Install subagent definitions
-
-Ship uses custom Claude Code subagents. Copy the files from `agents/` in this repo to `~/.claude/agents/`, **replacing `{SHIP_DIR}`** in hook command paths with the absolute path to the ship directory.
-
-For example, if the ship directory is `/Users/will/dev/work/ship/`, then `{SHIP_DIR}/scripts/validate-crew-bash.sh` becomes `/Users/will/dev/work/ship/scripts/validate-crew-bash.sh`.
-
-**If ship-* agents already exist at `~/.claude/agents/`:** This machine already has a Ship instance. The hook scripts are generic (git safety, not project-specific), so unless the existing agents point to a different ship directory with different hooks, they're probably fine as-is. Check the hook paths — if they point to a valid ship scripts directory, leave them alone. If they're stale or point to a removed directory, overwrite them.
+Run **`/shipkit-init`** in Claude Code from the ship dir. The skill interviews you for the
+**tier** (core / autonomous / ui), ship-root, install method, and taste, then calls
+`shipkit_init.py`, which: installs the selected tiers' agent defs (substituting `{SHIP_DIR}`
+in each def's hook command paths), sets the hook +x bit, **asserts every hook command path
+resolves and is executable** (a broken hook path fails OPEN = silent zero enforcement),
+installs the skills, verifies the shared `lib/`, and seeds state. For an existing/older
+install (incl. the pre-v2 "Mate-runs-/loop" shape), the skill detects how the machine has
+diverged, cleans orphans, and migrates config — see the skill's STEP 2.
 
 ### 5. Set up captain.md
 
-Create `{ship-dir}/captain.md` from `templates/captain.md`. If working interactively, ask the Captain:
+Create `{ship-dir}/captain.md` from `core/templates/captain.md`. If working interactively, ask the Captain:
 - What's their current situation?
 - What are the top priorities?
 - Any constraints on how work should be done?
@@ -115,20 +115,26 @@ Ask the Captain what repos or areas of work they manage. Create `projects/{area}
 
 ### 7. Verify
 
-The Mate should be able to read ship state and report status. Tell Claude Code: "You're First Mate on this ship. Read `{ship-dir}/mate.md` for your standing orders." It should read the queue, captain.md, and inbox, then report that everything is empty and ready for work.
+The Mate should be able to read ship state and report status. Tell Claude Code: "You're First Mate on this ship. Read `{ship-dir}/core/mate.md` for your standing orders." It should read the queue, captain.md, and inbox, then report that everything is empty and ready for work.
 
 ---
 
 ## What's in Shipkit
 
-| Directory | Contents | Purpose |
+Shipkit is organized into **tiered module folders**. A preset (`presets.json`) selects a set
+of folders; each folder is self-describing via its `module.json` (its files + tier + script
+deps). Tiers are start-at OR progress-through — re-run `/shipkit-init` at a higher preset to
+install the delta.
+
+| Tier / dir | Contents | Purpose |
 |-----------|----------|---------|
-| `agents/` | `ship-mate`, `ship-bosun`, `ship-crew`, `ship-lookout`, `ship-reviewer`, `ship-pilot` | Custom subagent definitions (`/shipkit-init` installs to `~/.claude/agents/`, substituting the ship path) |
-| `skills/` | `ship-watch-start`, `bosun-tick`, `shipkit-init` | The boot / heartbeat-tick / onboarding skills |
-| `scripts/` | `validate-{mate,bosun,crew,readonly}-bash.sh`, `validate-mate-mcp.sh`, `bosun_emit.py`, `status_writer.py`, `classify_input.py`, `wake_monitor.py`, `mate-lock.{rb,py}`, `ship-up.sh`, `launch-bosun.sh`, `shipkit_init.py` | Bright-line hooks + the autonomous kernel's tooling |
-| `modules/` | `bosun-loop`, `mate-event-driven`, `subagent-roster`, `pull-requests`, `review-cycle`, `dispatch-bands`, `sensors`, `wake-monitor` | Optional/depth doctrine layered on the core docs |
-| `templates/` | `ticket.md`, `captain.md`, `queue.md`, `crew-allow-local.sh`, `bosun-allow-local.sh` | Templates + per-deployment hook-extension stubs |
-| Root | `mate.md`, `bosun.md`, `crew.md`, `mate.local.example.md`, `loop.config.json`, `CLAUDE.md` | Role standing orders + config seam |
+| **`core/`** (tier 1) | `mate.md` (request/response), `crew.md`, `agents/ship-{crew,lookout,reviewer,pilot}.md`, `hooks/validate-{crew,readonly}-bash.sh`, `templates/`, `mate.local.example.md` | The plain request/response Mate + worker agents + crew-safety hooks. No loop, no Bosun, no UI. |
+| **`modules/autonomous/`** (tier 2) | `bosun.md`, `mate-event-driven.md`, `bosun-loop.md`, `agents/ship-{mate,bosun}.md`, `hooks/validate-{mate,mate-mcp,bosun}-*.sh`, `skills/{ship-watch-start,bosun-tick}`, `scripts/{bosun_emit.py,launch-bosun.sh,ship-up.sh,mate-lock.{rb,py}}` | The bg-Mate/Bosun heartbeat kernel. |
+| **`modules/wake-monitor/`** (tier 2) | `wake-monitor.md`, `wake_monitor.py`, `wake_monitor_native.py` | The Mate's wake monitor (the one optional capability inside autonomous). |
+| **`modules/{subagent-roster,pull-requests,review-cycle,dispatch-bands,sensors}/`** | a doc + `module.json` each | Depth-doctrine modules (roster/PR/review are tier 1; dispatch-bands/sensors tier 2). |
+| **`ui/`** (tier 3) | `status-surface.md` + `module.json` (the implementation files ship on the stacked UI PR) | The status-surface PWA console slot. |
+| **`lib/`** (shared) | `status_writer.py`, `classify_input.py`, `status.schema.md` | Multi-consumer infra; pulled in by whichever module's `module.json` declares it in `lib[]`. |
+| Root | `shipkit_init.py`, `presets.json`, `CLAUDE.md`, `README.md`, `loop.config.json`, `scripts/pull-upstream.sh` | The manifest-driven installer + the preset map + sync tooling. |
 
 ## Key Concepts
 
@@ -161,11 +167,11 @@ Crew write code and logs, but destructive git operations (commit, push, reset) a
 
 ### Two modes: request/response, and the autonomous two-agent kernel
 
-**Base mode is request/response.** The Captain drives the Mate turn by turn: the Mate checks inbox, checks active work, dispatches if capacity, stays present for steering. Crew run in the background. The Captain can steer at any time. `mate.md` alone is a complete doctrine for this.
+**Base mode is request/response** (tier 1 — `core`). The Captain drives the Mate turn by turn: the Mate checks inbox, checks active work, dispatches if capacity, stays present for steering. Crew run in the background. The Captain can steer at any time. `core/mate.md` alone is a complete doctrine for this.
 
-**Autonomous mode is a two-agent split** (the optional kernel this repo ships). A **Bosun** owns the heartbeat — it runs its own `/loop` (`bosun-tick`): periodic curate/reconcile/librarian sweeps, surfacing findings to the Mate via wake-class **drops** only when something needs Mate action (it's read-only; its sole write path is `bosun_emit.py`). The **Mate is event-driven** — it boots once via `/ship-watch-start` (re-anchor → mate-lock → arm the wake-monitor → bootstrap the Bosun → preflight → idle), then idles, waking only on events (Captain drops, Bosun drops, crew completions). The Mate does **not** run `/loop` or own a heartbeat tick.
+**Autonomous mode is a two-agent split** (tier 2 — `autonomous`). A **Bosun** owns the heartbeat — it runs its own `/loop` (`bosun-tick`): periodic curate/reconcile/librarian sweeps, surfacing findings to the Mate via wake-class **drops** only when something needs Mate action (it's read-only; its sole write path is `modules/autonomous/scripts/bosun_emit.py`). The **Mate is event-driven** — it boots once via `/ship-watch-start` (re-anchor → mate-lock → arm the wake-monitor → bootstrap the Bosun → preflight → idle), then idles, waking only on events (Captain drops, Bosun drops, crew completions). The Mate does **not** run `/loop` or own a heartbeat tick.
 
-The doctrine lives in `bosun.md` + `mate.md` (event-driven section) and the paired modules [`modules/bosun-loop.md`](modules/bosun-loop.md) + [`modules/mate-event-driven.md`](modules/mate-event-driven.md). Bring it up with `scripts/ship-up.sh` (the Mate) — which itself bootstraps the Bosun via `scripts/launch-bosun.sh`. **Running the agents in a sandbox is recommended** (defense-in-depth on top of the bright-line hooks); on macOS [agent-safehouse.dev](https://agent-safehouse.dev/) is a good option. Bare `claude` is the no-sandbox fallback. `/shipkit-init` installs the agent defs (substituting the ship path into the hook commands), sets the hook +x bit, and seeds state.
+The doctrine lives in `modules/autonomous/bosun.md` + `modules/autonomous/mate-event-driven.md`, paired with [`modules/autonomous/bosun-loop.md`](modules/autonomous/bosun-loop.md). Bring it up with `modules/autonomous/scripts/ship-up.sh` (the Mate) — which itself bootstraps the Bosun via `modules/autonomous/scripts/launch-bosun.sh`. **Running the agents in a sandbox is recommended** (defense-in-depth on top of the bright-line hooks); on macOS [agent-safehouse.dev](https://agent-safehouse.dev/) is a good option. Bare `claude` is the no-sandbox fallback. `/shipkit-init` installs the agent defs (substituting the ship path into the hook commands), sets the hook +x bit, and seeds state.
 
 ## Customization
 
@@ -173,7 +179,7 @@ Shipkit is a starting point. As you use it, you'll likely:
 
 - Add knowledge docs for your environment (`docs/knowledge/env-config.md`)
 - Create additional subagent types for specialized work
-- Extend crew permissions with `scripts/crew-allow-local.sh` (see below)
+- Extend crew permissions with `core/hooks/crew-allow-local.sh` (see below)
 - Add project-specific hooks for domain-specific safety rules
 - Evolve the role docs as you learn what works for your team
 
@@ -181,7 +187,7 @@ The core mechanism (watches + logs + structured dispatch) stays stable while eve
 
 ### Extending crew permissions
 
-The crew bash allow-list (`scripts/validate-crew-bash.sh`) is synced from upstream. To add project-specific commands (e.g., `aws`, `kubectl`) without losing them on upstream pulls, copy `templates/crew-allow-local.sh` to `scripts/crew-allow-local.sh` in your ship directory and add your rules. The validation script sources it automatically if present, and `pull-upstream.sh` never touches it.
+The crew bash allow-list (`core/hooks/validate-crew-bash.sh`) is synced from upstream. To add project-specific commands (e.g., `aws`, `kubectl`) without losing them on upstream pulls, copy `core/templates/crew-allow-local.sh` to `core/hooks/crew-allow-local.sh` (next to the hook) and add your rules. The validation script sources it automatically if present, and `pull-upstream.sh` never touches it.
 
 ## Staying up to date
 

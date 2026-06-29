@@ -1,0 +1,13 @@
+{
+  "name": "dispatch-bands",
+  "tier": "autonomous",
+  "doc": "dispatch-bands.md",
+  "agents": [],
+  "hooks": [],
+  "skills": [],
+  "scripts": [],
+  "lib": [],
+  "templates": [],
+  "tests": [],
+  "requires": ["autonomous"]
+}

@@ -1,0 +1,15 @@
+{
+  "name": "core",
+  "tier": "core",
+  "doc": "mate.md",
+  "role_docs": ["mate.md", "crew.md"],
+  "agents": ["agents/ship-crew.md", "agents/ship-lookout.md", "agents/ship-reviewer.md", "agents/ship-pilot.md"],
+  "hooks": ["hooks/validate-crew-bash.sh", "hooks/validate-readonly-bash.sh"],
+  "skills": [],
+  "scripts": [],
+  "lib": [],
+  "templates": ["templates/ticket.md", "templates/captain.md", "templates/queue.md", "templates/crew-allow-local.sh"],
+  "prefs_example": "mate.local.example.md",
+  "tests": ["tests/test-crew-bash.sh"],
+  "requires": []
+}

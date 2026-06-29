@@ -1,0 +1,13 @@
+{
+  "name": "review-cycle",
+  "tier": "core",
+  "doc": "review-cycle.md",
+  "agents": [],
+  "hooks": [],
+  "skills": [],
+  "scripts": [],
+  "lib": [],
+  "templates": [],
+  "tests": [],
+  "requires": ["core"]
+}
