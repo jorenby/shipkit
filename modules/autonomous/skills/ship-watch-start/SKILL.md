@@ -92,12 +92,19 @@ Stop here and idle. Let events wake you:
   ticket/queue, decide next.
 On each wake, **handle that event** (reconcile what it touches, act if in the Autonomous
 tier, surface Confirm-first/Never items) — this is NOT a periodic tick; the Bosun owns
-periodic sweeps. Reschedule a long `ScheduleWakeup` fallback floor only as a safety net (the
-harness can't track external state); the wake-monitor + Bosun are the primary wakes.
+periodic sweeps. **Do NOT schedule any `ScheduleWakeup` / timer: no loop on the Mate side,
+full stop.** Even a "long fallback floor" self-perpetuates into a Mate-side loop, which this
+design forbids. The Mate is woken PURELY by events — the persistent wake-monitor re-invokes
+the session on a real drop/inbox edit, and backgrounded crew re-invoke it via
+`<task-notification>`; neither needs a timer. Anything periodic is the Bosun's job; when it
+finds something actionable it wakes the Mate via an `inbox/drops/` drop. After handling a
+wake, **stop** — go quiet and wait for the next event. Don't poll, don't self-schedule.
 
 ## Bounds
 - Run **once** per launch/resume. Never loop ship-watch-start itself.
-- The Mate does NOT run `/loop` and does NOT own the heartbeat tick — that's the Bosun.
+- The Mate does NOT run `/loop`, does NOT own the heartbeat tick, and does NOT self-schedule
+  any `ScheduleWakeup`/timer — it is purely event-driven (wake-monitor + Bosun drops + crew
+  `<task-notification>`s). The heartbeat is the Bosun's.
 - The autonomy bright lines and all `mate.md` ceremony hold unchanged. Bash bright lines
   are hook-enforced (`validate-mate-bash.sh`); MCP writes are confirm-gated
   (`validate-mate-mcp.sh`).

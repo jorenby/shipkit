@@ -31,9 +31,11 @@ does.** The Bosun owns the heartbeat; the Mate is **event-driven**:
 | Bosun delta-drop | the Bosun writes a drop → wake-monitor picks it up | Act on the finding (Bosun proposes, Mate decides + acts) |
 | Crew completion | harness `<task-notification>` | Reap: review the log, run the review gate, update ticket/queue, decide next |
 
-A long `ScheduleWakeup` fallback floor is a **safety net only** (the harness can't track
-external state) — the wake-monitor + Bosun + crew completions are the primary wakes. Never
-poll for crew; a backgrounded crew re-invokes the Mate when it finishes.
+**The Mate schedules NOTHING — no `ScheduleWakeup`, no timer.** Even a "long fallback floor"
+self-perpetuates into a Mate-side loop, which this design forbids: the wake-monitor + Bosun
+drops + crew `<task-notification>`s re-invoke the session on real events without any timer.
+Anything periodic is the Bosun's job. Never poll for crew; a backgrounded crew re-invokes the
+Mate when it finishes.
 
 ## What a wake does (the per-wake handler, not a periodic tick)
 
@@ -47,7 +49,7 @@ On each wake, **handle that event** and return to idle:
    → Awaiting Captain with the action stated, never acted on.
 4. **Surface where the Captain reads** (your surface is in `mate.local.md`) — the
    idle-perception cost of staying silent usually outweighs the reasons to stay quiet.
-5. **Return to idle** — reschedule the fallback floor; stop.
+5. **Return to idle** — stop and wait for the next event (no rescheduling — the Mate has no timer).
 
 The tick *semantics* core knew (reap / reconcile / dispatch-on-capacity / curate) still
 apply — but now as **what gets done on a wake**, not what runs on a timer. The periodic
