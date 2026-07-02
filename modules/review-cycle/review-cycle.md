@@ -136,6 +136,16 @@ learned the hard way:
   authored against main, my worktree base is stale," **copy the reviewed file contents onto
   a fresh branch off current `main`** rather than merging the crew's branch. Read the crew's
   handoff for this flag; it's a load-bearing distinction the log will call out.
+- **Prevent the stale worktree at the root: set `worktree.baseRef: "head"`.** The above is
+  the *recovery*; this is the *cure*. If your ship repo's `origin` is not continuously pushed
+  — the common case for a Ship dir, since push-to-`main` is hook-blocked by design and the
+  Mate commits locally — then the worktree default of branching from `origin/main` gives every
+  isolated crew an ANCIENT tree (in the live ship, `origin` was frozen months back, so crews
+  silently worked on a months-old base and kept hitting the "apply files not branch" workaround
+  above). Fix it once in the ship dir's `.claude/settings.json`:
+  `{"worktree": {"baseRef": "head"}}` — now worktree crews branch from live local `HEAD`, not
+  the frozen remote. Set this whenever the ship repo isn't kept in continuous sync with its
+  remote. (Symptom that you needed this: recurring "my worktree base is stale" crew flags.)
 
 ## Where it plugs into core
 

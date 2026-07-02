@@ -538,6 +538,26 @@ def main():
     print(f"{prefix}shipkit init — preset={preset or 'custom'} modules={module_list} mode={install_mode}")
     print(f"{prefix}agents target: {agents_target}   skills target: {skills_target}")
     print(f"{prefix}ship_root (for {{SHIP_DIR}}): {ship_root_abs}")
+
+    # LOAD-BEARING invariant: the hooks live in THIS repo (core/hooks/,
+    # modules/*/hooks/), and the agent defs' hook command paths are built from
+    # {SHIP_DIR} == ship_root. So ship_root MUST be this shipkit dir — that's the
+    # sanctioned "one ship per machine, ship-root = the shipkit dir" topology. If
+    # ship_root points elsewhere, every installed agent def gets a hook path that
+    # DOESN'T EXIST → the hook-path assertion FAILs → the bright lines are disarmed
+    # (fail-open). Warn loudly rather than let it fail silently. (The assertion
+    # below still catches it, but a foreign operator should see WHY up front.)
+    try:
+        same = Path(ship_root_abs).resolve() == SHIPKIT_ROOT.resolve()
+    except OSError:
+        same = False
+    if not same:
+        print(f"{prefix}WARNING: ship_root ({ship_root_abs}) is NOT this shipkit dir "
+              f"({SHIPKIT_ROOT}). The hooks live HERE; the installed agent defs' hook "
+              f"command paths will point at ship_root and NOT resolve → the bright-line "
+              f"hooks FAIL OPEN. Sanctioned topology is ship-root = the shipkit dir "
+              f"(--ship-root . ). Only diverge if you know the hooks are mirrored under "
+              f"ship_root; the hook-path assertion below will confirm.")
     print()
 
     cfg = build_config(answers)

@@ -20,6 +20,15 @@ loop never writes them — the durable per-tick record is the mate-log telemetry
 line, not a ticks[] array. A module subclasses/wraps this writer to add fields;
 unknown fields already present in the file are preserved untouched on every write.
 
+Two production-earned rules for a module that wraps this writer (see
+lib/status.schema.md → "Module extensions"): (1) any UNBOUNDED array you add
+(ticks[], steer_feedback[]) MUST be capped + archived on every write, or it
+accretes forever (a live ticks[] hit 919 entries / 317KB with no reader of the
+tail). (2) any SIDE EFFECT you add (auto-posting to a thread/chat endpoint) MUST
+be env-guardable — the test suite sandboxes the disk write but not a network
+POST, which will hit the LIVE surface on every test run otherwise. This core
+writer is deliberately disk-only; keep the side effects in the wrapper + gated.
+
 Stdlib only — no pip installs. Cross-platform (uses pathlib + datetime).
 
 Subcommands

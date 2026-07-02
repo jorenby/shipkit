@@ -55,6 +55,27 @@ Classify the machine:
 - **Older / pre-v2 install** — the dangerous case. Do STEP 2 (reason about divergence) BEFORE
   installing.
 
+**For an older install, also classify the UPGRADE TOPOLOGY — it changes everything below:**
+
+- **(A) In-place git pull** — the operator's ship dir IS a shipkit clone, and they advance it by
+  fetching upstream. If v1 and v2 share linear history this is a fast-forward; if they diverged
+  (the usual case — v2 restructured flat→folders), a merge surfaces rename/edit CONFLICTS on any
+  file the operator edited (e.g. `mate.md`, `scripts/validate-crew-bash.sh`). The new folder
+  files (`core/`, `modules/*/`, `lib/`) arrive via git; the operator's OLD flat files may linger
+  as untracked cruft alongside them. See STEP 2.6.
+- **(B) Fresh clone, carry values across** — the operator clones v2 shipkit fresh into a new dir
+  and wants their v1 machine values (config, prefs, house notes, local hook edits) brought over.
+  **The apply step's config-key report is USELESS here** — a fresh v2 clone already has a full
+  `loop.config.json` with every key (placeholder values), so nothing shows as "missing," yet the
+  operator's real v1 values are NOT carried. YOU must diff the old ship dir's config/prefs/hooks
+  against the fresh clone and port the machine-specific values by hand (STEP 2.3, 2.6).
+
+**Note the config-check limitation explicitly:** `detect_prior_state` reads
+`loop.config.json` *in the shipkit repo you are running from*, not in some other old ship dir.
+It catches missing keys only in topology (A) where that file IS the operator's evolving config.
+In topology (B) you must point at the OLD dir yourself: read `<old-ship>/loop.config.json` and
+diff its non-`_` keys against `loop.config.example.json`.
+
 ## STEP 1 — Interview (fresh or tier-bump)
 
 AskUserQuestion-style, one decision at a time; skip anything a prior answer settles.
@@ -104,18 +125,68 @@ asking the user wherever it's unclear:
    sensible values (ask for machine-specific ones), preserve everything they already set.
    The v2 hook paths are now tiered (`core/hooks/...`, `modules/autonomous/hooks/...`) — make
    sure a migrated config uses the new paths, not the old flat `scripts/...`.
+   **Topology caveat (from STEP 0):** the apply step's "missing keys" report only fires in
+   topology (A) where the shipkit repo's own `loop.config.json` IS the operator's evolving
+   config. In topology (B) (fresh v2 clone), that file already has every key with placeholder
+   values, so NOTHING reports as missing — but the operator's real machine values (repos,
+   github_org, chat_surface, headroom path, hosts_ports) are NOT carried. Read the OLD dir's
+   `loop.config.json` yourself and port those values into the fresh clone's config by hand.
 4. **Stale prefs.** An old `mate.local.md` may carry a `loop_skill` key (e.g.
    `loop_skill: "/loop /ship-tick"`) — removed in v2 (the Mate doesn't run a loop). Harmless but
    wrong; clean it or note it.
-5. **Stale agent defs.** If the machine somehow has old `ship-mate`/`ship-bosun` defs with flat
-   `scripts/validate-*.sh` hook paths, those paths no longer exist (tiered now) → the hook
-   FAILS OPEN. The apply step's hook-path assertion catches this; remove the stale def so the
-   apply step rewrites it with the correct tiered path.
+5. **Stale agent defs — and the sharper "lingering flat hook" trap.** An old `ship-crew` /
+   `ship-mate` / `ship-bosun` def carries a hook command path baked at v1 install time, e.g.
+   `.../scripts/validate-crew-bash.sh` (flat). Two sub-cases, and the second is the dangerous one:
+   - **(a) The old flat hook file is GONE** (v2 moved it to `core/hooks/`). The baked path no
+     longer resolves → the apply step's hook-path assertion prints `FAIL ... NOT FOUND` → the
+     hook FAILS OPEN. Loud; easy to catch. Remove the stale def so the apply step rewrites it
+     with the correct tiered path.
+   - **(b) The old flat hook file STILL EXISTS** (topology A: `git pull` added `core/hooks/...`
+     but left the operator's old `scripts/validate-crew-bash.sh` lingering). Now the stale def's
+     baked flat path STILL RESOLVES and is executable → **the hook-path assertion prints `ok`**
+     → but it is enforcing the OLD v1 rules (including any operator edits made to the flat hook),
+     NOT the current v2 hook. The assertion checks existence + executability, NOT vintage, so a
+     green assertion does NOT prove the current hook is wired. **You** must catch this: if STEP 0
+     shows any agent def whose hook path points at a flat `scripts/...` location, remove the def
+     (apply rewrites it to `core/hooks/...`) AND delete the lingering flat hook file so nothing
+     can source it. Verify the rewritten def's path lands under `core/hooks/` /
+     `modules/*/hooks/`, not `scripts/`.
+6. **Flat→folder relocation of operator-EDITED framework files (the core divergence job).** v2
+   moved `mate.md`→`core/mate.md`, `crew.md`→`core/crew.md`, `scripts/validate-*.sh`→
+   `core/hooks/`, `scripts/{status_writer,classify_input}.py`→`lib/`, and `modules/*.md`→
+   `modules/*/` folders. If the operator EDITED any of these in place (a customized standing
+   order in `mate.md`, a local allow rule added directly into `validate-crew-bash.sh`), the edit
+   lives in the OLD flat location and the NEW file is the pristine upstream version — the
+   operator's change is silently lost unless you carry it. Walk it:
+   - **Diff old-flat vs new-folder** for every framework file the operator might have touched
+     (`diff <old>/mate.md <new>/core/mate.md`, etc.). Anything non-trivial that isn't just the
+     v2 rewrite = an operator edit to reconcile.
+   - **Re-home edits, don't copy files.** A customized `mate.md` standing order belongs in the v2
+     overlay `mate.local.md` (house notes / dated decisions), NOT pasted back into `core/mate.md`
+     (which `pull-upstream.sh` will overwrite on the next sync). A local hook allow rule belongs
+     in `core/hooks/crew-allow-local.sh` (from `core/templates/crew-allow-local.sh`), NOT edited
+     into `core/hooks/validate-crew-bash.sh` (synced from upstream — your edit is lost). This is
+     the whole point of the v2 overlay/`*-allow-local.sh` seams: they survive upstream pulls.
+   - **A local-only doc** the operator added (e.g. `docs/knowledge/env-config.md`) is not a
+     framework file → it's never synced and never conflicts → leave it exactly where it is.
+   - **Delete the leftover flat files** once their content is re-homed, so nothing reads the dead
+     copy (see 5b — a lingering flat hook is actively dangerous).
 
 When the picture is genuinely ambiguous (e.g. a hand-edited install), **ask the user** rather
-than guess. The lowest-risk move for a single machine is often a clean reinstall: remove
-`~/.claude/skills/ship-* ~/.claude/skills/bosun-tick ~/.claude/agents/ship-*` then `/shipkit-init`
-fresh — it sidesteps every divergence above. Offer it when divergence is deep.
+than guess. **The lowest-risk move for a single machine is almost always a clean reinstall** —
+and for a diverged flat→folder (pre-v2) install it is the RECOMMENDED path, because v1↔v2 do not
+fast-forward and an in-place merge produces rename conflicts on every edited file. Procedure:
+1. Capture the operator's divergence first (STEP 2.6 diffs) — you re-home these AFTER.
+2. Point the ship dir at v2 shipkit cleanly: either `git fetch && git checkout loop-mode-v2`
+   into the same dir (accept the new folder layout; delete leftover flat files), or clone v2
+   fresh and move the operator's project state (`captain.md`, `queue.md`, `projects/`, `logs/`,
+   `inbox/`, `state/`) across — these are never framework files.
+3. Remove installed skills/agents: `rm -rf ~/.claude/skills/ship-* ~/.claude/skills/bosun-tick`
+   `~/.claude/skills/shipkit-init ~/.claude/agents/ship-*` (this clears the orphan `ship-tick`,
+   the copied `ship-watch-start`, and every stale flat-hook agent def in one move).
+4. `/shipkit-init` fresh at the target preset — it sidesteps every divergence above.
+5. Re-home the captured edits into the v2 seams (overlay / `*-allow-local.sh`), never back into
+   the synced framework files.
 
 ## STEP 3 — Apply (call the script once)
 
