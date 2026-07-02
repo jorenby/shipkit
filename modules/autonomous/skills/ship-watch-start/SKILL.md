@@ -46,11 +46,18 @@ RESUME mode: carry context forward unbroken; do NOT open a new watch section.
 `python3 modules/autonomous/scripts/mate-lock.py acquire …`), then `status`. A prior
 bg-Mate's lock is usually STALE (an event-driven Mate
 doesn't beat the heartbeat) → a plain `acquire` auto-TAKES-OVER cleanly. Confirm you hold it.
+**Note: `status` exits 1 when the lock is held-fresh BY DESIGN** (it's an "is the lock free?"
+predicate — see its usage line). Nonzero exit alongside a healthy `STATE: held` report is
+success, not failure; don't chain it unguarded under `&&`/`set -e` (guard like ship-up.sh:
+`… status || [ $? -eq 1 ]`).
 
 ## 4. Take over the wake-monitor (single-instance!)
 The Mate's wake-monitor is session-bound. **Kill any existing, then re-arm fresh in THIS
 session** via the harness Monitor tool (persistent), and confirm exactly one is running:
-- `pkill -f wake_monitor.py` (clear any prior instance)
+- `pkill -f wake_monitor.py` (clear any prior instance). **Windows/Git-Bash: `pkill` doesn't
+  exist** — use PowerShell, e.g.
+  `powershell -Command "Get-CimInstance Win32_Process | ? {$_.CommandLine -match 'wake_monitor'} | % {Stop-Process -Id $_.ProcessId -Force}"`
+  (field-proven on the 2026-07-02 Windows migration).
 - Run `python3 modules/wake-monitor/wake_monitor.py` under the Monitor tool. It watches
   `inbox/drops/` + `inbox/captain.md`, classifies each net-new item through
   `lib/classify_input.py`, and emits one `WAKE <reason>` line per wake-class item (the

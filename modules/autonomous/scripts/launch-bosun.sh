@@ -32,7 +32,13 @@ sbx() { if [ -x "$SANDBOX_RUN" ]; then "$SANDBOX_RUN" claude "$@"; else claude "
 
 hb_age() {
   [ -f "$HB" ] || { echo 999999; return; }
-  local now mt; now=$(date +%s); mt=$(stat -f %m "$HB" 2>/dev/null || stat -c %Y "$HB" 2>/dev/null || echo 0)
+  # GNU-first (stat -c), BSD fallback (stat -f). Order matters: GNU `stat -f %m` prints a
+  # filesystem-status block to STDOUT before failing, poisoning $( ... || ... ) capture — while
+  # BSD stat has no -c and fails silently. GNU-first is the only order safe on both platforms
+  # (Linux, Git Bash, macOS). Finding #9, Windows migration 2026-07-02: the reversed order made
+  # hb_age() always-STALE on Git Bash → --ensure spawned a duplicate Bosun every Mate boot.
+  # General rule: `$(a || b)` fallback chains are only safe when a's failure is stdout-silent.
+  local now mt; now=$(date +%s); mt=$(stat -c %Y "$HB" 2>/dev/null || stat -f %m "$HB" 2>/dev/null || echo 0)
   echo $(( now - mt ))
 }
 
