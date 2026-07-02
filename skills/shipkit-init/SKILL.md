@@ -71,6 +71,16 @@ AskUserQuestion-style, one decision at a time; skip anything a prior answer sett
   into clusters (thresholds, model roster, review policy if `review-cycle` on, reporting,
   tools, repos/org, house notes); show defaults and let the Captain accept or set. Module-gated
   clusters appear only if that module is in the set.
+- **(e) Track or ignore the overlay?** `mate.local.md` is gitignored by default — the shipkit
+  convention is that the overlay is **operator-private** and `pull-upstream.sh` never touches
+  it. But when **the ship directory itself IS the operator's durable record** (a personal ship
+  the Captain version-controls, especially one where autonomous Mate rotations hand off through
+  git), **tracking** the overlay is right — a fresh Mate rotation should inherit the accumulated
+  house notes and dated decisions, and if the overlay is gitignored those are lost on rotation.
+  Ask: *is this ship a version-controlled personal record whose rotations should inherit the
+  overlay?* If yes, remove the `mate.local.md` line from `.gitignore` and commit the overlay
+  (its house notes are ship history, not secrets — keep genuine secrets in a separate
+  gitignored file / the OS keychain, never in the overlay either way). If no, leave it ignored.
 
 ## STEP 2 — Reason about divergence (the judgment, for an older/diverged install)
 

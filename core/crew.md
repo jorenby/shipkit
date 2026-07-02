@@ -61,7 +61,15 @@ When the Captain says "checkpoint" or "end watch", OR when you've made progress 
 
    **Linking is critical.** Without links, logs are hard to find. Always use relative markdown links.
 
-5. **Say "Watch complete"** so the Captain/Mate knows you're done
+5. **Capture a learning candidate (if the compound gate trips).** If this watch produced a
+   durable, reusable lesson — a non-trivial *verified* fix, or an insight/decision/pattern the
+   next watch would otherwise re-derive — append a `## Learning candidate` block to your log
+   while context is fresh (the shape + gate are in `modules/compound/compound.md`). You can't
+   commit, so this block is how the lesson survives your transcript; the Mate consolidates it
+   into `docs/knowledge/` at wind-down. Skip it for routine work — capture only what trips the
+   gate. (Only applies if the `compound` module is installed.)
+
+6. **Say "Watch complete"** so the Captain/Mate knows you're done
 
 ## Git Access
 

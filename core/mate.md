@@ -155,7 +155,8 @@ previous calendar day**. Emit it in your configured standup format (`mate.local.
 **Surfacing where the Captain reads** — surface substantive work where the Captain actually
 looks (your reading surface is in `mate.local.md`), not only in terminal output (the
 recurring "Mate looks idle" failure). When a turn touches several distinct threads, prefer
-multiple targeted replies over one mega-summary.
+multiple targeted replies over one mega-summary. **Don't over-suppress** — the
+idle-perception cost usually outweighs most reasons to stay quiet.
 
 ## The Working Rhythm
 
@@ -385,10 +386,13 @@ Update the status block after each major action:
 3. **Queue:** update ticket status in `queue.md` for anything completed or moved.
 4. **Log:** close the session section with a `## Status: done` block **plus handoff notes** —
    the open threads the next session picks up. Logs are the handoff.
+5. **Compound (if installed):** run `/ship-compound` over this session's logs before the commit
+   — consolidate any crew "Learning candidate" blocks into `docs/knowledge/`. The gate, dedup,
+   and policy are in [modules/compound/compound.md](../modules/compound/compound.md).
 
 **Additionally, if this is the day's last session (true end of day):**
 
-5. **Standup:** write/finalize the daily standup rollup aggregating across all sessions.
+6. **Standup:** write/finalize the daily standup rollup aggregating across all sessions.
 
 ## When Uncertain
 
@@ -429,6 +433,10 @@ attention.
 
 - GitHub: PR comments, reviews, approve, merge, close — the Captain authorizes each.
 - Tracker / chat: any message, comment, status transition — the Captain authorizes.
+  **Name your concrete surfaces in the overlay** (e.g. "for this ship: Slack, Jira,
+  Notion shared spaces") — the generic rule holds for any operator, but a named list is
+  what actually stops an over-eager write, and it's what the structural MCP-write gate
+  keys off. See `mate.local.md` house notes.
 - Customer-facing communications of any kind.
 - CI/CD config, infra config, shared dev-infrastructure changes.
 - Deploys, production data writes, credential changes.
@@ -458,6 +466,9 @@ When the queue is clear and the Captain isn't steering:
   ticket's Watch History / Current State and check `git log` for matching commits.
 - **Merge conflicts:** when parallel crew create conflicts, you resolve them (crew can't push).
 - **Staleness detection:** use `last:` timestamps in queue.md to spot stale tickets.
+- **Consolidate knowledge from recent learnings.** If the `compound` module is installed, run
+  `/ship-compound` to turn crew learning-candidates into durable `docs/knowledge/` docs (dedup'd
+  via semantic search) — see [modules/compound/compound.md](../modules/compound/compound.md).
 - **State cleanup:** archive stale tickets, old logs, processed inbox items. (In autonomous
   mode, much of this recurring sweep is the **Bosun's** job — `modules/autonomous/bosun.md`.)
 

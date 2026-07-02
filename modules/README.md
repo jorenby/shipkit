@@ -30,7 +30,8 @@ autonomous tier (dispatch-bands, sensors — tier 2). All are referenced from co
 | [sensors/sensors.md](sensors/sensors.md) | 2 | Autonomous mode | Watching external signals (PR comments, CI, resolved-out-of-band) via a cheap sub-agent sweep — the generic pattern the Bosun embodies. |
 | [subagent-roster/subagent-roster.md](subagent-roster/subagent-roster.md) | 1 | Dispatch | The full roster (incl. `ship-mate` + `ship-bosun` as first-class role agents), dispatch patterns, per-type security model, watch-orders template, agent teams. |
 | [pull-requests/pull-requests.md](pull-requests/pull-requests.md) | 1 | PR workflow | Mergeability re-checks, stacked-PR propagation, the `pr:` frontmatter convention. Core carries the draft-only / never-`gh pr ready` bright lines + the PR-link format. |
-| [review-cycle/review-cycle.md](review-cycle/review-cycle.md) | 1 | Any | The maker≠checker *enforcement* mechanism: a non-maker `ship-reviewer` gate, the standards doc, the policy knobs (core ships only the principle). |
+| [review-cycle/review-cycle.md](review-cycle/review-cycle.md) | 1 | Any | The maker≠checker *enforcement* mechanism: a non-maker `ship-reviewer` gate, the standards doc, the policy knobs (core ships only the principle). Also: the reviewer-must-report rule, the browser-verify gate for UI work, and apply-crew-work commit hygiene. |
+| [compound/compound.md](compound/compound.md) | 1 | Any | The capture→consolidate→refresh learning loop: crew capture a candidate, Mate consolidates into `docs/knowledge/` (dedup'd via semantic search) at wind-down, Bosun refreshes (autonomous tier). The `ship-compound` skill is the procedure. |
 
 Each module's tunable values live in `mate.local.md` (behavioral prefs) and/or
 `loop.config.json` (machine config), not in the module doc itself.

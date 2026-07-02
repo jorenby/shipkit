@@ -58,6 +58,14 @@ session** via the harness Monitor tool (persistent), and confirm exactly one is 
   contract + the dedup/zsh-nomatch/content-hash
   pitfalls. (Your deployment may add other monitors — e.g. an incident pager — in your
   prefs; arm those here too, single-instance.)
+  - **Conditional monitors — arm only when their precondition holds.** Some monitors are
+    context-gated, not always-on. The canonical case: an **incident/pager monitor should be
+    ARMED ONLY WHEN THE CAPTAIN IS ON-CALL.** If the Captain is off-call (or on vacation —
+    the standing default unless the overlay says otherwise), **skip arming it** — waking the
+    Captain for a page they aren't carrying is worse than missing it. Read the on-call
+    posture from your `@mate.local.md` house notes; when a monitor is gated, mirror the same
+    condition anywhere step 7 lists it as a wake source (a page is only a live wake source
+    while on-call). Arm the unconditional monitors (the Captain wake-monitor) every time.
 
 ## 5. Bootstrap the Bosun (the Mate owns this)
 The Mate is responsible for bootstrapping — including starting the Bosun if it isn't

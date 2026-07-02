@@ -59,6 +59,15 @@ review_model:     opus                        # the non-maker ship-reviewer mode
 review_standards: docs/knowledge/crew-code-standards.md   # the standards doc the reviewer checks
 ```
 
+## Compound / learning loop (if you run the compound module)
+
+```
+compound_policy:  candidates-only             # off | candidates-only | full-every-winddown
+knowledge_dir:    docs/knowledge              # where durable learnings live (flat dir)
+compound_model:   opus                        # dedup/judgment on the consolidate pass wants a strong model
+refresh_owner:    bosun                       # who runs the stale-learning sweep: mate | bosun | off
+```
+
 ## Reporting & surfaces
 
 ```

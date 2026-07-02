@@ -185,6 +185,20 @@ Shipkit is a starting point. As you use it, you'll likely:
 
 The core mechanism (watches + logs + structured dispatch) stays stable while everything else adapts.
 
+### Tracking the overlay (`mate.local.md`)
+
+`mate.local.md` — your behavioral-prefs overlay — is **gitignored by default**: the shipkit
+convention treats it as operator-private, and `pull-upstream.sh` never touches it. That's the
+right default when the overlay holds machine-local or private taste.
+
+But when **the ship directory itself is your durable, version-controlled record** — especially
+if you run the autonomous Mate and its rotations hand off through git — you'll usually want to
+**track** the overlay instead, so a fresh Mate rotation inherits the accumulated house notes and
+dated decisions rather than starting blank. To track it, remove the `mate.local.md` line from
+`.gitignore` and commit it. (`/shipkit-init` asks this explicitly during onboarding — STEP 1(e).)
+Either way, keep real secrets out of the overlay: house notes are ship history, not a secret
+store.
+
 ### Extending crew permissions
 
 The crew bash allow-list (`core/hooks/validate-crew-bash.sh`) is synced from upstream. To add project-specific commands (e.g., `aws`, `kubectl`) without losing them on upstream pulls, copy `core/templates/crew-allow-local.sh` to `core/hooks/crew-allow-local.sh` (next to the hook) and add your rules. The validation script sources it automatically if present, and `pull-upstream.sh` never touches it.
