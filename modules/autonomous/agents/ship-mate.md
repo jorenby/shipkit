@@ -9,11 +9,11 @@ hooks:
     - matcher: "Bash"
       hooks:
         - type: command
-          command: "{SHIP_DIR}/modules/autonomous/hooks/validate-mate-bash.sh"
+          command: "bash {SHIP_DIR}/modules/autonomous/hooks/validate-mate-bash.sh"
     - matcher: "mcp__.*"
       hooks:
         - type: command
-          command: "{SHIP_DIR}/modules/autonomous/hooks/validate-mate-mcp.sh"
+          command: "bash {SHIP_DIR}/modules/autonomous/hooks/validate-mate-mcp.sh"
 ---
 
 # First Mate

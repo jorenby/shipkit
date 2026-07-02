@@ -38,7 +38,7 @@
     "crew_bash": "core/hooks/validate-crew-bash.sh",
     "readonly_bash": "core/hooks/validate-readonly-bash.sh"
   },
-  "_hooks": "The bright-line PreToolUse hooks (paths relative to ship_root). EVERY hook MUST be executable (chmod +x) — a non-exec hook fails OPEN (silent zero enforcement). shipkit-setup + ship-up.sh set/self-heal the bit. Each ships a generic core + a per-deployment override block (mate_bash) or a *-allow-local.sh extension (crew/bosun).",
+  "_hooks": "The bright-line PreToolUse hooks (paths relative to ship_root). Installed agent defs invoke them UNIVERSALLY as `bash <abs-path>` (the hook command is rendered `bash {SHIP_DIR}/...`), so enforcement does NOT depend on the exec bit or shebang resolution — it works on POSIX shells AND Git-Bash on Windows (NTFS has no exec bit). shipkit-setup + ship-up.sh still `chmod +x` the hooks as POSIX belt-and-suspenders (harmless where the FS ignores it), and shipkit-setup runs a placeholder-verification pass that FAILS LOUDLY if any installed agent def still carries a literal {SHIP_DIR} — a leftover placeholder = a garbage hook path = enforcement silently OFF. Each hook ships a generic core + a per-deployment override block (mate_bash) or a *-allow-local.sh extension (crew/bosun).",
 
   "launch": {
     "mate_prompt": "/ship-watch-start",

@@ -15,22 +15,28 @@ v2 code and migrate itself, using the `/shipkit-setup` skill. It is written to b
 
 ## Platform assumptions (READ FIRST)
 
-- **macOS / Linux only, today.** The bright-line enforcement is a set of **bash** PreToolUse
-  hooks (`core/hooks/validate-*.sh`, `modules/autonomous/hooks/validate-*.sh`). They require a
-  POSIX shell and the `+x` executable bit. On macOS/Linux this is the tested path.
-- **Windows is UNTESTED. Specifically bash-dependent, and what breaks:**
-  - The hooks are `#!/bin/bash` scripts — they will not run under `cmd`/PowerShell without a
-    bash (Git Bash / WSL). **Under WSL the hooks work** (it's Linux); native Windows does not.
-  - The `+x` bit doesn't exist on NTFS the way POSIX expects — `shipkit_init.py`'s `chmod +x`
-    and its hook-path assertion assume POSIX permission bits. A hook that isn't executable
-    **fails OPEN** (silent zero enforcement), so on native Windows you cannot trust the bright
-    lines are armed.
+- **macOS / Linux / Windows-with-Git-Bash.** The bright-line enforcement is a set of **bash**
+  PreToolUse hooks (`core/hooks/validate-*.sh`, `modules/autonomous/hooks/validate-*.sh`). The
+  installed agent defs invoke each hook as **`bash <absolute-path>`** (the command is rendered
+  `bash {SHIP_DIR}/...`), so the outer shell runs `bash` against the script — **enforcement does
+  NOT depend on the exec bit or shebang resolution.** That makes **Git-Bash a sufficient substrate
+  on Windows** — you do NOT need WSL for the hooks. macOS/Linux is the most-tested path; Git-Bash
+  is now a supported substrate too.
+- **Windows / NTFS specifics (Git-Bash substrate):**
+  - Claude Code runs shell-form hook commands through **Git Bash on Windows** (or PowerShell if
+    Git Bash isn't installed). Because our commands are `bash <path>`, they invoke the hook under
+    bash regardless of NTFS having no exec bit. Install **Git for Windows** (ships Git Bash) — that
+    is the one requirement.
+  - **The exec bit is POSIX-only and no longer load-bearing.** NTFS has no `+x`; `shipkit_init.py`
+    still `chmod +x`es the hooks as POSIX belt-and-suspenders (a no-op where the FS ignores it), and
+    its hook-path assertion now checks **existence** (not `+x`) since the `bash` invocation carries
+    execution. A non-exec hook on Git-Bash still enforces.
   - Symlinks need admin/Developer Mode on Windows, so the installer defaults to **copy** mode
-    there (a frozen snapshot that won't track `git pull`).
+    there (a frozen snapshot that won't track `git pull`). Agent defs are always *written* (never
+    symlinked) so the `{SHIP_DIR}` substitution lands regardless.
   - The Python installer, `status_writer.py`, `classify_input.py`, and `wake_monitor.py` are
-    stdlib-only and cross-platform — the Python layer is fine. It's the **shell hooks + exec
-    bit + symlinks** that are bash/POSIX-bound. If you must run on Windows, use **WSL** and
-    treat it as Linux.
+    stdlib-only and cross-platform — the Python layer is fine. WSL still works too (it's Linux),
+    but is **not required** just for the hooks.
 - **Prereqs:** `git`, `python3` (3.10+), and Claude Code. For the autonomous tier you also want
   `ruby` (the mate-lock has a `.rb` and a `.py` implementation) and `gh` if you use PRs.
 
@@ -55,6 +61,15 @@ git checkout pre-shipkit-v2-upgrade   # or: git reset --hard <the HEAD you wrote
 # then remove any freshly-installed agent/skill artifacts (see the reinstall block in STEP 3B)
 ```
 
+> **No-remote installs (a v1 `init` that COPIED files instead of cloning): the bookmark is
+> LOCAL and that is enough.** Many v1 ships were stood up by copying files, so the repo has no
+> `origin` — `git branch pre-shipkit-v2-upgrade` and `git tag`/`git rev-parse HEAD` all live in
+> the **local** repo and need no remote to push to. **Rollback is entirely local** (`git checkout
+> pre-shipkit-v2-upgrade` / `git reset --hard <HEAD>`). You do not need a remote for rollback
+> insurance; you only need one to *fetch v2* (STEP 1). Verify you actually have a repo with
+> `git rev-parse --is-inside-work-tree`; if it prints `false`, `git init && git add -A && git
+> commit -m "pre-shipkit-v2 snapshot"` first so there's a commit to bookmark and return to.
+
 The installer itself is conservative — it never overwrites an existing `loop.config.json`,
 `mate.local.md`, or `state/status.json` without an explicit `--force-*` flag, and it leaves
 existing agent defs / skills untouched. The recoverable-first rule is belt-and-suspenders for
@@ -74,13 +89,34 @@ cd <your-ship-dir>
 git checkout loop-mode-v2
 ```
 
-**If this machine already has a shipkit clone (in-place):**
+**If this machine already has a shipkit clone WITH a remote (in-place):**
 
 ```bash
 cd <your-ship-dir>
 git fetch origin
 git checkout loop-mode-v2      # or: git merge origin/loop-mode-v2 if you track a branch
 ```
+
+**If this machine has a v1 ship with NO remote (v1 `init` copied files — very common):**
+The repo has local history (your logs/tickets/queue/state are all committed) but no `origin` to
+fetch v2 from. Add one, fetch, and check out the branch — your local history is untouched by this:
+
+```bash
+cd <your-ship-dir>
+git remote -v                                  # likely empty → no remote configured
+git remote add origin git@github.com:wstrinz/shipkit.git   # (or https://github.com/wstrinz/shipkit.git)
+git fetch origin
+git checkout loop-mode-v2                       # creates a local branch tracking origin/loop-mode-v2
+```
+
+> If `git fetch` brings in an entirely unrelated history (v2's clone vs. your copied v1 tree share
+> no commits), `git checkout loop-mode-v2` may refuse with "unrelated histories." That is expected
+> for a copied v1 install — **take the clean-reinstall path (STEP 3B)**: you're not merging trees,
+> you're adopting the v2 framework files and re-homing your edits. Your ship STATE
+> (`captain.md`, `queue.md`, `projects/`, `logs/`, `inbox/`, `state/`) is what matters and it is
+> **preserved** — the clean reinstall only replaces framework scaffolding, never your state.
+> (`git checkout -f loop-mode-v2` if you've captured your divergence and want the v2 tree; your
+> state dirs aren't tracked by the framework and survive.)
 
 > **Note on the ship dir.** In v2 the ship directory **IS the shipkit clone** — one dir holds
 > both the framework (`core/`, `modules/`, `lib/`) and your ship state (`captain.md`, `queue.md`,
@@ -189,6 +225,14 @@ progress-through — re-run at a higher preset any time and only the delta insta
 
 ### 3B. The clean-reinstall apply (recommended for a diverged pre-v2 install)
 
+> **The state is the ship; the scaffolding is replaceable.** The clean reinstall replaces
+> framework files (`core/`, `modules/`, `lib/`, the installed agent defs/skills) and preserves your
+> **ship state** — `captain.md`, `queue.md`, `projects/`, `logs/`, `inbox/`, `state/`. Those are
+> never framework files, so nothing below touches them. On a **no-remote v1 install** this is
+> especially the recommended path: you're adopting the v2 tree in place (or fresh-cloning v2 into a
+> new dir and copying your state dirs across), not merging unrelated histories. Rollback stays
+> local (the `pre-shipkit-v2-upgrade` branch from STEP 0).
+
 After capturing + re-homing your divergence (STEP 2) and clearing old skills/agents:
 
 ```bash
@@ -216,7 +260,17 @@ Confirm each before trusting the install:
       `chmod +x (was non-exec — fixed)`. Spot-check: `ls -l core/hooks/*.sh` — all executable.
 - [ ] **Agents installed with `{SHIP_DIR}` substituted.** `ls ~/.claude/agents/ship-*.md`, and
       `grep 'command:' ~/.claude/agents/ship-crew.md` shows an **absolute** path into this
-      shipkit dir's `core/hooks/`, not a literal `{SHIP_DIR}`.
+      shipkit dir's `core/hooks/`, rendered `bash /abs/.../validate-crew-bash.sh` — **not** a
+      literal `{SHIP_DIR}`.
+- [ ] **NO literal `{SHIP_DIR}` (or any `{...}` token) survives in any installed agent def.**
+      This is the v1 CRITICAL footgun — a leftover placeholder = a garbage hook path = enforcement
+      **silently OFF**. The installer now runs this check and FAILS LOUDLY, but verify it yourself:
+      ```bash
+      grep -rl '{SHIP_DIR}' ~/.claude/agents/     # MUST print nothing (empty output)
+      # adapt the path if your agents install elsewhere (loop.config.json → agents.install_target)
+      ```
+      Any hit = re-render: `rm ~/.claude/agents/ship-*.md && python3 shipkit_init.py ... ` (the
+      installer leaves existing defs untouched, so you must remove the stale one to refresh it).
 - [ ] **Skills installed.** `ls ~/.claude/skills/` shows the tier's skills (`ship-compound`
       always; `ship-watch-start` + `bosun-tick` on autonomous). For an upgrade, confirm the
       old **`ship-tick` orphan is GONE** and any copied boot skill was refreshed to a symlink.
@@ -273,5 +327,7 @@ Because the installer never force-overwrites your `loop.config.json` / `mate.loc
   assertion cannot detect vintage — only existence + `+x`. Delete leftover `scripts/*.sh` hooks.
 - **Fresh-clone config migration is manual** — the automated "missing keys" report is a no-op
   when you clone v2 fresh (STEP 2, config migration). Port your machine values by hand.
-- **Windows native is untested** — use WSL, or expect the shell hooks + exec bit + symlinks to
-  need porting.
+- **Windows runs on Git-Bash** — the hooks invoke via `bash <path>` so the exec bit is no longer
+  load-bearing and WSL is not required for enforcement. Install Git for Windows (ships Git Bash).
+  Symlinks still need admin/Developer Mode, so the installer defaults to **copy** mode there (a
+  frozen snapshot that won't track `git pull`) — re-run the installer after a pull to refresh.

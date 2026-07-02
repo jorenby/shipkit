@@ -209,10 +209,16 @@ For the full taste block / repos / chat_surface, write a JSON answers file (shap
 The apply step (mechanical, idempotent):
 1. Writes `loop.config.json` from the example (untouched unless `--force-config`).
 2. Writes `mate.local.md` from `core/mate.local.example.md` (untouched unless `--force-prefs`).
-3. Installs the selected tiers' agent defs, substituting `{SHIP_DIR}`.
-4. Sets +x on the selected hooks, then **asserts every installed agent-def hook command path
-   resolves and is executable** (a broken hook path = silent zero enforcement). Read this
-   section — any `FAIL` line is a disarmed bright line; fix it before relying on the install.
+3. Installs the selected tiers' agent defs, substituting `{SHIP_DIR}`. Hook commands render as
+   `bash {SHIP_DIR}/...` — invoked under `bash`, so enforcement works on POSIX AND Git-Bash on
+   Windows without depending on the exec bit.
+4. Sets +x on the selected hooks (POSIX belt-and-suspenders; commands invoke via `bash` so the
+   exec bit is no longer load-bearing), then **asserts every installed agent-def hook command
+   path resolves** (a broken hook path = silent zero enforcement), and runs a **placeholder-
+   verification pass that FAILS LOUDLY (non-zero exit) if any installed agent def still carries a
+   literal `{SHIP_DIR}`** — the v1 footgun where the substitution never landed and enforcement
+   was silently OFF. Read both sections — any `FAIL` line is a disarmed bright line; fix it (remove
+   the stale def and re-run) before relying on the install.
 5. Verifies the unioned `lib/` deps are present.
 6. Symlinks-or-copies the selected modules' skill dirs.
 7. Seeds `state/status.json` via `lib/status_writer.py --init`.
@@ -222,7 +228,10 @@ The apply step (mechanical, idempotent):
 ## STEP 4 — Verify (the acceptance)
 
 Relay the script's smoke test and confirm:
-- The hook-path assertion is all `ok` (no `FAIL`).
+- The hook-path assertion AND the placeholder-verification pass are all `ok` (no `FAIL`). Then
+  spot-check by hand: `grep -rl '{SHIP_DIR}' ~/.claude/agents/` (adapt to `agents.install_target`)
+  **MUST print nothing** — a hit = a garbage hook path = enforcement silently OFF; remove the stale
+  def and re-run the apply step.
 - **core tier:** the Mate reads `core/mate.md` and runs request/response; worker crew dispatch
   with the crew-safety hooks armed. No Bosun, no loop.
 - **autonomous tier:** `/ship-watch-start` boots event-driven (re-anchor → mate-lock →

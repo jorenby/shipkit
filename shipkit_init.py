@@ -11,10 +11,16 @@ What it does:
   2. Write mate.local.md from core/mate.local.example.md (untouched unless --force-prefs).
   3. Install the selected tiers' AGENT DEFS, substituting {SHIP_DIR} in each def's hook
      command paths. (Agent defs are always WRITTEN, never symlinked — a symlink wouldn't get
-     the {SHIP_DIR} substitution.)
-  4. Set +x on every selected hook. LOAD-BEARING: a non-exec hook fails OPEN (silent zero
-     enforcement). It also ASSERTS each installed agent-def hook command path EXISTS and is
-     executable, and reports any that don't (a broken hook path = silent zero enforcement).
+     the {SHIP_DIR} substitution.) Hook commands render UNIVERSALLY as `bash <abs-path>` so
+     they invoke under POSIX shells AND Git-Bash on Windows without depending on the exec
+     bit or shebang resolution (NTFS has no exec bit).
+  4. Set +x on every selected hook (POSIX belt-and-suspenders — since commands invoke via
+     `bash <path>`, the exec bit is no longer load-bearing for enforcement). It ASSERTS each
+     installed agent-def hook command path EXISTS, and reports any that don't (a broken hook
+     path = silent zero enforcement). Then it runs a CRITICAL placeholder-verification pass:
+     it greps every installed agent def for a remaining literal template token (e.g.
+     {SHIP_DIR}) and FAILS LOUDLY (non-zero exit) if any survive — a leftover placeholder
+     means the hook path is garbage and enforcement is SILENTLY OFF (the v1 footgun).
   5. Symlink-or-copy the selected modules' skill dirs into the skills target.
   6. Seed state/status.json (delegates to lib/status_writer.py --init).
   7. DETECT-AND-REPORT prior-install state (orphan skills, copied-vs-symlinked skills, missing
@@ -298,9 +304,26 @@ def chmod_hooks(module_list, dry_run):
     return lines
 
 
+def _hook_path_from_command(cmd: str) -> str:
+    """Extract the hook SCRIPT PATH from a rendered command string. Commands are emitted
+    UNIVERSALLY as `bash <abs-path>` (POSIX + Git-Bash alike — the outer shell runs `bash`,
+    so no exec-bit/shebang resolution is required). Strip a leading `bash ` (or `sh `) prefix
+    to recover the script path; tolerate the bare-path legacy form too."""
+    stripped = cmd.strip()
+    for prefix in ("bash ", "sh "):
+        if stripped.startswith(prefix):
+            return stripped[len(prefix):].strip()
+    return stripped
+
+
 def assert_hook_paths(agents_target):
-    """Read the JUST-INSTALLED agent defs and assert each hook command path EXISTS and is +x.
-    A broken/non-exec hook command path = silent zero enforcement; surface it loudly."""
+    """Read the JUST-INSTALLED agent defs and assert each hook command path EXISTS.
+    A broken hook command path = silent zero enforcement; surface it loudly (FAIL).
+
+    Commands render as `bash <abs-path>` universally, so the outer shell invokes `bash`
+    against the script — the exec bit is NO LONGER load-bearing for enforcement (Git-Bash /
+    NTFS has no exec bit). We still REPORT a missing +x on POSIX as belt-and-suspenders
+    (never a FAIL), and keep chmod_hooks setting it where the filesystem supports it."""
     lines = []
     token = re.compile(r'command:\s*"([^"]+)"')
     for f in sorted(agents_target.glob("ship-*.md")):
@@ -311,16 +334,80 @@ def assert_hook_paths(agents_target):
         for cmd in token.findall(text):
             if "validate-" not in cmd:
                 continue
-            pth = Path(cmd)
+            pth = Path(_hook_path_from_command(cmd))
             if not pth.is_file():
-                lines.append(f"FAIL {f.name}: hook NOT FOUND: {cmd} (FAILS OPEN — fix before relying on it)")
+                lines.append(f"FAIL {f.name}: hook NOT FOUND: {pth} (FAILS OPEN — fix before relying on it)")
             elif not os.access(pth, os.X_OK):
-                lines.append(f"FAIL {f.name}: hook NOT EXECUTABLE: {cmd} (FAILS OPEN — chmod +x it)")
+                # Invoked via `bash <path>`, so this is fine on Git-Bash/NTFS. Note it on POSIX.
+                lines.append(f"ok   {f.name}: {pth.name} resolves (invoked via `bash`; +x not set — fine on Git-Bash, add it on POSIX)")
             else:
-                lines.append(f"ok   {f.name}: {pth.name} resolves + executable")
+                lines.append(f"ok   {f.name}: {pth.name} resolves + executable (invoked via `bash`)")
     if not lines:
         lines.append("(no installed agent-def hook command paths to assert)")
     return lines
+
+
+# Injected template tokens follow an UPPER_SNAKE_CASE convention ({SHIP_DIR} is the only one
+# the installer substitutes today; the pattern catches any future sibling). It deliberately
+# does NOT match the agent defs' legitimate prose placeholders — {project}, {ticket-id},
+# {branch-name}, free-text-in-braces — which are lowercase / hyphenated / spaced and are
+# SUPPOSED to survive verbatim in the installed def. Matching those would false-positive the
+# gate on every good install. A leftover UPPER_SNAKE token = the render didn't land.
+_TEMPLATE_TOKEN = re.compile(r"\{[A-Z][A-Z0-9_]*\}")
+
+
+def verify_no_unexpanded_placeholders(agents_target, module_list):
+    """CRITICAL post-install gate (v1 footgun: `{SHIP_DIR}` shipped LITERAL in installed
+    agent hook commands → every hook path was garbage → enforcement was SILENTLY OFF and
+    nothing surfaced it). Grep EVERY installed artifact for a remaining literal template
+    token. FAILS LOUDLY (returns ok=False) — never a soft warning: a leftover `{SHIP_DIR}`
+    means the bright lines are disarmed.
+
+    Scope: the files this installer template-substitutes are the agent defs written into
+    agents_target. We scan the ones this run's module set installs (by basename)."""
+    lines = []
+    ok = True
+    # Basenames of agent defs this module set installs — the artifacts that carry {SHIP_DIR}.
+    installed_names = set()
+    for name in module_list:
+        for rel in load_module(name).get("agents", []):
+            installed_names.add(Path(rel).name)
+
+    scanned = 0
+    for f in sorted(agents_target.glob("*.md")):
+        if f.name not in installed_names:
+            continue
+        try:
+            text = f.read_text(encoding="utf-8")
+        except OSError as e:
+            lines.append(f"FAIL {f.name}: unreadable ({e}) — cannot verify placeholders")
+            ok = False
+            continue
+        scanned += 1
+        found = sorted(set(_TEMPLATE_TOKEN.findall(text)))
+        if found:
+            ok = False
+            lines.append(f"FAIL {f.name}: UNEXPANDED TEMPLATE TOKEN(S) {', '.join(found)} "
+                         f"still present in installed artifact")
+        else:
+            lines.append(f"ok   {f.name}: no template tokens remain (render landed)")
+
+    if scanned == 0:
+        # Nothing to verify is itself suspect if the module set declared agents.
+        if installed_names:
+            lines.append(f"WARN: expected to verify {sorted(installed_names)} but none were "
+                         f"found in {agents_target} — were they installed?")
+        else:
+            lines.append("(no template-bearing artifacts for the selected modules)")
+
+    if not ok:
+        lines.append("")
+        lines.append("!!! ENFORCEMENT WOULD BE SILENTLY OFF — a rendered agent def still carries a")
+        lines.append("!!! literal template token (e.g. {SHIP_DIR}). Its PreToolUse hook command path")
+        lines.append("!!! is GARBAGE, so the bright-line hook FAILS OPEN with zero enforcement and")
+        lines.append("!!! nothing else surfaces it. Remove the affected agent def(s) and re-run the")
+        lines.append("!!! installer so the substitution lands. DO NOT run crew until this is clean.")
+    return lines, ok
 
 
 def install_lib(module_list):
@@ -568,11 +655,15 @@ def main():
     plan += [f"  {ln}" for ln in write_prefs(answers, args.dry_run, args.force_prefs)]
     plan.append("== agents ({SHIP_DIR} substituted) ==")
     plan += [f"  {ln}" for ln in install_agents(module_list, agents_target, ship_root_abs, args.dry_run)]
-    plan.append("== hooks (+x — a non-exec hook fails OPEN) ==")
+    plan.append("== hooks (+x — POSIX belt-and-suspenders; commands invoke via `bash`) ==")
     plan += [f"  {ln}" for ln in chmod_hooks(module_list, args.dry_run)]
+    placeholder_ok = True
     if not args.dry_run:
         plan.append("== hook path assertion (a broken hook path = silent zero enforcement) ==")
         plan += [f"  {ln}" for ln in assert_hook_paths(agents_target)]
+        plan.append("== placeholder verification (a leftover {SHIP_DIR} = enforcement silently OFF) ==")
+        ph_lines, placeholder_ok = verify_no_unexpanded_placeholders(agents_target, module_list)
+        plan += [f"  {ln}" for ln in ph_lines]
     plan.append("== lib/ (shared infra — unioned from module lib[] deps) ==")
     plan += [f"  {ln}" for ln in install_lib(module_list)]
     plan.append("== skills ==")
@@ -586,6 +677,15 @@ def main():
         print(f"{prefix}{line}")
     for line in smoke_test_lines(module_list, skills_target, agents_target):
         print(f"{prefix}{line}" if line else "")
+
+    # CRITICAL gate: a leftover template token means a hook path is garbage and the bright
+    # lines are silently disarmed. FAIL LOUDLY (non-zero) so the install cannot be trusted
+    # as green. (Dry-run skips this — nothing is installed to verify.)
+    if not placeholder_ok:
+        print()
+        print("ERROR: install FAILED placeholder verification — ENFORCEMENT WOULD BE SILENTLY OFF. "
+              "See the '== placeholder verification ==' section above.", file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == "__main__":

@@ -10,7 +10,7 @@ hooks:
     - matcher: "Bash"
       hooks:
         - type: command
-          command: "{SHIP_DIR}/core/hooks/validate-readonly-bash.sh"
+          command: "bash {SHIP_DIR}/core/hooks/validate-readonly-bash.sh"
 ---
 
 # Lookout Orders

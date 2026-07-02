@@ -155,7 +155,7 @@ Ship defines custom subagents with enforced tool restrictions. Two are long-runn
 | `ship-reviewer` | Independent (non-maker) PR/code review | No (enforced) | Read-only hook |
 | `ship-pilot` | Browser interaction (Captain-authorized) | Yes + Chrome MCP | Same git safety as crew |
 
-**Every hook must be executable (`chmod +x`)** — a non-exec hook fails OPEN (silent zero enforcement). `shipkit-setup` and `ship-up.sh` set/self-heal the bit.
+**Hook commands invoke via `bash <abs-path>`** — the installed agent defs render each hook as `bash {SHIP_DIR}/...`, so enforcement runs the script under `bash` and does **not** depend on the exec bit or shebang resolution. This works on POSIX shells AND Git-Bash on Windows (NTFS has no exec bit). `shipkit-setup` and `ship-up.sh` still `chmod +x` as POSIX belt-and-suspenders, and `shipkit-setup` runs a placeholder-verification pass that FAILS LOUDLY if any installed agent def still carries a literal `{SHIP_DIR}` (a leftover placeholder = a garbage hook path = enforcement silently OFF).
 
 ### Logs are the handoff
 
@@ -209,4 +209,4 @@ The crew bash allow-list (`core/hooks/validate-crew-bash.sh`) is synced from ups
 
 ### Upgrading an existing / older install
 
-For standing a **new machine** up, a **tier bump**, or **upgrading an older (pre-v2) install** with operator divergence, follow [`UPGRADING.md`](UPGRADING.md) — the runnable-verbatim runbook a foreign Ship instance's Mate uses: clone/fetch, `/shipkit-setup`, the reason-about-divergence conversation, the post-install verification checklist, and rollback. It states the platform assumptions explicitly (bash hooks → macOS/Linux; Windows via WSL, native untested).
+For standing a **new machine** up, a **tier bump**, or **upgrading an older (pre-v2) install** with operator divergence, follow [`UPGRADING.md`](UPGRADING.md) — the runnable-verbatim runbook a foreign Ship instance's Mate uses: clone/fetch, `/shipkit-setup`, the reason-about-divergence conversation, the post-install verification checklist, and rollback. It states the platform assumptions explicitly (bash hooks invoked via `bash <path>` → macOS/Linux/Windows-with-Git-Bash; the exec bit is POSIX-only belt-and-suspenders, WSL not required for the hooks).

@@ -11,7 +11,7 @@ hooks:
     - matcher: "Bash"
       hooks:
         - type: command
-          command: "{SHIP_DIR}/modules/autonomous/hooks/validate-bosun-bash.sh"
+          command: "bash {SHIP_DIR}/modules/autonomous/hooks/validate-bosun-bash.sh"
 ---
 
 # Bosun Orders (standalone background loop)

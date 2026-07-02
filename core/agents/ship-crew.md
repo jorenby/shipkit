@@ -9,7 +9,7 @@ hooks:
     - matcher: "Bash"
       hooks:
         - type: command
-          command: "{SHIP_DIR}/core/hooks/validate-crew-bash.sh"
+          command: "bash {SHIP_DIR}/core/hooks/validate-crew-bash.sh"
 ---
 
 # Crew Standing Orders
