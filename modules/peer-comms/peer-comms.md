@@ -80,6 +80,13 @@ sent: 2026-07-02 12:15 -0500     # computed, not typed
 Self-contained body.
 ```
 
+Two spec clarifications (Windows-ship cross-review, 2026-07-02): `shipkit_input: v1` is
+EMITTED by `compose()` as a version marker but is NOT in `REQUIRED_FIELDS` — hand-rolled
+drops from pre-module ships stay valid on receive; validators must not require it. And
+helper-composed msg_ids take the `peer-<ship>-<stamp>-<topic>` shape while hand-rolled live
+threads used `xship-<ship>-...` — both clear the kind/msg_id rules; expect either in
+thread archaeology.
+
 Rules (all machine-checked by `peer_envelope.py validate`):
 
 - **`msg_id` = file basename** (sans `.md`), format `peer-<ship>-<YYYY-MM-DD-HHMM>-<topic>`.

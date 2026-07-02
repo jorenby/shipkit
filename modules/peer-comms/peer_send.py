@@ -10,7 +10,8 @@ configured transports in order until one delivers:
 
   scp     — push the file into the peer's inbox/drops/ over ssh
             (primary in the field-proven lane), then verify-landed via a
-            remote listing (`ls || dir` so a Windows cmd sshd works too).
+            remote listing (two separate ssh execs, `ls` then `dir` — no shell
+            operators, so POSIX sh, PowerShell 5.1, and cmd sshds all parse it).
   http    — POST {"type":"peer","from":<self>,"text":<envelope>} to the peer's
             /inbox endpoint (the redundant lane; receiver writes the drop).
   outbox  — passive: the file is already in our own inbox/drops/outbox/,
@@ -159,11 +160,17 @@ def send_scp(msg_path, text, peer, self_cfg):
     if r.returncode != 0:
         return False, "scp failed (rc={}): {}".format(r.returncode, (r.stderr or "").strip())
 
-    # Verify-landed: remote listing. `ls <p> || dir <p>` works under BOTH a
-    # POSIX login shell and a Windows cmd sshd (both understand `||`).
+    # Verify-landed: remote listing as TWO separate ssh execs, no shell operators.
+    # `ls X || dir X` is a hard PARSE error under a PowerShell 5.1 sshd DefaultShell
+    # (field-verified by the Windows ship, PSVersion 5.1.26100: "The token '||' is
+    # not a valid statement separator"). Plain `ls <p>` parses on POSIX sh AND
+    # PowerShell (alias) ; `dir <p>` covers cmd.exe. Two execs parse clean on all three.
     remote_file = "{}/{}".format(remote_dir, msg_path.name)
-    v = _run(["ssh"] + base + [target, "ls {p} || dir {p}".format(p=remote_file)],
+    v = _run(["ssh"] + base + [target, "ls {p}".format(p=remote_file)],
              timeout=timeout + 15)
+    if v.returncode != 0:
+        v = _run(["ssh"] + base + [target, "dir {p}".format(p=remote_file)],
+                 timeout=timeout + 15)
     if v.returncode == 0:
         return True, "scp delivered + verified landed: {}".format(remote_file)
     return True, "scp delivered (rc=0) but verify-landed listing failed — treat as unverified"
@@ -242,6 +249,14 @@ def cmd_send(args):
     for t in peer.get("transports", []):
         ok, detail = TRANSPORTS[t](msg_path, text, peer, cfg["self"])
         if ok:
+            if t == "outbox":
+                # Passive queue is not delivery: the peer's poller MAY sweep it,
+                # but nothing has landed. Distinct exit code so a Mate can tell
+                # "landed" (0) from "hoped" (2). (Windows-ship review SHOULD-FIX-2.)
+                print("QUEUED-ONLY [{}] {}: {}".format(t, msg_id, detail))
+                for f in failures:
+                    print("  (earlier attempt: {})".format(f))
+                return 2
             print("DELIVERED [{}] {}: {}".format(t, msg_id, detail))
             for f in failures:
                 print("  (earlier attempt: {})".format(f))

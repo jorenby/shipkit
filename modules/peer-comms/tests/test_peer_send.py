@@ -144,10 +144,12 @@ class TestSend(PeerSendCase):
             "--topic", "hello", "--body", "A self-contained test body."]
 
     def test_outbox_delivery_writes_valid_envelope(self):
+        # Outbox is a passive queue, NOT delivery: exit 2 + QUEUED-ONLY so a Mate
+        # can tell "landed" (0) from "hoped" (2). (Windows-ship review SHOULD-FIX-2.)
         self.write_registry(valid_registry())
         rc, out, _err = self.run_main(self.SEND)
-        self.assertEqual(rc, 0)
-        self.assertIn("DELIVERED [outbox]", out)
+        self.assertEqual(rc, 2)
+        self.assertIn("QUEUED-ONLY [outbox]", out)
         files = list((self.root / "inbox" / "drops" / "outbox").glob("*.md"))
         self.assertEqual(len(files), 1)
         import peer_envelope

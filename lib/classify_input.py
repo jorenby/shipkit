@@ -245,7 +245,7 @@ def classify(path):
             problems = pe.validate(text, basename=base)
             if problems:
                 sys.stderr.write(
-                    "classify_input: QUARANTINE {} — peer-marked drop failed "
+                    "classify_input: QUARANTINE {} -- peer-marked drop failed "
                     "envelope validation: {}\n".format(path, "; ".join(problems)))
                 return "quarantine"
 
