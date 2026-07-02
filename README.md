@@ -55,7 +55,7 @@ Drop work items into `inbox/captain.md` — the Mate will triage them into ticke
 ## Bootstrap Instructions (for Claude Code)
 
 **If you're a coding agent reading this:** the install + upgrade is driven by the
-**`/shipkit-init`** skill, NOT by hand. Don't hand-copy hooks/agents — run the skill; it
+**`/shipkit-setup`** skill, NOT by hand. Don't hand-copy hooks/agents — run the skill; it
 carries the judgment and calls the deterministic apply step (`shipkit_init.py`).
 
 ### 1. Choose the ship directory
@@ -87,9 +87,9 @@ Ship is **per-machine, not per-project.** It lives in a single directory and coo
 
 Initialize it as a git repo (`git init`). Ship state benefits from version control — it's the coordination substrate.
 
-### 3. Run `/shipkit-init` (it installs hooks + agents + skills)
+### 3. Run `/shipkit-setup` (it installs hooks + agents + skills)
 
-Run **`/shipkit-init`** in Claude Code from the ship dir. The skill interviews you for the
+Run **`/shipkit-setup`** in Claude Code from the ship dir. The skill interviews you for the
 **tier** (core / autonomous / ui), ship-root, install method, and taste, then calls
 `shipkit_init.py`, which: installs the selected tiers' agent defs (substituting `{SHIP_DIR}`
 in each def's hook command paths), sets the hook +x bit, **asserts every hook command path
@@ -123,7 +123,7 @@ The Mate should be able to read ship state and report status. Tell Claude Code: 
 
 Shipkit is organized into **tiered module folders**. A preset (`presets.json`) selects a set
 of folders; each folder is self-describing via its `module.json` (its files + tier + script
-deps). Tiers are start-at OR progress-through — re-run `/shipkit-init` at a higher preset to
+deps). Tiers are start-at OR progress-through — re-run `/shipkit-setup` at a higher preset to
 install the delta.
 
 | Tier / dir | Contents | Purpose |
@@ -155,7 +155,7 @@ Ship defines custom subagents with enforced tool restrictions. Two are long-runn
 | `ship-reviewer` | Independent (non-maker) PR/code review | No (enforced) | Read-only hook |
 | `ship-pilot` | Browser interaction (Captain-authorized) | Yes + Chrome MCP | Same git safety as crew |
 
-**Every hook must be executable (`chmod +x`)** — a non-exec hook fails OPEN (silent zero enforcement). `shipkit-init` and `ship-up.sh` set/self-heal the bit.
+**Every hook must be executable (`chmod +x`)** — a non-exec hook fails OPEN (silent zero enforcement). `shipkit-setup` and `ship-up.sh` set/self-heal the bit.
 
 ### Logs are the handoff
 
@@ -171,7 +171,7 @@ Crew write code and logs, but destructive git operations (commit, push, reset) a
 
 **Autonomous mode is a two-agent split** (tier 2 — `autonomous`). A **Bosun** owns the heartbeat — it runs its own `/loop` (`bosun-tick`): periodic curate/reconcile/librarian sweeps, surfacing findings to the Mate via wake-class **drops** only when something needs Mate action (it's read-only; its sole write path is `modules/autonomous/scripts/bosun_emit.py`). The **Mate is event-driven** — it boots once via `/ship-watch-start` (re-anchor → mate-lock → arm the wake-monitor → bootstrap the Bosun → preflight → idle), then idles, waking only on events (Captain drops, Bosun drops, crew completions). The Mate does **not** run `/loop` or own a heartbeat tick.
 
-The doctrine lives in `modules/autonomous/bosun.md` + `modules/autonomous/mate-event-driven.md`, paired with [`modules/autonomous/bosun-loop.md`](modules/autonomous/bosun-loop.md). Bring it up with `modules/autonomous/scripts/ship-up.sh` (the Mate) — which itself bootstraps the Bosun via `modules/autonomous/scripts/launch-bosun.sh`. **Running the agents in a sandbox is recommended** (defense-in-depth on top of the bright-line hooks); on macOS [agent-safehouse.dev](https://agent-safehouse.dev/) is a good option. Bare `claude` is the no-sandbox fallback. `/shipkit-init` installs the agent defs (substituting the ship path into the hook commands), sets the hook +x bit, and seeds state.
+The doctrine lives in `modules/autonomous/bosun.md` + `modules/autonomous/mate-event-driven.md`, paired with [`modules/autonomous/bosun-loop.md`](modules/autonomous/bosun-loop.md). Bring it up with `modules/autonomous/scripts/ship-up.sh` (the Mate) — which itself bootstraps the Bosun via `modules/autonomous/scripts/launch-bosun.sh`. **Running the agents in a sandbox is recommended** (defense-in-depth on top of the bright-line hooks); on macOS [agent-safehouse.dev](https://agent-safehouse.dev/) is a good option. Bare `claude` is the no-sandbox fallback. `/shipkit-setup` installs the agent defs (substituting the ship path into the hook commands), sets the hook +x bit, and seeds state.
 
 ## Customization
 
@@ -195,7 +195,7 @@ But when **the ship directory itself is your durable, version-controlled record*
 if you run the autonomous Mate and its rotations hand off through git — you'll usually want to
 **track** the overlay instead, so a fresh Mate rotation inherits the accumulated house notes and
 dated decisions rather than starting blank. To track it, remove the `mate.local.md` line from
-`.gitignore` and commit it. (`/shipkit-init` asks this explicitly during onboarding — STEP 1(e).)
+`.gitignore` and commit it. (`/shipkit-setup` asks this explicitly during onboarding — STEP 1(e).)
 Either way, keep real secrets out of the overlay: house notes are ship history, not a secret
 store.
 
@@ -209,4 +209,4 @@ The crew bash allow-list (`core/hooks/validate-crew-bash.sh`) is synced from ups
 
 ### Upgrading an existing / older install
 
-For standing a **new machine** up, a **tier bump**, or **upgrading an older (pre-v2) install** with operator divergence, follow [`UPGRADING.md`](UPGRADING.md) — the runnable-verbatim runbook a foreign Ship instance's Mate uses: clone/fetch, `/shipkit-init`, the reason-about-divergence conversation, the post-install verification checklist, and rollback. It states the platform assumptions explicitly (bash hooks → macOS/Linux; Windows via WSL, native untested).
+For standing a **new machine** up, a **tier bump**, or **upgrading an older (pre-v2) install** with operator divergence, follow [`UPGRADING.md`](UPGRADING.md) — the runnable-verbatim runbook a foreign Ship instance's Mate uses: clone/fetch, `/shipkit-setup`, the reason-about-divergence conversation, the post-install verification checklist, and rollback. It states the platform assumptions explicitly (bash hooks → macOS/Linux; Windows via WSL, native untested).

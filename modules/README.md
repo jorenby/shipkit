@@ -3,7 +3,7 @@
 Each module is a **self-contained folder** with a `module.json` (its files + tier + script
 deps) and a doc. They layer on top of the general core (`core/mate.md` + `core/crew.md`).
 Core stays readable on its own; each module is referenced by one line from core. A preset
-(`presets.json`) selects a set of module folders — turn on what you want via `/shipkit-init`
+(`presets.json`) selects a set of module folders — turn on what you want via `/shipkit-setup`
 and ignore the rest. A core-only (tier-1) operator needs none of the tier-2 modules.
 
 **The autonomous shape is the `autonomous/` module** (tier 2) — a **two-agent split**: the

@@ -1,7 +1,7 @@
 # UPGRADING — bring a foreign Ship instance onto shipkit v2
 
 This is the runbook a **foreign machine's First Mate** follows to point its Ship at the shipkit
-v2 code and migrate itself, using the `/shipkit-init` skill. It is written to be run
+v2 code and migrate itself, using the `/shipkit-setup` skill. It is written to be run
 **verbatim**. It covers a fresh stand-up, a tier bump, and the hard case — upgrading an older
 (pre-v2, "Mate-runs-`/loop`") install that has operator divergence.
 
@@ -95,10 +95,10 @@ git checkout loop-mode-v2      # or: git merge origin/loop-mode-v2 if you track 
 Open Claude Code **in the ship dir** and run the skill:
 
 ```
-/shipkit-init
+/shipkit-setup
 ```
 
-The skill (`skills/shipkit-init/SKILL.md`) carries the judgment; `shipkit_init.py` is the
+The skill (`skills/shipkit-setup/SKILL.md`) carries the judgment; `shipkit_init.py` is the
 mechanical apply step. The skill will:
 
 1. **Detect** whether this is fresh, a tier bump, or an older/diverged install — it runs the
@@ -135,7 +135,7 @@ conflicts on every file you edited. The clean-reinstall order:
 - **Clear the old installed skills/agents** so the orphan dead-loop skill and stale flat-hook
   agent defs are gone:
   ```bash
-  rm -rf ~/.claude/skills/ship-* ~/.claude/skills/bosun-tick ~/.claude/skills/shipkit-init \
+  rm -rf ~/.claude/skills/ship-* ~/.claude/skills/bosun-tick ~/.claude/skills/shipkit-setup \
          ~/.claude/agents/ship-*
   ```
   This removes the `ship-tick` orphan (the dead `/loop` body), the copied `ship-watch-start`
@@ -253,10 +253,10 @@ cd <your-ship-dir>
 git checkout pre-shipkit-v2-upgrade      # the bookmark from STEP 0 (or reset --hard <old HEAD>)
 
 # 2. remove the freshly-installed agent/skill artifacts
-rm -rf ~/.claude/skills/ship-* ~/.claude/skills/bosun-tick ~/.claude/skills/shipkit-init \
+rm -rf ~/.claude/skills/ship-* ~/.claude/skills/bosun-tick ~/.claude/skills/shipkit-setup \
        ~/.claude/agents/ship-*
 
-# 3. (if you re-installed the OLD versions, re-run /shipkit-init against the old checkout)
+# 3. (if you re-installed the OLD versions, re-run /shipkit-setup against the old checkout)
 ```
 
 Because the installer never force-overwrites your `loop.config.json` / `mate.local.md` /

@@ -2,7 +2,7 @@
 
 Copy this file to **`mate.local.md`** and fill in your values. The Mate reads `mate.md`
 (the general-core doctrine), **then this file**, at watch start; the values here override
-and extend the "your configured X" seams in core. `/shipkit-init` can populate this for
+and extend the "your configured X" seams in core. `/shipkit-setup` can populate this for
 you conversationally — each entry maps to one interview question and one core seam.
 
 **This file is yours.** `pull-upstream` updates core `mate.md` freely and **never touches

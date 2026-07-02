@@ -1,8 +1,8 @@
 ---
-name: shipkit-init
+name: shipkit-setup
 description: >
   The conversational onboarding AND upgrade interview for shipkit's tiered, manifest-driven
-  install (core / autonomous / ui). Invoke (`/shipkit-init`) when standing Ship up on a
+  install (core / autonomous / ui). Invoke (`/shipkit-setup`) when standing Ship up on a
   machine for the first time, when progressing to a higher tier, or when upgrading an older
   (incl. pre-v2 "Mate-runs-/loop") install. The agent CONDUCTS the interview AND CARRIES THE
   UPGRADE JUDGMENT — it detects an existing install, reasons about how this instance has
@@ -13,7 +13,7 @@ description: >
   + judgment front; mechanical apply. Runs as needed, then yields.
 ---
 
-# /shipkit-init — onboarding + upgrade interview (tiered, manifest-driven)
+# /shipkit-setup — onboarding + upgrade interview (tiered, manifest-driven)
 
 You are conducting Ship bring-up or upgrade for the Captain. **You carry the judgment; the
 script is mechanical.** The script (`shipkit_init.py`) only does safe deterministic ops —
@@ -182,9 +182,9 @@ fast-forward and an in-place merge produces rename conflicts on every edited fil
    fresh and move the operator's project state (`captain.md`, `queue.md`, `projects/`, `logs/`,
    `inbox/`, `state/`) across — these are never framework files.
 3. Remove installed skills/agents: `rm -rf ~/.claude/skills/ship-* ~/.claude/skills/bosun-tick`
-   `~/.claude/skills/shipkit-init ~/.claude/agents/ship-*` (this clears the orphan `ship-tick`,
+   `~/.claude/skills/shipkit-setup ~/.claude/agents/ship-*` (this clears the orphan `ship-tick`,
    the copied `ship-watch-start`, and every stale flat-hook agent def in one move).
-4. `/shipkit-init` fresh at the target preset — it sidesteps every divergence above.
+4. `/shipkit-setup` fresh at the target preset — it sidesteps every divergence above.
 5. Re-home the captured edits into the v2 seams (overlay / `*-allow-local.sh`), never back into
    the synced framework files.
 

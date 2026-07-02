@@ -12,7 +12,7 @@ watch-orders template, and agent teams.
 ## The roster
 
 Ship defines custom subagent types (installed to `~/.claude/agents/ship-*.md` by
-`shipkit-init`). These provide **enforced** tool restrictions and baked-in standing
+`shipkit-setup`). These provide **enforced** tool restrictions and baked-in standing
 orders. Two are long-running *role* agents (the autonomous shape); four are dispatched
 *worker* agents.
 
@@ -97,7 +97,7 @@ and crew cap is the [dispatch-bands](dispatch-bands.md) module.)
 - `ship-reviewer`: cannot write files; hook blocks `gh` approve/comment/merge + git writes.
 
 **The execute bit on every hook is load-bearing** — a non-exec hook fails OPEN (silent
-zero enforcement). `shipkit-init` and `ship-up.sh` set/self-heal it.
+zero enforcement). `shipkit-setup` and `ship-up.sh` set/self-heal it.
 
 ## Watch orders format
 

@@ -489,4 +489,4 @@ value lives there: behavioral prefs (crew cap, model roster, report format, revi
 search/PR-review commands, GitHub org, PR template, house notes). Machine config (paths,
 ports, repos, the flat crew cap) lives in **`loop.config.json`**. Read `@mate.local.md` right
 after this file at watch start. See `mate.local.example.md` for the template — every value
-maps to a `@mate.local.md` entry and a `/shipkit-init` question.
+maps to a `@mate.local.md` entry and a `/shipkit-setup` question.

@@ -38,7 +38,7 @@
     "crew_bash": "core/hooks/validate-crew-bash.sh",
     "readonly_bash": "core/hooks/validate-readonly-bash.sh"
   },
-  "_hooks": "The bright-line PreToolUse hooks (paths relative to ship_root). EVERY hook MUST be executable (chmod +x) — a non-exec hook fails OPEN (silent zero enforcement). shipkit-init + ship-up.sh set/self-heal the bit. Each ships a generic core + a per-deployment override block (mate_bash) or a *-allow-local.sh extension (crew/bosun).",
+  "_hooks": "The bright-line PreToolUse hooks (paths relative to ship_root). EVERY hook MUST be executable (chmod +x) — a non-exec hook fails OPEN (silent zero enforcement). shipkit-setup + ship-up.sh set/self-heal the bit. Each ships a generic core + a per-deployment override block (mate_bash) or a *-allow-local.sh extension (crew/bosun).",
 
   "launch": {
     "mate_prompt": "/ship-watch-start",
