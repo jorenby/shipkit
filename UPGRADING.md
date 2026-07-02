@@ -43,6 +43,12 @@ v2 code and migrate itself, using the `/shipkit-setup` skill. It is written to b
   - The Python installer, `status_writer.py`, `classify_input.py`, and `wake_monitor.py` are
     stdlib-only and cross-platform — the Python layer is fine. WSL still works too (it's Linux),
     but is **not required** just for the hooks.
+- **peer-comms receive-side guard is layout-relative.** `lib/classify_input.py` resolves
+  `peer_envelope` from its own location (`lib/ → ../modules/peer-comms/`). If a deployment
+  relocates `classify_input.py` away from a sibling `modules/`, the peer pre-filter silently
+  degrades to a no-op (fail-safe: no quarantine, classification exactly as without the module)
+  — but the receive-side validation guarantee weakens without an error. Keep the sibling
+  layout, or re-verify quarantine fires after any relocation.
 - **bg-Mate boot: `worktree.bgIsolation` must be `none`** (F11, first Windows autonomous
   rotation). The harness's bg worktree-isolation guard forces a `--bg` agent's Edit/Write into
   an isolated git worktree — wrong for the Mate, which writes LIVE shared state (`queue.md`,

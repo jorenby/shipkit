@@ -1,0 +1,13 @@
+{
+  "name": "peer-comms",
+  "tier": "core",
+  "doc": "peer-comms.md",
+  "agents": [],
+  "hooks": [],
+  "skills": [],
+  "scripts": ["peer_send.py", "peer_envelope.py"],
+  "lib": [],
+  "templates": ["templates/peers.json"],
+  "tests": ["tests/test_peer_envelope.py", "tests/test_peer_send.py"],
+  "requires": ["core"]
+}

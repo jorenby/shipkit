@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
-# classify_input.py <inputfile> -> prints "wake", "batch", or "silent"
+# classify_input.py <inputfile> -> prints "wake", "batch", "silent", or "quarantine"
 #
 # The Loop Mode INPUT-MODEL seam. Classify an incoming item (an inbox edit, a
-# drop file from an external process, a queued signal) into one of three
-# wake-classes:
+# drop file from an external process, a queued signal) into a wake-class:
 #
 #   WAKE   = a directive someone is waiting on -> interrupt the loop NOW.
 #   BATCH  = bookkeeping / sensor-noise -> the live ticket frontmatter already
@@ -12,6 +11,11 @@
 #   SILENT = pure noise -> don't wake AND don't surface. Recorded in the seen-set
 #            (so it doesn't re-fire) and logged, but never lands on a wake OR a
 #            batch surface. For sources that are genuinely log-only.
+#   QUARANTINE = a PEER-MARKED drop that FAILED peer-envelope validation ->
+#            never wake, never batch-as-normal. Distinct so the Mate can
+#            inspect it deliberately instead of processing it as routine
+#            input. Only ever emitted when the peer-comms module is installed
+#            (see PEER PRE-FILTER below); reached before the 3-step ladder.
 #
 # CONSUMER SEMANTICS (the contract the wake-monitor + tick honor):
 #   - The wake-monitor wakes the Mate ONLY on "wake".
@@ -19,6 +23,26 @@
 #     NOT wake -- they drain at the next tick's reconcile pass.
 #   - "silent" items are recorded in the seen-set too, but are suppressed from
 #     BOTH the wake path AND the batch-reconcile surface (log-only).
+#   - "quarantine" items are recorded in the seen-set and NEVER wake; they are
+#     surfaced at the next tick as suspect (validation problems on stderr at
+#     classify time), for the Mate to inspect -- not to act on as input.
+#
+# =========================================================================
+# PEER PRE-FILTER (runs before the ladder; peer-comms module integration)
+# =========================================================================
+# When a drop LOOKS peer-originated -- any frontmatter line declares a
+# peer-namespaced kind (peer-*/xship-*) or a peer-shaped source (ship-...)
+# -- it must pass modules/peer-comms/peer_envelope.py validate() BEFORE the
+# ladder runs. Validation failure -> "quarantine" (with the problems printed
+# to stderr). The detection scans EVERY frontmatter occurrence, not just the
+# first, so a duplicate-key drop (`kind: steer` + `kind: peer-note`) cannot
+# dodge the filter by ordering its lines.
+#
+# IMPORT-GUARDED: if the peer-comms module is not installed (no
+# modules/peer-comms/peer_envelope.py relative to this file, or it fails to
+# import), the pre-filter is a no-op and classification behaves exactly as
+# it did before the module existed. Non-peer-looking drops never touch this
+# path at all.
 #
 # =========================================================================
 # THE INPUT ENVELOPE (v1) -- declared inputs
@@ -97,6 +121,55 @@ SELF_AUTHOR_TAGS = ["mate"]  # values of `source:` that mean "the loop wrote thi
 # ------------------------------------------------------------------------
 
 
+# --- peer pre-filter (import-guarded peer-comms integration) --------------
+# A line that declares a peer-namespaced kind (peer-*/xship-*) or a
+# peer-shaped source (ship-<...>; note `ship.html` does NOT match -- no dash).
+# Applied per-line across the whole text so duplicate-key drops can't hide a
+# peer marker behind a first-wins read.
+_PEER_HINT_RE = re.compile(
+    r'(?:^|[\s,{])"?(?:kind"?[ \t]*:[ \t]*"?(?:peer-|xship-)'
+    r'|source"?[ \t]*:[ \t]*"?ship-)')
+
+# Cache for the guarded import: "unset" -> not tried yet; None -> unavailable
+# (module not installed / import failed); otherwise the loaded module. Tests
+# reset element 0 to "unset" after changing SHIPKIT_PEER_ENVELOPE.
+_PEER_ENVELOPE = ["unset"]
+
+
+def _peer_envelope():
+    """Load modules/peer-comms/peer_envelope.py if the module is installed.
+
+    Returns the module or None. NEVER raises: any failure (module absent,
+    import error) means "peer-comms not installed" and the classifier behaves
+    exactly as it did before peer-comms existed. Path is resolved relative to
+    this file (lib/ -> ship root -> modules/peer-comms/); the
+    SHIPKIT_PEER_ENVELOPE env var overrides it (used by tests to simulate an
+    absent module)."""
+    if _PEER_ENVELOPE[0] != "unset":
+        return _PEER_ENVELOPE[0]
+    mod = None
+    try:
+        path = os.environ.get("SHIPKIT_PEER_ENVELOPE") or os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            "..", "modules", "peer-comms", "peer_envelope.py")
+        if os.path.isfile(path):
+            import importlib.util
+            spec = importlib.util.spec_from_file_location("peer_envelope", path)
+            if spec and spec.loader:
+                mod = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(mod)
+    except Exception:  # any import trouble == module unavailable, never fatal
+        mod = None
+    _PEER_ENVELOPE[0] = mod
+    return mod
+
+
+def _looks_peer(text):
+    """True when ANY frontmatter-ish line declares a peer kind or source."""
+    return any(_PEER_HINT_RE.search(ln) for ln in text.splitlines())
+# ------------------------------------------------------------------------
+
+
 def read_field(text, name):
     """Echo the first scalar value of `name`, or "" if absent.
 
@@ -138,7 +211,10 @@ CONTRACT_LINES = [
     "classify_input.py self-test (no fixture runner found):",
     "  Run against a sample file: classify_input.py <inputfile>",
     "  3-step ladder: wake_class (authoritative) -> kind table -> heuristic.",
-    "  Output is one of: wake | batch | silent",
+    "  Output is one of: wake | batch | silent | quarantine",
+    "  Peer pre-filter (before the ladder, when peer-comms is installed):",
+    "    peer-marked drop (kind: peer-*/xship-* or source: ship-*) that fails",
+    "    peer_envelope.validate() -> quarantine (never wake, never batch)",
     "  Declared:  wake_class: wake|batch|silent  -> used verbatim",
     "  kind only: steer|comment|status-request|ask -> wake;",
     "             notification|sensor-redrop        -> batch",
@@ -157,6 +233,21 @@ def classify(path):
     except OSError:
         # Missing file/fields are non-fatal (empty string), as in the bash port.
         text = ""
+
+    # --- PEER PRE-FILTER (before the ladder; import-guarded) --------------
+    # A drop carrying any peer marker (kind: peer-*/xship-* or source: ship-*
+    # on ANY line) must be a VALID peer envelope or it is quarantined --
+    # never processed as normal input, never allowed to reach the ladder
+    # where a smuggled directive field could classify as wake/steer-shaped.
+    if text and _looks_peer(text):
+        pe = _peer_envelope()
+        if pe is not None:
+            problems = pe.validate(text, basename=base)
+            if problems:
+                sys.stderr.write(
+                    "classify_input: QUARANTINE {} — peer-marked drop failed "
+                    "envelope validation: {}\n".format(path, "; ".join(problems)))
+                return "quarantine"
 
     wake_class = read_field(text, "wake_class")
     kind = read_field(text, "kind")

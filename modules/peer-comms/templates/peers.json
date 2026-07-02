@@ -1,0 +1,25 @@
+{
+  "_comment": "Per-ship peer registry — copy to state/peers.json and fill in. NO real hosts ship with the kit; every address here is yours to supply. self.name is this ship's peer identity (short + stable, e.g. the tailnet hostname); source (optional) overrides the envelope source field (default: <name>-mate). NAMING CONVENTION (enforced by the envelope allowlist): the effective source MUST match ^ship-[a-z0-9][a-z0-9-]*-mate$ (live examples: ship-windows-mate, ship-mac-mate) — so name your ship ship-<x>, or set source explicitly. transports are tried in order per peer: scp (push into the peer's inbox/drops/ over ssh, verify-landed), http (POST {type:'peer',from,text} to the peer's /inbox endpoint), outbox (passive — the message sits in our inbox/drops/outbox/ for the peer's poller). See modules/peer-comms/peer-comms.md.",
+  "self": {
+    "name": "ship-alpha",
+    "source": "ship-alpha-mate",
+    "authenticity": "tailnet-ssh-key",
+    "outbox_dir": "inbox/drops/outbox",
+    "acks_dir": "inbox/drops/acks"
+  },
+  "peers": {
+    "ship-beta": {
+      "transports": ["scp", "http", "outbox"],
+      "scp": {
+        "user": "someuser",
+        "host": "100.64.0.99",
+        "drops_dir": "C:/Users/someuser/dev/ship/inbox/drops",
+        "connect_timeout": 8
+      },
+      "http": {
+        "inbox_url": "https://ship-beta.your-tailnet.ts.net/inbox"
+      },
+      "notes": "free text: who this is, what polls what, thread history"
+    }
+  }
+}
