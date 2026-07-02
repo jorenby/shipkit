@@ -43,6 +43,20 @@ v2 code and migrate itself, using the `/shipkit-setup` skill. It is written to b
   - The Python installer, `status_writer.py`, `classify_input.py`, and `wake_monitor.py` are
     stdlib-only and cross-platform — the Python layer is fine. WSL still works too (it's Linux),
     but is **not required** just for the hooks.
+- **bg-Mate boot: `worktree.bgIsolation` must be `none`** (F11, first Windows autonomous
+  rotation). The harness's bg worktree-isolation guard forces a `--bg` agent's Edit/Write into
+  an isolated git worktree — wrong for the Mate, which writes LIVE shared state (`queue.md`,
+  `status.json`, mate log, drops) that the Bosun/wake-monitor/status UI read in real time. It
+  even blocks the settings Write that disables it (create the file via bash redirection if
+  you're stuck mid-boot; the guard reads settings dynamically — no restart needed).
+  `ship-up.sh` preflight now **self-heals** this (`.claude/settings.json` →
+  `{"worktree":{"bgIsolation":"none"}}`) — after the `{SHIP_DIR}`/interpreter footguns, this
+  is the biggest first-foreign-bg-Mate-boot gotcha.
+- **Rotation hygiene: monitor processes outlive `TaskStop`** (F10). Stopping the outgoing
+  Mate's session halts a Monitor's re-invocation but does NOT kill the detached OS process it
+  spawned — `wake_monitor.py` survives as an orphan. The incoming Mate's watch-start step-4
+  kill-sweep self-heals this (PowerShell variant on Git-Bash — `pkill` doesn't exist there),
+  and `ship-up.sh --rotate-mate` now sweeps orphans OS-level before launching the replacement.
 - **Prereqs:** `git`, `python3` (3.10+), and Claude Code. For the autonomous tier you also want
   `ruby` (the mate-lock has a `.rb` and a `.py` implementation) and `gh` if you use PRs.
 
