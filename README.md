@@ -132,7 +132,7 @@ install the delta.
 | **`modules/autonomous/`** (tier 2) | `bosun.md`, `mate-event-driven.md`, `bosun-loop.md`, `agents/ship-{mate,bosun}.md`, `hooks/validate-{mate,mate-mcp,bosun}-*.sh`, `skills/{ship-watch-start,bosun-tick}`, `scripts/{bosun_emit.py,launch-bosun.sh,ship-up.sh,mate-lock.{rb,py}}` | The bg-Mate/Bosun heartbeat kernel. |
 | **`modules/wake-monitor/`** (tier 2) | `wake-monitor.md`, `wake_monitor.py`, `wake_monitor_native.py` | The Mate's wake monitor (the one optional capability inside autonomous). |
 | **`modules/{subagent-roster,pull-requests,review-cycle,dispatch-bands,sensors}/`** | a doc + `module.json` each | Depth-doctrine modules (roster/PR/review are tier 1; dispatch-bands/sensors tier 2). |
-| **`ui/`** (tier 3) | `status-surface.md` + `module.json` (the implementation files ship on the stacked UI PR) | The status-surface PWA console slot. |
+| **`ui/`** (tier 3) | `status-surface.md` + `module.json` (implementation vendored from a live, proven `ui/thread/` seed when the operator locks it) | The thread-first UI slot. |
 | **`lib/`** (shared) | `status_writer.py`, `classify_input.py`, `status.schema.md` | Multi-consumer infra; pulled in by whichever module's `module.json` declares it in `lib[]`. |
 | Root | `shipkit_init.py`, `presets.json`, `CLAUDE.md`, `README.md`, `loop.config.json`, `scripts/pull-upstream.sh` | The manifest-driven installer + the preset map + sync tooling. |
 
