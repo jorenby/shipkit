@@ -17,16 +17,22 @@ v2 code and migrate itself, using the `/shipkit-setup` skill. It is written to b
 
 - **macOS / Linux / Windows-with-Git-Bash.** The bright-line enforcement is a set of **bash**
   PreToolUse hooks (`core/hooks/validate-*.sh`, `modules/autonomous/hooks/validate-*.sh`). The
-  installed agent defs invoke each hook as **`bash <absolute-path>`** (the command is rendered
-  `bash {SHIP_DIR}/...`), so the outer shell runs `bash` against the script — **enforcement does
-  NOT depend on the exec bit or shebang resolution.** That makes **Git-Bash a sufficient substrate
-  on Windows** — you do NOT need WSL for the hooks. macOS/Linux is the most-tested path; Git-Bash
-  is now a supported substrate too.
+  installed agent defs invoke each hook as **`<bash> <absolute-path>`** where `<bash>` is
+  **resolved at install time** — on POSIX a bare `bash`; on Windows an **absolute Git-Bash path**
+  (see below). So the outer shell runs bash against the script — **enforcement does NOT depend on
+  the exec bit or shebang resolution.** That makes **Git-Bash a sufficient substrate on Windows** —
+  you do NOT need WSL for the hooks. macOS/Linux is the most-tested path; Git-Bash is now a
+  supported substrate too.
 - **Windows / NTFS specifics (Git-Bash substrate):**
-  - Claude Code runs shell-form hook commands through **Git Bash on Windows** (or PowerShell if
-    Git Bash isn't installed). Because our commands are `bash <path>`, they invoke the hook under
-    bash regardless of NTFS having no exec bit. Install **Git for Windows** (ships Git Bash) — that
-    is the one requirement.
+  - Claude Code runs shell-form hook commands through **cmd/Git Bash on Windows**. A **bare `bash`
+    is a footgun on Windows**: `where bash` on a dev box often returns `C:\Windows\System32\bash.exe`
+    (the **WSL** stub) FIRST, and WSL's bash cannot see a Windows-style script path (`C:\...`) → the
+    hook errors → PreToolUse doesn't block → **enforcement FAILS OPEN, silently.** The installer
+    therefore **resolves an absolute Git-Bash path at install time** (probes
+    `%ProgramFiles%\Git\bin\bash.exe`, then `%ProgramFiles(x86)%\...`, then a `where bash` scan with
+    System32 filtered out) and renders that quoted path into the hook command. If it finds **no**
+    Git-Bash it **FAILS THE INSTALL LOUDLY** rather than shipping a silently-unenforced ship.
+    Install **Git for Windows** (ships Git Bash) — that is the one requirement.
   - **The exec bit is POSIX-only and no longer load-bearing.** NTFS has no `+x`; `shipkit_init.py`
     still `chmod +x`es the hooks as POSIX belt-and-suspenders (a no-op where the FS ignores it), and
     its hook-path assertion now checks **existence** (not `+x`) since the `bash` invocation carries
@@ -45,7 +51,21 @@ v2 code and migrate itself, using the `/shipkit-setup` skill. It is written to b
 ## STEP 0 — Make the target recoverable FIRST (rollback insurance)
 
 **Do not upgrade a dirty tree.** Git is the rollback mechanism; it only works if the starting
-point is committed clean. In the target ship dir:
+point is committed clean.
+
+**First, stop any detached processes that write into the ship tree** — a background UI server,
+a log writer redirecting stdout into `logs/`, a bg Mate/Bosun. On Windows especially, an open
+file handle makes `git checkout` fail mid-carry with unlink errors (files can't be replaced while
+held open). Stop them before you touch git:
+
+```bash
+# find + stop anything writing into the tree (adapt to your setup): UI server, log tail, bg
+# Mate/Bosun. E.g. list Ship-related processes, then stop them:
+ps aux | grep -Ei 'ship-|bosun|mate|node .*ui' | grep -v grep   # identify, then kill the PIDs
+# (a bg Mate/Bosun holds a mate-lock too — clearing state/mate-lock.json is part of a clean stop)
+```
+
+Then, in the target ship dir:
 
 ```bash
 cd <your-ship-dir>
@@ -249,6 +269,22 @@ python3 shipkit_init.py --preset autonomous --ship-root . --install-mode symlink
 
 ---
 
+## STEP 3.5 — RESTART the Claude session (MANDATORY before the STEP 4 smoke)
+
+> **RESTART the Claude session now.** Claude Code **snapshots the agent-def registry AND their
+> contents at session start** — the install session you just ran the apply from is holding the
+> *pre-install* view. If you run the STEP 4 enforcement smoke in this same session, you'll be
+> validating **stale/cached agent defs**, not the ones you just wrote, and the result is
+> meaningless (it can "fail" on defs that no longer exist, or "pass" on old ones).
+>
+> **The tell:** dispatch a freshly-installed agent type (e.g. `ship-reviewer` on a first
+> autonomous install). If you get **"agent type not found"** while pre-existing types resolve,
+> you're in a **stale session** — restart before smoking.
+>
+> Quit and reopen Claude Code in the ship dir, re-say "you're First Mate," THEN do STEP 4.
+
+---
+
 ## STEP 4 — Post-install verification checklist
 
 Confirm each before trusting the install:
@@ -260,8 +296,20 @@ Confirm each before trusting the install:
       `chmod +x (was non-exec — fixed)`. Spot-check: `ls -l core/hooks/*.sh` — all executable.
 - [ ] **Agents installed with `{SHIP_DIR}` substituted.** `ls ~/.claude/agents/ship-*.md`, and
       `grep 'command:' ~/.claude/agents/ship-crew.md` shows an **absolute** path into this
-      shipkit dir's `core/hooks/`, rendered `bash /abs/.../validate-crew-bash.sh` — **not** a
-      literal `{SHIP_DIR}`.
+      shipkit dir's `core/hooks/` — **not** a literal `{SHIP_DIR}`. The rendered form is a
+      **single-quoted** scalar: on POSIX `command: 'bash /abs/.../validate-crew-bash.sh'`; on
+      Windows `command: '"C:/Program Files/Git/bin/bash.exe" C:/.../validate-crew-bash.sh'`
+      (resolved Git-Bash interpreter, forward slashes). On Windows, confirm the interpreter path
+      in that command actually exists — the installer's placeholder pass now checks this and
+      FAILs the install if it doesn't.
+- [ ] **(your stack) You may need to write `crew-allow-local.sh`.** The crew allow-list ships
+      the common wrappers (devbox/bundle/npm/npx/rake/make/git-read); a foreign stack (`cargo`,
+      `bun`, `go`, `pnpm`, …) is **blocked out of the box by design**. That's the intended seam —
+      copy `core/templates/crew-allow-local.sh` to `core/hooks/crew-allow-local.sh` (next to
+      `validate-crew-bash.sh`) and add your project's read/build commands to
+      `check_allowed_local()`. Deny-precedence stays intact (the deny-list runs first; the local
+      allow only *widens* the allow-list, never overrides a block). Expect to do this as part of
+      bring-up — it is not a bug.
 - [ ] **NO literal `{SHIP_DIR}` (or any `{...}` token) survives in any installed agent def.**
       This is the v1 CRITICAL footgun — a leftover placeholder = a garbage hook path = enforcement
       **silently OFF**. The installer now runs this check and FAILS LOUDLY, but verify it yourself:
@@ -327,7 +375,11 @@ Because the installer never force-overwrites your `loop.config.json` / `mate.loc
   assertion cannot detect vintage — only existence + `+x`. Delete leftover `scripts/*.sh` hooks.
 - **Fresh-clone config migration is manual** — the automated "missing keys" report is a no-op
   when you clone v2 fresh (STEP 2, config migration). Port your machine values by hand.
-- **Windows runs on Git-Bash** — the hooks invoke via `bash <path>` so the exec bit is no longer
-  load-bearing and WSL is not required for enforcement. Install Git for Windows (ships Git Bash).
-  Symlinks still need admin/Developer Mode, so the installer defaults to **copy** mode there (a
-  frozen snapshot that won't track `git pull`) — re-run the installer after a pull to refresh.
+- **Windows runs on Git-Bash, and the interpreter is resolved at install time** — a bare `bash`
+  on Windows can resolve to WSL's `System32\bash.exe` stub, which can't see the Windows script
+  path → silent fail-open. The installer resolves an **absolute Git-Bash path** and renders it
+  (and FAILs the install if it finds no Git-Bash). WSL is not required. The exec bit is no longer
+  load-bearing. Install Git for Windows (ships Git Bash). Symlinks still need admin/Developer Mode,
+  so the installer defaults to **copy** mode there (a frozen snapshot that won't track `git pull`)
+  — re-run the installer after a pull to refresh. **A hand-patched agent def is lost on a def
+  refresh** — the interpreter resolution lives in the renderer, so let the installer render it.

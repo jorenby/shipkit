@@ -62,8 +62,9 @@ check_allowed() {
   echo "$cmd" | grep -qE '^\s*rake\b' && return 0
   echo "$cmd" | grep -qE '^\s*make\b' && return 0
 
-  # --- Git read operations ---
-  echo "$cmd" | grep -qE '^\s*git\s+(status|diff|log|branch|show|fetch|checkout|switch|rev-parse|remote|ls-files|blame|shortlog|describe|stash\s+list|tag(\s+-l)?)\b' && return 0
+  # --- Git read operations (allow an optional `-C <path>` for multi-repo ships; the
+  #     read-op list is UNCHANGED — writes behind -C still hit default-deny) ---
+  echo "$cmd" | grep -qE '^\s*git\s+(-C\s+[^ ;|&]+\s+)?(status|diff|log|branch|show|fetch|checkout|switch|rev-parse|remote|ls-files|blame|shortlog|describe|stash\s+list|tag(\s+-l)?)\b' && return 0
 
   # --- File/directory inspection ---
   echo "$cmd" | grep -qE '^\s*(ls|pwd|wc|file|which|type|stat|du|df|tree|realpath|basename|dirname)\b' && return 0

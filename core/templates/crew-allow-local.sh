@@ -1,7 +1,7 @@
 #!/bin/bash
 # Local crew allow-list extensions.
 # This file is sourced by validate-crew-bash.sh and is NOT synced from upstream.
-# Copy to scripts/crew-allow-local.sh in your ship directory and customize.
+# Copy to core/hooks/crew-allow-local.sh (next to validate-crew-bash.sh) and customize.
 #
 # Define check_allowed_local() to add project-specific allowed commands.
 # Return 0 to allow, return 1 to fall through to the default deny.

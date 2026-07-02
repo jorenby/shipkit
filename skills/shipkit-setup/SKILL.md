@@ -210,15 +210,20 @@ The apply step (mechanical, idempotent):
 1. Writes `loop.config.json` from the example (untouched unless `--force-config`).
 2. Writes `mate.local.md` from `core/mate.local.example.md` (untouched unless `--force-prefs`).
 3. Installs the selected tiers' agent defs, substituting `{SHIP_DIR}`. Hook commands render as
-   `bash {SHIP_DIR}/...` — invoked under `bash`, so enforcement works on POSIX AND Git-Bash on
-   Windows without depending on the exec bit.
+   `<interpreter> <abs-path>` as a **single-quoted YAML scalar** with **forward slashes**. The
+   interpreter is **resolved at install time**: POSIX keeps a bare `bash`; Windows resolves an
+   **absolute Git-Bash path** (a bare `bash` on Windows can resolve to WSL's `System32\bash.exe`
+   stub, which can't see the Windows script path → silent fail-open) and FAILS the install if no
+   Git-Bash is found. Enforcement works on POSIX AND Git-Bash without depending on the exec bit.
 4. Sets +x on the selected hooks (POSIX belt-and-suspenders; commands invoke via `bash` so the
    exec bit is no longer load-bearing), then **asserts every installed agent-def hook command
-   path resolves** (a broken hook path = silent zero enforcement), and runs a **placeholder-
-   verification pass that FAILS LOUDLY (non-zero exit) if any installed agent def still carries a
-   literal `{SHIP_DIR}`** — the v1 footgun where the substitution never landed and enforcement
-   was silently OFF. Read both sections — any `FAIL` line is a disarmed bright line; fix it (remove
-   the stale def and re-run) before relying on the install.
+   path resolves** (a broken hook path = silent zero enforcement; on Windows it also asserts the
+   resolved interpreter path exists), and runs a **placeholder-verification pass that FAILS LOUDLY
+   (non-zero exit) if any installed agent def still carries a literal `{SHIP_DIR}` OR a rendered
+   interpreter path that doesn't exist** — the v1 footgun where the substitution/resolution never
+   landed and enforcement was silently OFF. Read both sections — any `FAIL` line is a disarmed
+   bright line; fix it (remove the stale def and re-run; on Windows, install Git-Bash) before
+   relying on the install.
 5. Verifies the unioned `lib/` deps are present.
 6. Symlinks-or-copies the selected modules' skill dirs.
 7. Seeds `state/status.json` via `lib/status_writer.py --init`.
@@ -227,11 +232,25 @@ The apply step (mechanical, idempotent):
 
 ## STEP 4 — Verify (the acceptance)
 
+> **RESTART the Claude session before the enforcement smoke.** Claude Code snapshots the
+> agent-def registry AND their contents at session start — the install session holds the
+> *pre-install* view, so an enforcement smoke run here validates **stale/cached defs**, not the
+> ones you just wrote. **The tell:** dispatching a freshly-installed agent type (e.g.
+> `ship-reviewer`) returns **"agent type not found"** while pre-existing types resolve → you're
+> in a stale session. Quit and reopen Claude Code in the ship dir, THEN smoke.
+
 Relay the script's smoke test and confirm:
 - The hook-path assertion AND the placeholder-verification pass are all `ok` (no `FAIL`). Then
   spot-check by hand: `grep -rl '{SHIP_DIR}' ~/.claude/agents/` (adapt to `agents.install_target`)
   **MUST print nothing** — a hit = a garbage hook path = enforcement silently OFF; remove the stale
   def and re-run the apply step.
+- **(your stack) Expect to write `crew-allow-local.sh`.** The crew allow-list ships the common
+  wrappers (devbox/bundle/npm/npx/rake/make/git-read); a foreign stack (`cargo`, `bun`, `go`,
+  `pnpm`, …) is **blocked out of the box by design** — that's the intended per-deployment seam,
+  not a bug. Copy `core/templates/crew-allow-local.sh` → `core/hooks/crew-allow-local.sh` and add
+  the project's read/build commands to `check_allowed_local()`. Deny-precedence stays intact (the
+  deny-list runs first; the local allow only widens, never overrides a block). This is normal
+  bring-up work.
 - **core tier:** the Mate reads `core/mate.md` and runs request/response; worker crew dispatch
   with the crew-safety hooks armed. No Bosun, no loop.
 - **autonomous tier:** `/ship-watch-start` boots event-driven (re-anchor → mate-lock →
@@ -257,3 +276,29 @@ the hooks). On macOS, [agent-safehouse.dev](https://agent-safehouse.dev/) — po
 - Always `--dry-run` and show the plan first; never hand-edit
   `loop.config.json`/`mate.local.md`/`state/status.json` outside the apply step during onboarding
   (config-key MIGRATION during an upgrade is the one judgment-led exception — STEP 2.3).
+
+## Your first watch (guided)
+
+Post-install, walk the operator through ONE cycle so the ceremony is muscle memory before they
+run solo. Event-driven model — there is **no `/loop`**; a watch opens, runs long, and winds down
+on low context / a resting point.
+
+1. **Boot the Mate.** Open Claude Code in the ship dir; say "you're First Mate." At the
+   **autonomous** tier, run `/ship-watch-start` — it re-anchors, acquires the mate-lock, arms the
+   wake-monitor, bootstraps the Bosun, preflights, then IDLES. At **core** tier there's no
+   boot skill — the Mate just reads `core/mate.md` and runs request/response.
+2. **Read the state.** Have the Mate re-anchor on the ship: `queue.md` (what's Ready / Active /
+   Awaiting-Captain), `captain.md` (standing priorities), the latest mate log in `logs/mate/`.
+   This is the "where are we" that every watch opens with (see `core/mate.md` → the role + the
+   event-driven overlay `modules/autonomous/mate-event-driven.md`).
+3. **Do ONE small thing.** Either dispatch a tiny crew watch (a lookout read-only check is the
+   safest first dispatch — see `core/crew.md` for the dispatch contract) OR a housekeeping action
+   (reconcile a queue entry, trim a stale Done item). Keep it bounded — the point is to feel the
+   dispatch → log → reconcile loop once, not to do real work.
+4. **Wind down.** Walk the wind-down ceremony (`core/mate.md` → wind-down): write the mate log
+   (did / left-off / next-steps), reconcile `queue.md`, checkpoint anything you'd be sad to lose.
+   A watch ENDS here — it does not loop back on its own; the next wake (a directive drop, a
+   Captain turn) opens the next one.
+
+Point the operator at the doc for each step rather than re-explaining it — the goal is to teach
+them where the standing orders live, not to duplicate them here.

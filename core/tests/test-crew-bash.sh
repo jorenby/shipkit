@@ -38,6 +38,17 @@ check ALLOW 'git fetch origin'
 check ALLOW 'git stash list'
 check ALLOW 'git rev-parse HEAD'
 
+echo "=== Git read ops via -C <path> (ALLOW — multi-repo ships) ==="
+check ALLOW 'git -C /path/to/repo status'
+check ALLOW 'git -C ../other-repo log --oneline -5'
+check ALLOW 'git -C /a/b diff HEAD~1'
+check ALLOW 'git -C repo show HEAD'
+
+echo "=== Git write ops via -C <path> (BLOCK — still hits default-deny) ==="
+check BLOCK 'git -C /path/to/repo commit -m x'
+check BLOCK 'git -C ../other push origin main'
+check BLOCK 'git -C repo reset --hard'
+
 echo "=== Git write ops (BLOCK) ==="
 check BLOCK 'git commit -m "test"'
 check BLOCK 'git push origin main'

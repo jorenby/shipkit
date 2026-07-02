@@ -1,7 +1,8 @@
 #!/bin/bash
 # Local Bosun allow-list extensions.
 # This file is sourced by validate-bosun-bash.sh and is NOT synced from upstream.
-# Copy to scripts/bosun-allow-local.sh in your ship directory and customize.
+# Copy to modules/autonomous/hooks/bosun-allow-local.sh (next to validate-bosun-bash.sh)
+# and customize.
 #
 # Define check_allowed_local() to add deployment-specific READ-ONLY tools the Bosun
 # may run during its sweeps (e.g. your own PR-curate script, a tracker read CLI).

@@ -11,9 +11,12 @@ What it does:
   2. Write mate.local.md from core/mate.local.example.md (untouched unless --force-prefs).
   3. Install the selected tiers' AGENT DEFS, substituting {SHIP_DIR} in each def's hook
      command paths. (Agent defs are always WRITTEN, never symlinked — a symlink wouldn't get
-     the {SHIP_DIR} substitution.) Hook commands render UNIVERSALLY as `bash <abs-path>` so
-     they invoke under POSIX shells AND Git-Bash on Windows without depending on the exec
-     bit or shebang resolution (NTFS has no exec bit).
+     the {SHIP_DIR} substitution.) Hook commands render as `<interpreter> <abs-path>` so they
+     invoke under bash without depending on the exec bit or shebang resolution (NTFS has no
+     exec bit). The interpreter is RESOLVED AT INSTALL TIME (resolve_hook_interpreter): POSIX
+     keeps a bare `bash`; win32 resolves an absolute Git-Bash path (a bare `bash` on Windows
+     can resolve to WSL's System32 stub, which can't see the Windows script path → fail open).
+     The script path is forward-slashed and the whole command is a single-quoted YAML scalar.
   4. Set +x on every selected hook (POSIX belt-and-suspenders — since commands invoke via
      `bash <path>`, the exec bit is no longer load-bearing for enforcement). It ASSERTS each
      installed agent-def hook command path EXISTS, and reports any that don't (a broken hook
@@ -75,6 +78,109 @@ MODULE_DIRS = {
 def _err(msg: str) -> None:
     print(f"ERROR: {msg}", file=sys.stderr)
     sys.exit(1)
+
+
+# ---- hook interpreter resolution (CRITICAL: cross-platform enforcement) --------------
+#
+# The agent-def hook commands are rendered as `<interpreter> <script-path>` so the outer
+# shell (POSIX sh / Git-Bash / cmd) invokes the script UNDER bash regardless of exec bit
+# or shebang resolution (NTFS has no exec bit). Picking the interpreter is load-bearing:
+#
+#   On Windows, a BARE `bash` resolves via PATH — and `where bash` on a dev box very often
+#   returns C:\Windows\System32\bash.exe FIRST, which is the WSL stub. The harness runs the
+#   hook via cmd, WSL bash launches, and the Windows-style script path (C:\...) is invisible
+#   inside the WSL filesystem (it'd need /mnt/c/...). The hook errors, PreToolUse treats a
+#   non-zero-that-isn't-2 / crash as non-blocking → the bright line FAILS OPEN, silently.
+#
+# So on win32 we resolve an ABSOLUTE Git-Bash path at install time and FAIL LOUDLY if we
+# can't find one (an unenforced install must never be silent — same doctrine as the
+# placeholder gate). On POSIX, plain `bash` is correct everywhere and needs no resolution.
+#
+# resolve_hook_interpreter is a PURE function (platform + env + which-scan results in,
+# interpreter string out) so it is unit-testable on macOS with mocked Windows inputs.
+
+class HookInterpreterError(RuntimeError):
+    """No usable bash interpreter could be resolved on this (Windows) platform."""
+
+
+def resolve_hook_interpreter(platform: str, env: dict, which_results) -> str:
+    """Resolve the interpreter token to render into agent-def hook commands.
+
+    platform      : sys.platform value ('win32', 'darwin', 'linux', ...).
+    env           : environment mapping (os.environ) — read for %ProgramFiles% probes.
+    which_results : the paths a `where bash` / `which bash` scan returned (list[str]),
+                    IN ORDER. May be empty.
+
+    POSIX -> 'bash' (correct everywhere; PATH resolution is not a footgun there).
+
+    win32 -> an ABSOLUTE, forward-slashed, DOUBLE-quoted Git-Bash path, chosen by:
+        1. %ProgramFiles%\\Git\\bin\\bash.exe
+        2. %ProgramFiles(x86)%\\Git\\bin\\bash.exe
+        3. the first `where bash` hit that is NOT under System32 (that's WSL's stub).
+      Raises HookInterpreterError if none of those yield a real Git-Bash — NEVER falls
+      back to bare `bash` (that's the silent-fail-open path we're closing).
+
+    The returned token is spliced directly before the (forward-slashed) script path.
+    On win32 it is already double-quoted so the space in 'Program Files' survives; the
+    whole command is then wrapped as a single-quoted YAML scalar by the renderer (belt).
+    """
+    if platform != "win32":
+        return "bash"
+
+    def _norm(p: str) -> str:
+        return p.replace("\\", "/")
+
+    def _is_system32(p: str) -> bool:
+        return "system32" in p.replace("\\", "/").lower()
+
+    # 1 + 2: probe the well-known Git install locations from the environment.
+    for var in ("ProgramFiles", "ProgramFiles(x86)"):
+        base = env.get(var)
+        if not base:
+            continue
+        candidate = os.path.join(base, "Git", "bin", "bash.exe")
+        if os.path.isfile(candidate):
+            return f'"{_norm(candidate)}"'
+
+    # 3: scan the `where bash` results, filtering out the WSL System32 stub.
+    for hit in which_results or []:
+        if not hit:
+            continue
+        if _is_system32(hit):
+            continue
+        return f'"{_norm(hit)}"'
+
+    raise HookInterpreterError(
+        "No Git-Bash found on this Windows box. Probed %ProgramFiles%\\Git\\bin\\bash.exe, "
+        "%ProgramFiles(x86)%\\Git\\bin\\bash.exe, and `where bash` (System32/WSL stub "
+        "filtered out) — all empty. The agent-def hooks would render a bare `bash` that "
+        "resolves to WSL's bash.exe, which cannot see the Windows script path → the "
+        "bright-line hooks FAIL OPEN silently. Install Git for Windows (Git-Bash) and "
+        "re-run the installer. An unenforced install must never be silent."
+    )
+
+
+def _where_bash() -> list:
+    """Best-effort `where bash` scan (win32). Pure resolution lives in
+    resolve_hook_interpreter; this only feeds it the raw PATH hits."""
+    try:
+        res = subprocess.run(["where", "bash"], capture_output=True, text=True)
+    except (OSError, subprocess.SubprocessError):
+        return []
+    if res.returncode != 0:
+        return []
+    return [ln.strip() for ln in res.stdout.splitlines() if ln.strip()]
+
+
+def render_hook_command(interpreter: str, script_path_abs: str) -> str:
+    """Render a hook command line body: `<interpreter> <fwd-slash script path>`, emitted
+    as a SINGLE-QUOTED YAML scalar. Forward slashes (Finding C: raw backslashes in a
+    double-quoted YAML scalar are invalid escapes — parser leniency was load-bearing) plus
+    the single-quote wrapper make the frontmatter valid under a strict YAML parse."""
+    fwd = script_path_abs.replace("\\", "/")
+    inner = f"{interpreter} {fwd}"
+    # Single-quoted YAML scalar: the only escape is '' for a literal single quote.
+    return "'" + inner.replace("'", "''") + "'"
 
 
 def _load_json(path: Path) -> dict:
@@ -256,9 +362,45 @@ def write_prefs(answers, dry_run, force_prefs):
 
 # ---- agents, hooks, lib, skills (manifest-driven) -----------------------------------
 
-def install_agents(module_list, agents_target, ship_root_abs, dry_run):
+# A hook command line in a source agent def looks like (double-quoted, bare `bash`):
+#     command: "bash {SHIP_DIR}/core/hooks/validate-crew-bash.sh"
+# After {SHIP_DIR} substitution the body is `bash <abs-path>/...validate-*.sh`. We rewrite
+# that whole line: resolve the interpreter (Finding A), forward-slash the path + single-quote
+# the scalar (Finding C). Only lines whose script path contains `validate-` are rewritten —
+# those are the enforcement hooks; nothing else in the def is touched.
+_COMMAND_LINE = re.compile(r'^(?P<indent>\s*)command:\s*"(?P<body>.*)"\s*$')
+
+
+def _rewrite_hook_command_lines(content: str, interpreter: str) -> str:
+    """Rewrite every `command: "<bash|sh> <path>/validate-*.sh"` line to
+    `command: '<interpreter> <fwd-slash path>'` (single-quoted YAML scalar)."""
+    out = []
+    for line in content.splitlines(keepends=True):
+        eol = "\n" if line.endswith("\n") else ""
+        m = _COMMAND_LINE.match(line.rstrip("\n"))
+        if not m:
+            out.append(line)
+            continue
+        body = m.group("body")
+        # Recover the script path: strip a leading bash/sh interpreter token if present.
+        script = body
+        for prefix in ("bash ", "sh "):
+            if script.startswith(prefix):
+                script = script[len(prefix):]
+                break
+        script = script.strip()
+        if "validate-" not in script:
+            out.append(line)
+            continue
+        rendered = render_hook_command(interpreter, script)
+        out.append(f"{m.group('indent')}command: {rendered}{eol}")
+    return "".join(out)
+
+
+def install_agents(module_list, agents_target, ship_root_abs, dry_run, interpreter="bash"):
     """Write each selected module's agent defs into agents_target, substituting {SHIP_DIR}
-    in the hook command paths. Always WRITTEN (never symlinked) so the substitution lands."""
+    in the hook command paths and rendering the hook interpreter resolved at install time
+    (Finding A). Always WRITTEN (never symlinked) so the substitution lands."""
     lines = []
     if not dry_run:
         agents_target.mkdir(parents=True, exist_ok=True)
@@ -271,14 +413,15 @@ def install_agents(module_list, agents_target, ship_root_abs, dry_run):
                 continue
             dst = agents_target / Path(rel).name
             content = src.read_text(encoding="utf-8").replace("{SHIP_DIR}", ship_root_abs)
+            content = _rewrite_hook_command_lines(content, interpreter)
             if dst.exists():
                 lines.append(f"{dst.name}: exists — left untouched (remove it to refresh; the SKILL judges upgrades)")
                 continue
             if dry_run:
-                lines.append(f"{dst.name}: would install ({{SHIP_DIR}} -> {ship_root_abs})")
+                lines.append(f"{dst.name}: would install ({{SHIP_DIR}} -> {ship_root_abs}, interp={interpreter})")
                 continue
             dst.write_text(content, encoding="utf-8")
-            lines.append(f"{dst.name}: installed ({{SHIP_DIR}} substituted)")
+            lines.append(f"{dst.name}: installed ({{SHIP_DIR}} substituted; hook interp={interpreter})")
     return lines
 
 
@@ -305,34 +448,72 @@ def chmod_hooks(module_list, dry_run):
 
 
 def _hook_path_from_command(cmd: str) -> str:
-    """Extract the hook SCRIPT PATH from a rendered command string. Commands are emitted
-    UNIVERSALLY as `bash <abs-path>` (POSIX + Git-Bash alike — the outer shell runs `bash`,
-    so no exec-bit/shebang resolution is required). Strip a leading `bash ` (or `sh `) prefix
-    to recover the script path; tolerate the bare-path legacy form too."""
+    """Extract the hook SCRIPT PATH from a rendered command string. Commands render as
+    `<interpreter> <script-path>` where <interpreter> is:
+      - POSIX: a bare `bash` (or legacy `sh`),
+      - win32: a DOUBLE-quoted absolute Git-Bash path (Finding A), e.g.
+        `"C:/Program Files/Git/bin/bash.exe" C:/ship/core/hooks/validate-crew-bash.sh`.
+    Strip whichever interpreter form leads, recover the script path. Tolerate the
+    bare-path legacy form (no interpreter) too."""
     stripped = cmd.strip()
+    # win32: a double-quoted interpreter path leads. Take everything after the closing quote.
+    if stripped.startswith('"'):
+        end = stripped.find('"', 1)
+        if end != -1:
+            return stripped[end + 1:].strip()
     for prefix in ("bash ", "sh "):
         if stripped.startswith(prefix):
             return stripped[len(prefix):].strip()
     return stripped
 
 
+def _command_scalar(text):
+    """Yield each rendered `command:` scalar VALUE from an agent def, YAML-unescaped.
+    Handles the double-quoted (source/legacy) and single-quoted (rendered — Finding C)
+    forms. Single-quoted YAML: '' -> a literal single quote."""
+    token = re.compile(r"""command:\s*(?:"([^"]+)"|'((?:[^']|'')*)')""")
+    for dq, sq in token.findall(text):
+        if dq:
+            yield dq
+        else:
+            yield sq.replace("''", "'")
+
+
+def _interpreter_from_command(cmd: str):
+    """Extract the interpreter portion of a rendered command (win32: a quoted absolute
+    bash path). Returns the absolute path (unquoted) if the interpreter is a quoted path,
+    else None (bare `bash`/`sh` — nothing to existence-check)."""
+    stripped = cmd.strip()
+    if stripped.startswith('"'):
+        end = stripped.find('"', 1)
+        if end != -1:
+            return stripped[1:end]
+    return None
+
+
 def assert_hook_paths(agents_target):
     """Read the JUST-INSTALLED agent defs and assert each hook command path EXISTS.
     A broken hook command path = silent zero enforcement; surface it loudly (FAIL).
 
-    Commands render as `bash <abs-path>` universally, so the outer shell invokes `bash`
-    against the script — the exec bit is NO LONGER load-bearing for enforcement (Git-Bash /
-    NTFS has no exec bit). We still REPORT a missing +x on POSIX as belt-and-suspenders
-    (never a FAIL), and keep chmod_hooks setting it where the filesystem supports it."""
+    Commands render as `<interpreter> <abs-path>` — on POSIX the interpreter is a bare
+    `bash`; on win32 it's a resolved absolute Git-Bash path (Finding A). The outer shell
+    invokes bash against the script, so the exec bit is NOT load-bearing for enforcement
+    (Git-Bash / NTFS has no exec bit). We still REPORT a missing +x on POSIX as
+    belt-and-suspenders (never a FAIL). On win32 we ALSO assert the resolved interpreter
+    path itself exists — a bad interpreter fails open just like a bad script path."""
     lines = []
-    token = re.compile(r'command:\s*"([^"]+)"')
     for f in sorted(agents_target.glob("ship-*.md")):
         try:
             text = f.read_text(encoding="utf-8")
         except OSError:
             continue
-        for cmd in token.findall(text):
+        for cmd in _command_scalar(text):
             if "validate-" not in cmd:
+                continue
+            interp = _interpreter_from_command(cmd)
+            if interp is not None and not Path(interp).is_file():
+                lines.append(f"FAIL {f.name}: hook INTERPRETER NOT FOUND: {interp} "
+                             f"(FAILS OPEN — resolve a real Git-Bash and re-render)")
                 continue
             pth = Path(_hook_path_from_command(cmd))
             if not pth.is_file():
@@ -389,7 +570,21 @@ def verify_no_unexpanded_placeholders(agents_target, module_list):
             ok = False
             lines.append(f"FAIL {f.name}: UNEXPANDED TEMPLATE TOKEN(S) {', '.join(found)} "
                          f"still present in installed artifact")
-        else:
+            continue
+        # On win32 the hook command carries a RESOLVED absolute interpreter path (Finding A).
+        # A rendered interpreter that doesn't exist fails open exactly like a garbage script
+        # path — so it's part of THIS critical gate, not just the (non-fatal) hook-path report.
+        bad_interp = False
+        for cmd in _command_scalar(text):
+            if "validate-" not in cmd:
+                continue
+            interp = _interpreter_from_command(cmd)
+            if interp is not None and not Path(interp).is_file():
+                ok = False
+                bad_interp = True
+                lines.append(f"FAIL {f.name}: rendered hook INTERPRETER path does not exist: "
+                             f"{interp} (enforcement would FAIL OPEN)")
+        if not bad_interp:
             lines.append(f"ok   {f.name}: no template tokens remain (render landed)")
 
     if scanned == 0:
@@ -402,11 +597,12 @@ def verify_no_unexpanded_placeholders(agents_target, module_list):
 
     if not ok:
         lines.append("")
-        lines.append("!!! ENFORCEMENT WOULD BE SILENTLY OFF — a rendered agent def still carries a")
-        lines.append("!!! literal template token (e.g. {SHIP_DIR}). Its PreToolUse hook command path")
-        lines.append("!!! is GARBAGE, so the bright-line hook FAILS OPEN with zero enforcement and")
-        lines.append("!!! nothing else surfaces it. Remove the affected agent def(s) and re-run the")
-        lines.append("!!! installer so the substitution lands. DO NOT run crew until this is clean.")
+        lines.append("!!! ENFORCEMENT WOULD BE SILENTLY OFF — a rendered agent def carries either a")
+        lines.append("!!! literal template token (e.g. {SHIP_DIR}) OR a hook interpreter path that")
+        lines.append("!!! does not exist. Its PreToolUse hook command is GARBAGE, so the bright-line")
+        lines.append("!!! hook FAILS OPEN with zero enforcement and nothing else surfaces it. Fix the")
+        lines.append("!!! affected agent def(s) (remove + re-run so the substitution/resolution lands;")
+        lines.append("!!! on Windows, install Git-Bash). DO NOT run crew until this is clean.")
     return lines, ok
 
 
@@ -647,14 +843,24 @@ def main():
               f"ship_root; the hook-path assertion below will confirm.")
     print()
 
+    # Resolve the hook interpreter at install time (Finding A). POSIX -> bare `bash`.
+    # win32 -> an absolute Git-Bash path (FAILS LOUDLY if none — an unenforced install must
+    # never be silent). Done up front so a Windows box with no Git-Bash aborts before writing.
+    try:
+        which = _where_bash() if sys.platform == "win32" else []
+        hook_interpreter = resolve_hook_interpreter(sys.platform, os.environ, which)
+    except HookInterpreterError as e:
+        _err(str(e))
+
     cfg = build_config(answers)
     plan = []
+    plan.append(f"== hook interpreter (resolved at install time): {hook_interpreter} ==")
     plan.append("== loop.config.json (machine config) ==")
     plan += [f"  {ln}" for ln in write_config(cfg, args.dry_run, args.force_config)]
     plan.append("== mate.local.md (behavioral prefs / taste) ==")
     plan += [f"  {ln}" for ln in write_prefs(answers, args.dry_run, args.force_prefs)]
-    plan.append("== agents ({SHIP_DIR} substituted) ==")
-    plan += [f"  {ln}" for ln in install_agents(module_list, agents_target, ship_root_abs, args.dry_run)]
+    plan.append("== agents ({SHIP_DIR} substituted; hook interpreter resolved) ==")
+    plan += [f"  {ln}" for ln in install_agents(module_list, agents_target, ship_root_abs, args.dry_run, hook_interpreter)]
     plan.append("== hooks (+x — POSIX belt-and-suspenders; commands invoke via `bash`) ==")
     plan += [f"  {ln}" for ln in chmod_hooks(module_list, args.dry_run)]
     placeholder_ok = True

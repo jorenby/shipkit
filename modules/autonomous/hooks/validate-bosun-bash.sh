@@ -83,7 +83,9 @@ check_allowed() {
   echo "$cmd" | grep -qiE '^\s*gh\s+(api|search)\b' && return 0
 
   # --- Git read operations ---
-  echo "$cmd" | grep -qE '^\s*git\s+(status|diff|log|branch|show|fetch|rev-parse|remote|ls-files|blame|shortlog|describe|stash\s+list|tag(\s+-l)?)\b' && return 0
+  # Allow an optional `-C <path>` for multi-repo ships; read-op list UNCHANGED (writes
+  # behind -C still hit default-deny).
+  echo "$cmd" | grep -qE '^\s*git\s+(-C\s+[^ ;|&]+\s+)?(status|diff|log|branch|show|fetch|rev-parse|remote|ls-files|blame|shortlog|describe|stash\s+list|tag(\s+-l)?)\b' && return 0
 
   # --- File/directory inspection ---
   echo "$cmd" | grep -qE '^\s*(ls|pwd|wc|file|which|type|stat|du|df|tree|realpath|basename|dirname)\b' && return 0
