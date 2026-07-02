@@ -74,6 +74,64 @@ check ALLOW 'grep -r foo docs/'
 check ALLOW 'rg pattern'
 check ALLOW 'curl https://example.com'
 
+echo "=== FALSE POSITIVES FIXED: reviewer tokens as DATA (ALLOW — instance #3) ==="
+# Quoted alternation pipes no longer fragment the segment
+check ALLOW 'grep -E "(activate|send_test)" ui/server.ts'
+check ALLOW "rg 'activate|send_test|x-mcp-action' -n ui/"
+check ALLOW 'grep -rn "x-mcp-action" src/'
+check ALLOW 'grep -E "dispatch|activate" -n lib/'
+check ALLOW 'cat docs/dispatch-bands.md'
+check ALLOW 'curl -s "http://localhost:3888/api?action=send_test"'
+# Trigger tokens inside quoted args of data-arg commands are prose, not invocations
+check ALLOW 'grep -n "git push" README.md'
+check ALLOW 'echo "git commit is blocked for reviewers"'
+check ALLOW 'grep "rm -rf" docs/runbook.md'
+check ALLOW 'echo "a && b; c"'
+
+echo "=== TRUE POSITIVES PRESERVED: compounds / wrappers / options (BLOCK) ==="
+check BLOCK 'ls && git commit -m x'
+check BLOCK 'echo ok; git push origin feat'
+check BLOCK 'git -c user.name=x commit -m y'
+check BLOCK 'git --git-dir=/x/.git push origin feat'
+check BLOCK "bash -c 'git push origin main'"
+check BLOCK 'sh -c "rm -rf /"'
+check BLOCK 'FOO=1 git commit -m x'
+check BLOCK 'env FOO=1 git push'
+check BLOCK 'echo "$(git commit -m x)"'
+check BLOCK 'echo `rm somefile`'
+check BLOCK 'cat f | xargs rm'
+check BLOCK 'ls; rm somefile'
+check BLOCK 'gh pr view 5 && gh pr comment 5 --body hi'
+check BLOCK 'gh pr edit 5 --add-label x'
+
+echo "=== queue.md still blocked ANYWHERE, even quoted ==="
+check BLOCK 'echo "queue.md"'
+check BLOCK 'grep foo queue.md'
+
+echo "=== W2 B1 class: pipes into interpreters netted by default-deny (BLOCK) ==="
+# Readonly agents get no bare-interpreter whole-scan — interpreters simply are
+# not on the allow-list, so the sink segment itself dies (verified here per the
+# W2 review: default-deny is the net).
+check BLOCK "echo 'git push origin main' | bash"
+check BLOCK "echo 'rm -rf /' | sh"
+check BLOCK 'printf "gh pr merge 5\n" | python3'
+
+echo "=== W2 B2: backslash-newline continuations rejoin (BLOCK) ==="
+check BLOCK 'git pu\
+sh origin main'
+check BLOCK 'cat que\
+ue.md'
+# Escaped backslash before newline is a REAL boundary, not a continuation
+check ALLOW 'echo foo\\
+git status'
+
+echo "=== W2 N2: \$'...' ANSI-C quoting forces the raw scan (BLOCK) ==="
+check BLOCK "git push origin \$'main'"
+
+echo "=== W2 N3: zero-segment commands fail CLOSED (BLOCK) ==="
+check BLOCK ';'
+check BLOCK ' ; ; '
+
 echo
 echo "Passed: $PASS  Failed: $FAIL"
 [ "$FAIL" -eq 0 ] && echo "All readonly-bash tests passed." || { echo "FAILURES."; exit 1; }
