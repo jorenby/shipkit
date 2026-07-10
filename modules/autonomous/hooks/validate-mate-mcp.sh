@@ -24,6 +24,16 @@
 SHIP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 AUDIT_LOG="$SHIP_DIR/state/mate-mcp-writes.jsonl"
 
+# jq DEPENDENCY GUARD (fail CLOSED): every gate below parses the PreToolUse stdin
+# with jq. Without jq the parse yields empty, the agent-type/command checks no-op,
+# and the hook exits 0 — SILENT ZERO ENFORCEMENT. Refuse to run instead: exit 2
+# (fail CLOSED) with a loud message. shipkit_init.py's preflight asserts jq is on
+# PATH at install, so a correctly-installed ship never reaches this.
+if ! command -v jq >/dev/null 2>&1; then
+  echo "Blocked: ${0##*/} requires jq, which is not on PATH. Install jq (brew install jq / apt-get install jq / winget install jqlang.jq) — failing CLOSED to avoid silent zero enforcement of the Ship hooks." >&2
+  exit 2
+fi
+
 INPUT=$(cat)
 AGENT_TYPE=$(echo "$INPUT" | jq -r '.agent_type // empty')
 [ "$AGENT_TYPE" != "ship-mate" ] && exit 0

@@ -13,6 +13,13 @@ HOOK="$SCRIPT_DIR/../hooks/validate-mate-bash.sh"
 PASS=0
 FAIL=0
 
+# jq is required — this suite builds the hook's stdin JSON with `jq -n`. Fail fast with a
+# clear message instead of cascading per-case failures if jq is absent.
+if ! command -v jq >/dev/null 2>&1; then
+  echo "ERROR: jq is required to run this suite. Install jq (brew install jq / apt-get install jq) and re-run." >&2
+  exit 2
+fi
+
 # check <expected-exit> <agent_type> <command>
 check() {
   local want="$1" agent="$2" cmd="$3"
