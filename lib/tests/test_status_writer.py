@@ -51,7 +51,10 @@ class TestStatusWriter(unittest.TestCase):
         run(["tick", "1", "boot", "--delay-seconds", "1200", "--wake-label", "fallback"], self.status)
         nw = self._doc()["next_wake"]
         # Rendered as "HH:MM <tz> (fallback)", computed — not a typed literal.
-        self.assertRegex(nw, r"^\d{2}:\d{2}\s+\S+\s+\(fallback\)$")
+        # The tz token comes from strftime("%Z"): a single abbrev on Unix ("CDT"),
+        # but a multi-word name on Windows ("Central Daylight Time"). Match any
+        # non-empty tz run so the assertion is TZ- and platform-independent.
+        self.assertRegex(nw, r"^\d{2}:\d{2} .+ \(fallback\)$")
 
     def test_now_rejects_bare_clock_time(self):
         run(["--init"], self.status)

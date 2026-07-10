@@ -181,6 +181,46 @@ end
 puts
 
 # ---------------------------------------------------------------------------
+# Scenario 10b: status held-fresh by ME (session id matches holder) — exit 0
+# ---------------------------------------------------------------------------
+puts "Scenario 10b: status held-fresh by me"
+out, code = run_lock(LOCK_FILE, "status", SESSION_A)
+assert("exit 0 (mine)",  code == 0,               code, test_failures)
+assert("yours label",    out.include?("yours"),   out,  test_failures)
+
+out_json, = run_lock(LOCK_FILE, "status", SESSION_A, "--json")
+begin
+  j = JSON.parse(out_json)
+  assert("json mine=true", j["mine"] == true, j, test_failures)
+rescue JSON::ParserError
+  assert("valid json", false, out_json, test_failures)
+end
+puts
+
+# ---------------------------------------------------------------------------
+# Scenario 10c: status held-fresh by ANOTHER session — still blocked (exit 1)
+# ---------------------------------------------------------------------------
+puts "Scenario 10c: status held-fresh by other"
+out_json, code = run_lock(LOCK_FILE, "status", SESSION_B, "--json")
+assert("exit 1 (not mine)", code == 1, code, test_failures)
+begin
+  j = JSON.parse(out_json)
+  assert("json mine=false", j["mine"] == false, j, test_failures)
+rescue JSON::ParserError
+  assert("valid json", false, out_json, test_failures)
+end
+puts
+
+# ---------------------------------------------------------------------------
+# Scenario 10d: status held-STALE — takeover available => exit 0 even without id
+# ---------------------------------------------------------------------------
+puts "Scenario 10d: status held-stale"
+out, code = run_lock(LOCK_FILE, "status", stale_minutes: 0)
+assert("exit 0 (stale)", code == 0,                    code, test_failures)
+assert("STALE label",    out.include?("STALE"),        out,  test_failures)
+puts
+
+# ---------------------------------------------------------------------------
 # Scenario 11: re-entrant acquire (same session, fresh lock)
 # ---------------------------------------------------------------------------
 puts "Scenario 11: re-entrant acquire"

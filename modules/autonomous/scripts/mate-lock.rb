@@ -12,8 +12,17 @@
 #   heartbeat SESSION_ID — stamp heartbeat_at; fails if session doesn't hold the lock.
 #   release  SESSION_ID  — release the lock; fails if session doesn't hold it.
 #   release  SESSION_ID --force — release unconditionally (prints a warning).
-#   status               — print lock state and exit 0 (free or mine) / 1 (held-fresh by other).
-#   status   --json      — same, machine-readable JSON.
+#   status   [SESSION_ID] — print lock state. The exit code is an "is the lock
+#                          acquirable by SESSION_ID?" predicate, NOT a command-
+#                          success flag:
+#                            0  free, OR stale (takeover available), OR held-fresh
+#                               by SESSION_ID (it's yours)
+#                            1  held-fresh by a DIFFERENT session (blocked)
+#                          With no SESSION_ID, any held-fresh lock => exit 1
+#                          (the caller made no ownership claim). A nonzero exit
+#                          alongside a healthy "STATE: held" report is a signal,
+#                          not a failure — guard it: `status "$id" || [ $? -eq 1 ]`.
+#   status   [SESSION_ID] --json — same, machine-readable JSON (adds "mine").
 #
 # Atomic writes: tmp file + rename (POSIX atomic on same filesystem).
 #
@@ -21,7 +30,7 @@
 #   ruby scripts/mate-lock.rb acquire   <session_id>
 #   ruby scripts/mate-lock.rb heartbeat <session_id>
 #   ruby scripts/mate-lock.rb release   <session_id> [--force]
-#   ruby scripts/mate-lock.rb status    [--json]
+#   ruby scripts/mate-lock.rb status    [session_id] [--json]
 #
 # Environment overrides (for testing):
 #   LOCK_FILE=/tmp/test-lock.json ruby scripts/mate-lock.rb ...
@@ -191,12 +200,12 @@ def cmd_release(session_id, force:)
   exit 1
 end
 
-def cmd_status(json_output:)
+def cmd_status(json_output:, session_id: nil)
   lock = read_lock
 
   if lock.nil?
     if json_output
-      puts JSON.generate({ "state" => "free", "holder" => nil, "age" => nil, "fresh" => false })
+      puts JSON.generate({ "state" => "free", "holder" => nil, "age" => nil, "fresh" => false, "mine" => false })
     else
       puts "STATE: free"
       puts "No lock held."
@@ -207,6 +216,7 @@ def cmd_status(json_output:)
   hb      = lock["heartbeat_at"] || lock["acquired_at"]
   age_str = age_string(hb)
   fresh   = !stale?(lock)
+  mine    = fresh && !session_id.nil? && lock["session_id"] == session_id
 
   if json_output
     puts JSON.generate({
@@ -216,6 +226,7 @@ def cmd_status(json_output:)
       "heartbeat_at" => lock["heartbeat_at"],
       "age"          => age_str,
       "fresh"        => fresh,
+      "mine"         => mine,
       "stale_minutes" => STALE_MINUTES
     })
   else
@@ -224,11 +235,13 @@ def cmd_status(json_output:)
     puts "Acquired:     #{lock['acquired_at']}"
     puts "Last beat:    #{lock['heartbeat_at']} (#{age_str} ago)"
     puts "Freshness:    #{fresh ? "FRESH (<#{STALE_MINUTES}m)" : "STALE (>#{STALE_MINUTES}m)"}"
+    puts "Ownership:    yours (session matches)" if mine
   end
 
-  # Exit 1 if held-fresh by some session (caller can't infer "mine" without knowing their id).
-  # Exit 0 if free or stale (takeover possible).
-  if fresh
+  # Exit code = "is this lock acquirable by session_id?"
+  #   held-fresh by ANOTHER (or no id given) => 1 (blocked)
+  #   free / stale / held-fresh-by-me         => 0 (acquirable, or already yours)
+  if fresh && !mine
     exit 1
   else
     exit 0
@@ -253,7 +266,8 @@ when "heartbeat"
 when "release"
   cmd_release(arg1, force: force)
 when "status"
-  cmd_status(json_output: json_flag)
+  status_session = (arg1 && !arg1.start_with?("--")) ? arg1 : nil
+  cmd_status(json_output: json_flag, session_id: status_session)
 else
   warn "Usage: ruby scripts/mate-lock.rb <acquire|heartbeat|release|status> [session_id] [--force] [--json]"
   exit 2

@@ -79,11 +79,45 @@ class TestMateLock(unittest.TestCase):
     def test_status_json_held_fresh_exit1(self):
         run(["acquire", "sess-1"], self.lock)
         r = run(["status", "--json"], self.lock)
-        self.assertEqual(r.returncode, 1)  # held-fresh => exit 1
+        self.assertEqual(r.returncode, 1)  # held-fresh, no id given => exit 1
         data = json.loads(r.stdout)
         self.assertEqual(data["state"], "held")
         self.assertEqual(data["holder"], "sess-1")
         self.assertTrue(data["fresh"])
+        self.assertFalse(data["mine"])
+
+    def test_status_held_fresh_by_me_exit0(self):
+        # The lock is held-fresh by MY session — status reports success (0),
+        # not the "blocked" signal.
+        run(["acquire", "sess-1"], self.lock)
+        r = run(["status", "sess-1"], self.lock)
+        self.assertEqual(r.returncode, 0)
+        self.assertIn("STATE: held", r.stdout)
+        self.assertIn("yours", r.stdout)
+
+    def test_status_held_fresh_by_other_exit1(self):
+        # Held-fresh by a DIFFERENT session => blocked => exit 1, mine=false.
+        run(["acquire", "sess-1"], self.lock)
+        r = run(["status", "sess-2", "--json"], self.lock)
+        self.assertEqual(r.returncode, 1)
+        data = json.loads(r.stdout)
+        self.assertFalse(data["mine"])
+
+    def test_status_held_fresh_by_me_json_mine_true(self):
+        run(["acquire", "sess-1"], self.lock)
+        r = run(["status", "sess-1", "--json"], self.lock)
+        self.assertEqual(r.returncode, 0)
+        data = json.loads(r.stdout)
+        self.assertTrue(data["mine"])
+        self.assertTrue(data["fresh"])
+
+    def test_status_held_stale_exit0(self):
+        # Stale lock (takeover available) => acquirable => exit 0, even with no id.
+        run(["acquire", "sess-1"], self.lock)
+        r = run(["status"], self.lock, stale_minutes=0)
+        self.assertEqual(r.returncode, 0)
+        data = json.loads(run(["status", "--json"], self.lock, stale_minutes=0).stdout)
+        self.assertFalse(data["fresh"])
 
 
 if __name__ == "__main__":
