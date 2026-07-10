@@ -174,7 +174,8 @@ Open Claude Code **in the ship dir** and run the skill:
 /shipkit-setup
 ```
 
-The skill (`skills/shipkit-setup/SKILL.md`) carries the judgment; `shipkit_init.py` is the
+The skill (`skills/shipkit-setup/SKILL.md`; the upgrade judgment lives in
+`skills/shipkit-setup/upgrade.md`) carries the judgment; `shipkit_init.py` is the
 mechanical apply step. The skill will:
 
 1. **Detect** whether this is fresh, a tier bump, or an older/diverged install — it runs the
@@ -229,9 +230,10 @@ conflicts on every file you edited. The clean-reinstall order:
 - **`loop.config.json` migration.** v2 added `github_org` / `agents` / `hooks` / `launch`
   blocks. If your ship dir IS the evolving clone, the apply step reports the missing keys and
   the skill merges them (preserving your values, using the new tiered hook paths). If you
-  cloned v2 fresh into a new dir, the fresh `loop.config.json` already has every key with
-  placeholder values — nothing reports as missing, so **port your real machine values (repos,
-  github_org, chat_surface, headroom path, hosts_ports) from the old config by hand.**
+  cloned v2 fresh into a new dir, the config is gitignored and the first apply writes a
+  `loop.config.json` with every key at placeholder values — nothing reports as missing, so
+  **port your real machine values (repos, github_org, chat_surface, headroom path,
+  hosts_ports) from the old config by hand.**
 
 When divergence is genuinely ambiguous, the skill asks rather than guesses.
 

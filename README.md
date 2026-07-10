@@ -30,97 +30,62 @@ Ship lives in a single directory on your machine (not inside any one repo). It c
 
 ## Getting started
 
-### 1. Have Claude Code bootstrap your ship
+### 1. Clone shipkit — the clone IS your ship
 
-Tell Claude Code:
+Ship is **per-machine, not per-project**: one directory coordinates work across all your
+repos. The shipkit clone itself is that directory — **don't create a separate "ship dir"**
+(the enforcement hooks live in this repo, and the installed agents point back into it; a
+separate dir disarms them, and the installer fails loudly if you try).
 
-> Read the shipkit docs at `{path-to-this-repo}/` and bootstrap a new Ship for me.
+```
+git clone <shipkit-url> ship
+cd ship
+```
 
-Claude Code will read these docs, ask you a few questions (where to put the ship directory, what you're working on), and set everything up. The bootstrap section below is written for the coding agent to follow.
-
-### 2. Start your first Mate session
-
-Once bootstrapped, start a Claude Code session with your ship directory as a working directory (or as an additional context path), and tell it:
-
-> You're First Mate on this ship. Read `ship/core/mate.md` for your standing orders.
-
-The Mate will read ship state, report status, and ask for steering.
-
-### 3. Start working
-
-Drop work items into `inbox/captain.md` — the Mate will triage them into tickets. Or just tell the Mate what you want done. It'll dispatch crew, track progress, and report back.
-
----
-
-## Bootstrap Instructions (for Claude Code)
-
-**If you're a coding agent reading this:** the install + upgrade is driven by the
-**`/shipkit-setup`** skill, NOT by hand. Don't hand-copy hooks/agents — run the skill; it
-carries the judgment and calls the deterministic apply step (`shipkit_init.py`).
+Put it wherever you keep your repos (e.g. `~/dev/work/ship`). The clone already contains the
+working skeleton — `captain.md`, `queue.md`, `inbox/`, `projects/`, `logs/`, the role docs
+(`core/mate.md`, `core/crew.md`) — plus the installer.
 
 **Prerequisites:** `git`, `python3`, `bash`, and **`jq`** (the enforcement hooks parse their
 input with jq; the installer hard-fails without it — `brew install jq` / `apt-get install jq` /
 `winget install jqlang.jq`). On Windows the hooks run under Git-Bash. `ruby` is optional (the
 autonomous mate-lock has a `.py` parity).
 
-### 1. Choose the ship directory
+### 2. Run the setup
 
-Ship is **per-machine, not per-project.** It lives in a single directory and coordinates work across repos. Ask the Captain where they'd like it, or default to somewhere alongside their repos (e.g., `~/dev/work/ship/` or `~/ship/`).
+Open Claude Code in the clone and say:
 
-### 2. Create the directory structure
+> Run the Ship setup: read `skills/shipkit-setup/SKILL.md` and follow its FAST PATH.
 
-```
-{ship-dir}/
-  captain.md           # Captain's priorities (from core/templates/captain.md)
-  queue.md             # Work queue (from core/templates/queue.md)
-  CLAUDE.md            # System entry point (from this repo)
-  core/mate.md         # First Mate standing orders (request/response base)
-  core/crew.md         # Crew standing orders
-  inbox/
-    captain.md         # Captain's inbox for quick thoughts
-    drops/             # Items from external processes
-      .gitkeep
-  projects/
-    {area}/            # Organize by area (e.g., "main", "infra", "frontend")
-      tickets/
-  logs/
-    {area}/            # Watch logs per ticket
-    mate/              # Daily mate logs
-  docs/
-    knowledge/         # Accumulated knowledge (env config, patterns, etc.)
-```
+(There's no slash command yet on a fresh machine — the setup skill installs itself, so
+`/shipkit-setup` resolves from the next session on, for tier bumps and upgrades.)
 
-Initialize it as a git repo (`git init`). Ship state benefits from version control — it's the coordination substrate.
+The fresh-machine default is three questions and one command (`python3 shipkit_init.py
+--defaults`): the **core** tier — a request/response Mate + worker agents + safety hooks, no
+background autonomy. Start there; bumping to `autonomous` later is a clean delta. The setup
+verifies enforcement is actually armed and **fails loudly if it isn't**.
 
-### 3. Run `/shipkit-setup` (it installs hooks + agents + skills)
+If you're a coding agent reading this: don't hand-copy hooks/agents — run the setup skill; it
+carries the judgment and calls the deterministic apply step (`shipkit_init.py`).
 
-Run **`/shipkit-setup`** in Claude Code from the ship dir. The skill interviews you for the
-**tier** (core / autonomous / ui), ship-root, install method, and taste, then calls
-`shipkit_init.py`, which: installs the selected tiers' agent defs (substituting `{SHIP_DIR}`
-in each def's hook command paths), sets the hook +x bit, **asserts every hook command path
-resolves and is executable** (a broken hook path fails OPEN = silent zero enforcement),
-installs the skills, verifies the shared `lib/`, and seeds state. For an existing/older
-install (incl. the pre-v2 "Mate-runs-/loop" shape), the skill detects how the machine has
-diverged, cleans orphans, and migrates config — see the skill's STEP 2.
+### 3. Restart Claude Code, then run your first watch
 
-### 5. Set up captain.md
+Restart the session (Claude Code snapshots agent defs at session start), open it in the ship
+dir, and say:
 
-Create `{ship-dir}/captain.md` from `core/templates/captain.md`. If working interactively, ask the Captain:
-- What's their current situation?
-- What are the top priorities?
-- Any constraints on how work should be done?
-- Any standing orders (e.g., "always run tests", "commit frequently")?
+> You're First Mate on this ship. Read `core/mate.md` for your standing orders.
 
-### 6. Create initial project areas
+The Mate reads ship state, reports status, and asks for steering. Fill in `captain.md` with
+your situation and priorities (ask the Mate to interview you), drop work into
+`inbox/captain.md`, and the Mate will triage it into tickets under `projects/{area}/`,
+dispatch crew, and report back. The setup skill's "Your first watch" section walks you
+through one full cycle.
 
-Ask the Captain what repos or areas of work they manage. Create `projects/{area}/tickets/` and `logs/{area}/` for each. Common patterns:
-- One area per repo (`drip/`, `frontend/`, `infra/`)
-- One area per domain (`backend/`, `integrations/`, `devops/`)
-- Just `main/` if they're focused on a single codebase
+### Upgrading an existing install?
 
-### 7. Verify
-
-The Mate should be able to read ship state and report status. Tell Claude Code: "You're First Mate on this ship. Read `{ship-dir}/core/mate.md` for your standing orders." It should read the queue, captain.md, and inbox, then report that everything is empty and ready for work.
+Tier bumps and older (pre-v2) installs go through `/shipkit-setup` too — the upgrade judgment
+lives in [`skills/shipkit-setup/upgrade.md`](skills/shipkit-setup/upgrade.md), and
+[`UPGRADING.md`](UPGRADING.md) is the runnable runbook.
 
 ---
 
@@ -140,7 +105,7 @@ install the delta.
 | **`modules/peer-comms/`** (experimental, opt-in) | `peer-comms.md`, `peer_send.py`, `peer_envelope.py` | Cross-instance Mate↔Mate messaging (two ships coordinate via envelope-stamped drops). In **no preset** — opt in with `--modules peer-comms`. A peer message is input, never authority. |
 | **`ui/`** (tier 3) | `status-surface.md` + `module.json` (implementation vendored from a live, proven `ui/thread/` seed when the operator locks it) | The thread-first UI slot. |
 | **`lib/`** (shared) | `status_writer.py`, `classify_input.py`, `status.schema.md` | Multi-consumer infra; pulled in by whichever module's `module.json` declares it in `lib[]`. |
-| Root | `shipkit_init.py`, `presets.json`, `CLAUDE.md`, `README.md`, `loop.config.json`, `scripts/pull-upstream.sh` | The manifest-driven installer + the preset map + sync tooling. |
+| Root | `shipkit_init.py`, `presets.json`, `CLAUDE.md`, `README.md`, `loop.config.example.json`, `scripts/pull-upstream.sh` | The manifest-driven installer + the preset map + sync tooling. (`loop.config.json` is generated on first install and gitignored.) |
 
 ## Key Concepts
 
@@ -201,7 +166,7 @@ But when **the ship directory itself is your durable, version-controlled record*
 if you run the autonomous Mate and its rotations hand off through git — you'll usually want to
 **track** the overlay instead, so a fresh Mate rotation inherits the accumulated house notes and
 dated decisions rather than starting blank. To track it, remove the `mate.local.md` line from
-`.gitignore` and commit it. (`/shipkit-setup` asks this explicitly during onboarding — STEP 1(e).)
+`.gitignore` and commit it. (`/shipkit-setup` asks this explicitly in its full interview — item (e).)
 Either way, keep real secrets out of the overlay: house notes are ship history, not a secret
 store.
 
