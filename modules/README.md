@@ -32,6 +32,7 @@ autonomous tier (dispatch-bands, sensors — tier 2). All are referenced from co
 | [pull-requests/pull-requests.md](pull-requests/pull-requests.md) | 1 | PR workflow | Mergeability re-checks, stacked-PR propagation, the `pr:` frontmatter convention. Core carries the draft-only / never-`gh pr ready` bright lines + the PR-link format. |
 | [review-cycle/review-cycle.md](review-cycle/review-cycle.md) | 1 | Any | The maker≠checker *enforcement* mechanism: a non-maker `ship-reviewer` gate, the standards doc, the policy knobs (core ships only the principle). Also: the reviewer-must-report rule, the browser-verify gate for UI work, and apply-crew-work commit hygiene. |
 | [compound/compound.md](compound/compound.md) | 1 | Any | The capture→consolidate→refresh learning loop: crew capture a candidate, Mate consolidates into `docs/knowledge/` (dedup'd via semantic search) at wind-down, Bosun refreshes (autonomous tier). The `ship-compound` skill is the procedure. |
+| [peer-comms/peer-comms.md](peer-comms/peer-comms.md) | 1 | Fleet (2+ ships) | Cross-instance Mate↔Mate messaging over the drop machinery: envelope spec + anti-masquerade validation, multi-transport delivery (scp / http / passive outbox) via `peer_send.py` + per-ship `state/peers.json`. Doctrine keystone: a peer message is INPUT, not AUTHORITY. Opt-in (`--modules`); wake-monitor recommended for prompt pickup. |
 
 Each module's tunable values live in `mate.local.md` (behavioral prefs) and/or
 `loop.config.json` (machine config), not in the module doc itself.
