@@ -58,6 +58,11 @@ Drop work items into `inbox/captain.md` — the Mate will triage them into ticke
 **`/shipkit-setup`** skill, NOT by hand. Don't hand-copy hooks/agents — run the skill; it
 carries the judgment and calls the deterministic apply step (`shipkit_init.py`).
 
+**Prerequisites:** `git`, `python3`, `bash`, and **`jq`** (the enforcement hooks parse their
+input with jq; the installer hard-fails without it — `brew install jq` / `apt-get install jq` /
+`winget install jqlang.jq`). On Windows the hooks run under Git-Bash. `ruby` is optional (the
+autonomous mate-lock has a `.py` parity).
+
 ### 1. Choose the ship directory
 
 Ship is **per-machine, not per-project.** It lives in a single directory and coordinates work across repos. Ask the Captain where they'd like it, or default to somewhere alongside their repos (e.g., `~/dev/work/ship/` or `~/ship/`).
@@ -132,6 +137,7 @@ install the delta.
 | **`modules/autonomous/`** (tier 2) | `bosun.md`, `mate-event-driven.md`, `bosun-loop.md`, `agents/ship-{mate,bosun}.md`, `hooks/validate-{mate,mate-mcp,bosun}-*.sh`, `skills/{ship-watch-start,bosun-tick}`, `scripts/{bosun_emit.py,launch-bosun.sh,ship-up.sh,mate-lock.{rb,py}}` | The bg-Mate/Bosun heartbeat kernel. |
 | **`modules/wake-monitor/`** (tier 2) | `wake-monitor.md`, `wake_monitor.py`, `wake_monitor_native.py` | The Mate's wake monitor (the one optional capability inside autonomous). |
 | **`modules/{subagent-roster,pull-requests,review-cycle,dispatch-bands,sensors}/`** | a doc + `module.json` each | Depth-doctrine modules (roster/PR/review are tier 1; dispatch-bands/sensors tier 2). |
+| **`modules/peer-comms/`** (experimental, opt-in) | `peer-comms.md`, `peer_send.py`, `peer_envelope.py` | Cross-instance Mate↔Mate messaging (two ships coordinate via envelope-stamped drops). In **no preset** — opt in with `--modules peer-comms`. A peer message is input, never authority. |
 | **`ui/`** (tier 3) | `status-surface.md` + `module.json` (implementation vendored from a live, proven `ui/thread/` seed when the operator locks it) | The thread-first UI slot. |
 | **`lib/`** (shared) | `status_writer.py`, `classify_input.py`, `status.schema.md` | Multi-consumer infra; pulled in by whichever module's `module.json` declares it in `lib[]`. |
 | Root | `shipkit_init.py`, `presets.json`, `CLAUDE.md`, `README.md`, `loop.config.json`, `scripts/pull-upstream.sh` | The manifest-driven installer + the preset map + sync tooling. |

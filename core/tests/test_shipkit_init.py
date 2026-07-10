@@ -257,5 +257,80 @@ class TestStrictYamlRoundTrip(unittest.TestCase):
                     )
 
 
+class TestFreshCopyInstallNoStaleWarning(unittest.TestCase):
+    """Finding 2: a FRESH copy-install must NOT flag the skill it just wrote as a stale
+    'silently keeps launching /loop' copy. A copy byte-identical to the repo's current
+    skill is neutral ('current, frozen'); only a DIFFERING copy earns the scary flag."""
+
+    def _copy_skill(self, dest_parent, name):
+        import shutil
+        src = None
+        for rel in shipkit_init.load_module("autonomous").get("skills", []):
+            if os.path.basename(rel) == name:
+                src = shipkit_init.load_module("autonomous")["_dir"] / rel
+        self.assertIsNotNone(src, f"no source skill {name} in autonomous module")
+        dst = dest_parent / name
+        shutil.copytree(src, dst)
+        return dst
+
+    def test_fresh_identical_copy_is_current_not_stale(self):
+        with tempfile.TemporaryDirectory() as td:
+            skills_target = shipkit_init.Path(td)
+            self._copy_skill(skills_target, "ship-watch-start")
+            findings = shipkit_init.detect_prior_state(["autonomous"], skills_target)
+            joined = "\n".join(findings)
+            self.assertIn("ship-watch-start", joined)
+            self.assertNotIn("silently keep launching /loop", joined)
+            self.assertIn("COPY (current, frozen", joined)
+
+    def test_differing_copy_is_flagged_stale(self):
+        with tempfile.TemporaryDirectory() as td:
+            skills_target = shipkit_init.Path(td)
+            dst = self._copy_skill(skills_target, "ship-watch-start")
+            skill_md = dst / "SKILL.md"
+            skill_md.write_text(
+                skill_md.read_text(encoding="utf-8") + "\nstale drift\n", encoding="utf-8"
+            )
+            findings = shipkit_init.detect_prior_state(["autonomous"], skills_target)
+            joined = "\n".join(findings)
+            self.assertIn("silently keep launching /loop", joined)
+            self.assertNotIn("COPY (current, frozen", joined)
+
+
+class TestJqPreflight(unittest.TestCase):
+    """Finding 1(b): the installer hard-fails (before writing) when the selected module set
+    installs hooks but jq is not on PATH; passes cleanly when jq is present."""
+
+    def test_hooks_in_module_set_detects_hooks(self):
+        # autonomous installs mate/bosun hooks; a doc-only set (compound) installs none.
+        self.assertTrue(shipkit_init.hooks_in_module_set(["autonomous"]))
+        self.assertEqual(shipkit_init.hooks_in_module_set(["compound"]), [])
+
+    def test_assert_jq_present_no_hooks_is_noop(self):
+        orig = shipkit_init.shutil.which
+        shipkit_init.shutil.which = lambda _n: None  # jq "absent"
+        try:
+            shipkit_init.assert_jq_present(["compound"])  # no hooks → must not raise/exit
+        finally:
+            shipkit_init.shutil.which = orig
+
+    def test_assert_jq_present_fails_without_jq_when_hooks(self):
+        orig = shipkit_init.shutil.which
+        shipkit_init.shutil.which = lambda _n: None
+        try:
+            with self.assertRaises(SystemExit):
+                shipkit_init.assert_jq_present(["autonomous"])
+        finally:
+            shipkit_init.shutil.which = orig
+
+    def test_assert_jq_present_passes_with_jq(self):
+        orig = shipkit_init.shutil.which
+        shipkit_init.shutil.which = lambda _n: "/usr/bin/jq"
+        try:
+            shipkit_init.assert_jq_present(["autonomous"])  # jq present → clean
+        finally:
+            shipkit_init.shutil.which = orig
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

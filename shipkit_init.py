@@ -239,6 +239,42 @@ def resolve_modules(preset, modules):
     return ordered
 
 
+# ---- jq preflight (CRITICAL: the enforcement hooks parse stdin with jq) --------------
+#
+# Every validate-*-bash.sh hook parses its PreToolUse stdin with jq. The hooks now FAIL
+# CLOSED at runtime when jq is absent (they exit 2, bricking Bash for the hooked session)
+# — the correct loud failure vs the old silent zero-enforcement. This preflight means a
+# correctly-installed ship never hits that: if the selected module set installs ANY hook,
+# assert jq is on PATH and hard-FAIL loudly BEFORE writing anything (same doctrine as the
+# interpreter + placeholder gates — an unenforced OR bricked install must never be silent).
+
+def hooks_in_module_set(module_list) -> list:
+    """The hook labels ('<module>/<rel>') the selected module set would install."""
+    hooks = []
+    for name in module_list:
+        for rel in load_module(name).get("hooks", []):
+            hooks.append(f"{name}/{rel}")
+    return hooks
+
+
+def assert_jq_present(module_list) -> None:
+    """Fail (before any write) if this module set installs hooks but jq is not on PATH."""
+    hooks = hooks_in_module_set(module_list)
+    if not hooks:
+        return
+    if shutil.which("jq"):
+        return
+    _err(
+        "jq is REQUIRED but not found on PATH.\n"
+        f"  The selected modules install enforcement hooks ({', '.join(hooks)}) that parse\n"
+        "  their PreToolUse stdin with jq. Without jq every hook fails CLOSED (exit 2 — it\n"
+        "  bricks Bash for the hooked agent session). Install jq and re-run:\n"
+        "    macOS:              brew install jq\n"
+        "    Debian/Ubuntu:      apt-get install jq\n"
+        "    Windows (Git-Bash): winget install jqlang.jq   (or: pacman -S mingw-w64-x86_64-jq)"
+    )
+
+
 # ---- config + prefs (machine config vs taste) ---------------------------------------
 
 def build_config(answers: dict) -> dict:
@@ -660,6 +696,25 @@ def install_skills(module_list, skills_target, mode, dry_run):
     return lines
 
 
+def _dirs_identical(a: Path, b: Path) -> bool:
+    """True iff directory trees a and b hold the same set of files with byte-identical
+    contents. Deep (byte) compare — NOT filecmp's default shallow stat compare, since a
+    fresh copytree preserves mtimes and we need content truth, not signature truth."""
+    if not a.is_dir() or not b.is_dir():
+        return False
+    try:
+        a_files = {p.relative_to(a) for p in a.rglob("*") if p.is_file()}
+        b_files = {p.relative_to(b) for p in b.rglob("*") if p.is_file()}
+        if a_files != b_files:
+            return False
+        for rel in a_files:
+            if (a / rel).read_bytes() != (b / rel).read_bytes():
+                return False
+    except OSError:
+        return False
+    return True
+
+
 def detect_prior_state(module_list, skills_target):
     """SURFACE prior-install findings for the SKILL/user to JUDGE. Resolves nothing.
     - orphan skills (in the target, not in any selected module) — e.g. a stale ship-tick
@@ -667,9 +722,11 @@ def detect_prior_state(module_list, skills_target):
     - missing loop.config.json schema keys (vs the example) — never auto-migrated here"""
     findings = []
     selected_skills = {"shipkit-init"}  # the installer skill is always expected
+    source_skill_dirs = {}  # basename -> repo source dir (to tell a stale copy from a current one)
     for name in module_list:
         for rel in load_module(name).get("skills", []):
             selected_skills.add(Path(rel).name)
+            source_skill_dirs[Path(rel).name] = load_module(name)["_dir"] / rel
 
     if skills_target.is_dir():
         for entry in sorted(skills_target.iterdir()):
@@ -682,7 +739,16 @@ def detect_prior_state(module_list, skills_target):
                 except OSError:
                     kind = "BROKEN symlink (target gone)"
             else:
-                kind = "COPY (frozen — a copied old boot skill can silently keep launching /loop)"
+                # A COPY only warrants the scary "silently keeps launching /loop" flag when it
+                # DIFFERS from this repo's current skill (a genuinely stale/frozen old copy). A
+                # copy byte-identical to the repo — e.g. the one THIS fresh copy-install just
+                # wrote — is current, so the message stays neutral (no false alarm for a
+                # first-timer).
+                src = source_skill_dirs.get(entry.name)
+                if src is not None and _dirs_identical(entry, src):
+                    kind = "COPY (current, frozen — re-run init after git pull to refresh)"
+                else:
+                    kind = "COPY (frozen — a copied old boot skill can silently keep launching /loop)"
             orphan = " ORPHAN (not in any selected module)" if entry.name not in selected_skills else ""
             findings.append(f"skill {entry.name}: {kind}{orphan}")
 
@@ -851,6 +917,10 @@ def main():
         hook_interpreter = resolve_hook_interpreter(sys.platform, os.environ, which)
     except HookInterpreterError as e:
         _err(str(e))
+
+    # PREFLIGHT: the enforcement hooks parse stdin with jq — assert it's on PATH before
+    # writing anything (runs in --dry-run too, so a jq-less box fails loudly there as well).
+    assert_jq_present(module_list)
 
     cfg = build_config(answers)
     plan = []
