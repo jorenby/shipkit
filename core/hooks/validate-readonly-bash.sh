@@ -19,6 +19,12 @@
 # fail CLOSED (N3). No bare-interpreter whole-scan is needed here: interpreters
 # are not on this allow-list, so `… | bash` already dies on default-deny
 # (proven by tests).
+#
+# W3 (re-gate follow-ups): gh api segments now carry the mate hook's N1
+# mutation deny (mutating -X/--method + implicit-POST field/body flags — this
+# hook allow-lists gh api, so the deny must live here too); and a BOUNDED
+# test-runner allowance (see ro_test_runner_allowed) lets reviewers execute
+# repo test scripts instead of verifying by reading only.
 
 INPUT=$(cat)
 COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty')
@@ -171,6 +177,25 @@ ro_check_raw() {
     echo "Blocked: Readonly agents cannot modify PRs or issues." >&2
     exit 2
   fi
+  # W3: gh api mutation deny (N1 port from the mate hook — this hook allow-lists
+  # gh api, so the mutating -X/--method forms AND the implicit-POST field/body
+  # flags must be denied here; reads take no fields).
+  # W4: short -f/-F denied with ANY trailing char (pflag ATTACHED shorthand:
+  # -ftitle=hi == -f title=hi bypassed the delimiter-requiring regex), and -i*
+  # cluster prefixes (-iftitle=x, -iXPOST): -i/--include is gh api's ONLY boolean
+  # shorthand; every other shorthand consumes the cluster remainder as its value.
+  # Long forms keep their delimiter (pflag has no long-flag abbreviation, and
+  # --fieldish-style names must not over-block).
+  if echo "$seg" | grep -qiE '\bgh\s+api\b'; then
+    if echo "$seg" | grep -qiE '\s(-i*X|--method)[[:space:]=]*(POST|PUT|DELETE|PATCH)\b'; then
+      echo "Blocked: Readonly agents cannot make mutating gh api calls." >&2
+      exit 2
+    fi
+    if echo "$seg" | grep -qE '(^|[[:space:]])((--field|--raw-field|--input)([[:space:]=]|$)|-i*[fF])'; then
+      echo "Blocked: Readonly agents cannot pass gh api field/body flags (implicit POST — reads take no fields)." >&2
+      exit 2
+    fi
+  fi
 }
 
 # Deny checks for TRANSPARENT segments — op anchored to the invoked command.
@@ -189,12 +214,64 @@ ro_check_anchored() {
     echo "Blocked: Readonly agents cannot modify PRs or issues." >&2
     exit 2
   fi
+  # W3: gh api mutation deny (N1 port); W4: attached/clustered shorthands — see ro_check_raw.
+  if echo "$nq" | grep -qiE '^[[:space:]]*gh[[:space:]]+api\b'; then
+    if echo "$nq" | grep -qiE '\s(-i*X|--method)[[:space:]=]*(POST|PUT|DELETE|PATCH)\b'; then
+      echo "Blocked: Readonly agents cannot make mutating gh api calls." >&2
+      exit 2
+    fi
+    if echo "$nq" | grep -qE '(^|[[:space:]])((--field|--raw-field|--input)([[:space:]=]|$)|-i*[fF])'; then
+      echo "Blocked: Readonly agents cannot pass gh api field/body flags (implicit POST — reads take no fields)." >&2
+      exit 2
+    fi
+  fi
 }
 
 # ============================================================
 # ALLOW-LIST
 # ============================================================
 # Every segment must match at least one allowed pattern.
+
+# W3: bounded reviewer test-runner allowance. Test files are repo content a
+# reviewer already trusts-to-read; this trades a BOUNDED execution surface for
+# review quality (reviewers previously verified by reading only). Bounds, all
+# fail-closed:
+#   - no quotes/expansions/redirections/globs/escapes anywhere in the segment
+#     (separators are already handled by segmentation; redirects are NOT — so
+#     they're rejected here);
+#   - the word after the interpreter must be a LITERAL relative script path
+#     (never a flag → -c / -m / bare-stdin forms can't qualify; an interpreter
+#     given a script arg does not execute its stdin, so pipes into these stay
+#     inert);
+#   - no `..` components, no absolute/home paths;
+#   - python3 only for *.py under a tests/ directory; bash only for scripts
+#     whose basename matches test-*.sh.
+ro_test_runner_allowed() {
+  local seg="$1" w script path base
+  case "$seg" in
+    *'$'*|*'`'*|*'>'*|*'<'*|*'&'*|*'\'*|*"'"*|*'"'*|*'('*|*')'*|*'{'*|*'}'*|*'~'*|*'*'*|*'?'*|*'['*) return 1 ;;
+  esac
+  w=$(printf '%s\n' "$seg" | awk '{print $1; exit}')
+  script=$(printf '%s\n' "$seg" | awk '{print $2; exit}')
+  [ -z "$script" ] && return 1
+  case "$script" in -*|/*) return 1 ;; esac
+  # Normalize: strip leading ./ repeats, then reject any .. component.
+  path="$script"
+  while [ "${path#./}" != "$path" ]; do path="${path#./}"; done
+  case "/$path/" in */../*) return 1 ;; esac
+  case "$w" in
+    python3)
+      case "$path" in tests/*.py|*/tests/*.py) return 0 ;; esac
+      ;;
+    bash)
+      # No directory constraint in this lane (deliberate: basename-only per spec;
+      # script content is trusted-repo class either way).
+      base="${path##*/}"
+      case "$base" in test-*.sh) return 0 ;; esac
+      ;;
+  esac
+  return 1
+}
 
 check_allowed() {
   local cmd="$1"
@@ -249,6 +326,9 @@ check_allowed() {
 
   # --- Archive inspection (read-only) ---
   echo "$cmd" | grep -qE '^\s*(tar\s+(-t|--list)|unzip\s+-l|zipinfo)\b' && return 0
+
+  # --- Reviewer test runners (W3, bounded — see ro_test_runner_allowed) ---
+  ro_test_runner_allowed "$cmd" && return 0
 
   # Not on allow-list
   return 1

@@ -101,6 +101,29 @@ check 2 ship-bosun 'gh api graphql --raw-field query=@m.graphql'
 check 2 ship-bosun 'gh api repos/o/r/issues --input body.json'
 check 0 ship-bosun 'gh api repos/o/r/pulls/5 --paginate'
 
+echo "=== W4: gh api pflag ATTACHED shorthand (-ftitle=... was a live bypass) ==="
+check 2 ship-bosun 'gh api /repos/o/r/issues -ftitle=hello'
+check 2 ship-bosun 'gh api /repos/o/r/issues -Fbody=@payload'
+check 2 ship-bosun 'gh api graphql -fquery=mutation{m}'
+check 2 ship-bosun 'gh api -ftitle=x /repos/o/r/issues'
+check 2 ship-bosun 'gh api /repos/o/r/issues -f'
+# pflag combined clusters: -i (--include) is gh api's ONLY boolean shorthand, so
+# -i-prefixed clusters reach -f/-F/-X (verified live: gh 2.79.0 parses -iftitle=x
+# as --include --raw-field title=x, -iXPOST as --include --method POST)
+check 2 ship-bosun 'gh api /repos/o/r/issues -iftitle=pwn'
+check 2 ship-bosun 'gh api /repos/o/r/issues -iFbody=@payload'
+check 2 ship-bosun 'gh api /repos/o/r/issues -iiftitle=x'
+check 2 ship-bosun 'gh api /repos/o/r/issues -if title=x'
+check 2 ship-bosun 'gh api /repos/o/r/issues -if=title=x'
+check 2 ship-bosun 'gh api -iXPOST /repos/o/r/issues'
+check 2 ship-bosun 'gh api -iX POST /repos/o/r/issues'
+# Reads stay allowed: bare -i, cluster ending in GET, non-gh -f usage
+check 0 ship-bosun 'gh api /repos/o/r/pulls --method GET'
+check 0 ship-bosun 'gh api -i /repos/o/r/pulls/5'
+check 0 ship-bosun 'gh api -iX GET /repos/o/r/pulls'
+check 0 ship-bosun 'gh pr view 12'
+check 0 ship-bosun 'grep -f patterns file'
+
 echo "=== W2 B2: backslash-newline continuations rejoin (BLOCK) ==="
 check 2 ship-bosun 'git pu\
 sh origin feat'

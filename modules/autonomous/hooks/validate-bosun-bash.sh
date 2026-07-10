@@ -199,12 +199,18 @@ bosun_check_raw() {
   # comment / merge / close via the raw API and defeat the read-only bright line).
   # W2 fix N1: also the --method= form, and the implicit-POST field/body flags
   # (-f/--field/-F/--raw-field/--input mutate WITHOUT any -X; reads take no fields).
+  # W4: short -f/-F denied with ANY trailing char (pflag ATTACHED shorthand:
+  # -ftitle=hi == -f title=hi bypassed the delimiter-requiring regex), and -i*
+  # cluster prefixes (-iftitle=x, -iXPOST): -i/--include is gh api's ONLY boolean
+  # shorthand; every other shorthand consumes the cluster remainder as its value.
+  # Long forms keep their delimiter (pflag has no long-flag abbreviation, and
+  # --fieldish-style names must not over-block).
   if echo "$seg" | grep -qiE '\bgh\s+api\b'; then
-    if echo "$seg" | grep -qiE '\s(-X|--method)[[:space:]=]*(POST|PUT|DELETE|PATCH)\b'; then
+    if echo "$seg" | grep -qiE '\s(-i*X|--method)[[:space:]=]*(POST|PUT|DELETE|PATCH)\b'; then
       echo "Blocked: Bosun cannot make mutating gh api calls (bright line). Surface via a drop." >&2
       exit 2
     fi
-    if echo "$seg" | grep -qE '(^|[[:space:]])(--field|--raw-field|--input|-f|-F)([[:space:]=]|$)'; then
+    if echo "$seg" | grep -qE '(^|[[:space:]])((--field|--raw-field|--input)([[:space:]=]|$)|-i*[fF])'; then
       echo "Blocked: Bosun cannot pass gh api field/body flags (implicit POST — reads take no fields). Surface via a drop." >&2
       exit 2
     fi
@@ -229,12 +235,13 @@ bosun_check_anchored() {
   fi
   # mutating gh api — method/field flags must be on the gh api segment itself.
   # W2 fix N1: also --method= and the implicit-POST field/body flags.
+  # W4: attached/clustered shorthands — see bosun_check_raw.
   if echo "$nq" | grep -qiE '^[[:space:]]*gh[[:space:]]+api\b'; then
-    if echo "$nq" | grep -qiE '\s(-X|--method)[[:space:]=]*(POST|PUT|DELETE|PATCH)\b'; then
+    if echo "$nq" | grep -qiE '\s(-i*X|--method)[[:space:]=]*(POST|PUT|DELETE|PATCH)\b'; then
       echo "Blocked: Bosun cannot make mutating gh api calls (bright line). Surface via a drop." >&2
       exit 2
     fi
-    if echo "$nq" | grep -qE '(^|[[:space:]])(--field|--raw-field|--input|-f|-F)([[:space:]=]|$)'; then
+    if echo "$nq" | grep -qE '(^|[[:space:]])((--field|--raw-field|--input)([[:space:]=]|$)|-i*[fF])'; then
       echo "Blocked: Bosun cannot pass gh api field/body flags (implicit POST — reads take no fields). Surface via a drop." >&2
       exit 2
     fi

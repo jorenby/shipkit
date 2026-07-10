@@ -203,11 +203,17 @@ mate_check_raw() {
   # --- GitHub: mutating API (W2 fix N1: also the --method= form, and the
   #     implicit-POST field/body flags — gh api with -f/--field/-F/--raw-field/
   #     --input mutates WITHOUT any -X; reads take no fields) ---
+  # W4: short -f/-F denied with ANY trailing char (pflag ATTACHED shorthand:
+  # -ftitle=hi == -f title=hi bypassed the delimiter-requiring regex), and -i*
+  # cluster prefixes (-iftitle=x, -iXPOST): -i/--include is gh api's ONLY boolean
+  # shorthand; every other shorthand consumes the cluster remainder as its value.
+  # Long forms keep their delimiter (pflag has no long-flag abbreviation, and
+  # --fieldish-style names must not over-block).
   if echo "$seg" | grep -qiE '\bgh\s+api\b'; then
-    if echo "$seg" | grep -qiE '\s(-X|--method)[[:space:]=]*(POST|PUT|DELETE|PATCH)\b'; then
+    if echo "$seg" | grep -qiE '\s(-i*X|--method)[[:space:]=]*(POST|PUT|DELETE|PATCH)\b'; then
       blk "no mutating gh api calls."
     fi
-    if echo "$seg" | grep -qE '(^|[[:space:]])(--field|--raw-field|--input|-f|-F)([[:space:]=]|$)'; then
+    if echo "$seg" | grep -qE '(^|[[:space:]])((--field|--raw-field|--input)([[:space:]=]|$)|-i*[fF])'; then
       blk "no gh api field/body flags (implicit POST — reads take no fields)."
     fi
   fi
@@ -251,12 +257,13 @@ mate_check_anchored() {
     blk "no gh release/workflow-run/secret/auth/gist writes."
   fi
   # --- GitHub: mutating API (method/field flags must be on the gh api segment;
-  #     W2 fix N1: also --method= and implicit-POST field/body flags) ---
+  #     W2 fix N1: also --method= and implicit-POST field/body flags;
+  #     W4: attached/clustered shorthands — see mate_check_raw) ---
   if echo "$nq" | grep -qiE '^[[:space:]]*gh[[:space:]]+api\b'; then
-    if echo "$nq" | grep -qiE '\s(-X|--method)[[:space:]=]*(POST|PUT|DELETE|PATCH)\b'; then
+    if echo "$nq" | grep -qiE '\s(-i*X|--method)[[:space:]=]*(POST|PUT|DELETE|PATCH)\b'; then
       blk "no mutating gh api calls."
     fi
-    if echo "$nq" | grep -qE '(^|[[:space:]])(--field|--raw-field|--input|-f|-F)([[:space:]=]|$)'; then
+    if echo "$nq" | grep -qE '(^|[[:space:]])((--field|--raw-field|--input)([[:space:]=]|$)|-i*[fF])'; then
       blk "no gh api field/body flags (implicit POST — reads take no fields)."
     fi
   fi
