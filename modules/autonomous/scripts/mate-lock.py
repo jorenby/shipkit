@@ -15,7 +15,15 @@ Subcommands:
                                   Succeeds with TAKEOVER if the held lock is stale.
   heartbeat SESSION_ID            stamp heartbeat_at; fails unless SESSION_ID holds it.
   release   SESSION_ID [--force]  release; --force releases unconditionally (warns).
-  status    [--json]              print state; exit 0 (free/stale) / 1 (held-fresh).
+  status    [SESSION_ID] [--json] print state. Exit code is an "is the lock
+                                  acquirable by SESSION_ID?" predicate, NOT a
+                                  command-success flag:
+                                    0  free / stale / held-fresh by SESSION_ID (yours)
+                                    1  held-fresh by a DIFFERENT session (blocked)
+                                  No SESSION_ID => any held-fresh lock exits 1. A
+                                  nonzero exit with a healthy "STATE: held" report
+                                  is a signal, not a failure — guard it:
+                                  `status "$id" || [ $? -eq 1 ]`. --json adds "mine".
 
 Env overrides (for testing):
   LOCK_FILE=/tmp/test-lock.json   STALE_MINUTES=1
@@ -153,11 +161,11 @@ def cmd_release(session_id, force):
     return 1
 
 
-def cmd_status(json_output):
+def cmd_status(json_output, session_id=None):
     lock = read_lock()
     if lock is None:
         if json_output:
-            print(json.dumps({"state": "free", "holder": None, "age": None, "fresh": False}))
+            print(json.dumps({"state": "free", "holder": None, "age": None, "fresh": False, "mine": False}))
         else:
             print("STATE: free")
             print("No lock held.")
@@ -165,11 +173,12 @@ def cmd_status(json_output):
 
     hb = lock.get("heartbeat_at") or lock.get("acquired_at")
     fresh = not is_stale(lock)
+    mine = fresh and session_id is not None and lock.get("session_id") == session_id
     if json_output:
         print(json.dumps({
             "state": "held", "holder": lock.get("session_id"),
             "acquired_at": lock.get("acquired_at"), "heartbeat_at": lock.get("heartbeat_at"),
-            "age": age_string(hb), "fresh": fresh, "stale_minutes": STALE_MINUTES,
+            "age": age_string(hb), "fresh": fresh, "mine": mine, "stale_minutes": STALE_MINUTES,
         }))
     else:
         print("STATE: held")
@@ -177,8 +186,11 @@ def cmd_status(json_output):
         print(f"Acquired:     {lock.get('acquired_at')}")
         print(f"Last beat:    {lock.get('heartbeat_at')} ({age_string(hb)} ago)")
         print(f"Freshness:    {'FRESH (<' + str(STALE_MINUTES) + 'm)' if fresh else 'STALE (>' + str(STALE_MINUTES) + 'm)'}")
-    # Exit 1 if held-fresh (caller can't infer "mine"); 0 if free or stale (takeover ok).
-    return 1 if fresh else 0
+        if mine:
+            print("Ownership:    yours (session matches)")
+    # Exit code = "is this lock acquirable by session_id?"
+    #   held-fresh by ANOTHER (or no id given) => 1 (blocked); else 0.
+    return 1 if (fresh and not mine) else 0
 
 
 def main(argv):
@@ -198,7 +210,8 @@ def main(argv):
     if subcmd == "release":
         return cmd_release(arg1, force)
     if subcmd == "status":
-        return cmd_status(json_flag)
+        status_session = arg1 if (arg1 and not arg1.startswith("--")) else None
+        return cmd_status(json_flag, status_session)
     sys.stderr.write("Usage: mate-lock.py <acquire|heartbeat|release|status> [session_id] [--force] [--json]\n")
     return 2
 
