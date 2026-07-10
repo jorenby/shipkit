@@ -332,5 +332,147 @@ class TestJqPreflight(unittest.TestCase):
             shipkit_init.shutil.which = orig
 
 
+class TestOrphanWhitelist(unittest.TestCase):
+    """The setup skill itself must never be flagged ORPHAN (the stale 'shipkit-init'
+    whitelist name had detect_prior_state telling an obedient agent to delete its own
+    installer)."""
+
+    def test_shipkit_setup_not_orphan_even_outside_module_set(self):
+        with tempfile.TemporaryDirectory() as td:
+            target = shipkit_init.Path(td)
+            os.symlink(os.path.join(ROOT, "skills", "shipkit-setup"),
+                       target / "shipkit-setup", target_is_directory=True)
+            # "compound" does NOT carry the setup skill — only the always-expected
+            # whitelist can save it here.
+            findings = shipkit_init.detect_prior_state(["compound"], target)
+            setup_lines = [ln for ln in findings if "shipkit-setup" in ln]
+            self.assertTrue(setup_lines, "shipkit-setup symlink not scanned at all")
+            for ln in setup_lines:
+                self.assertNotIn("ORPHAN", ln)
+
+    def test_setup_skill_is_in_core_manifest(self):
+        skills = shipkit_init.load_module("core").get("skills", [])
+        self.assertTrue(any(os.path.basename(s) == "shipkit-setup" for s in skills),
+                        "core module must install the setup skill (chicken-and-egg)")
+
+
+class TestAssertHookPathsExitContract(unittest.TestCase):
+    """assert_hook_paths returns (lines, ok); ok=False on any FAIL — main() exits non-zero."""
+
+    DEF_TMPL = (
+        "---\nname: ship-crew\nhooks:\n  PreToolUse:\n    - matcher: \"Bash\"\n"
+        "      hooks:\n        - type: command\n          command: '{cmd}'\n---\nbody\n"
+    )
+
+    def test_broken_path_fails(self):
+        with tempfile.TemporaryDirectory() as td:
+            agents = shipkit_init.Path(td)
+            (agents / "ship-crew.md").write_text(
+                self.DEF_TMPL.format(cmd="bash /nope/validate-crew-bash.sh"),
+                encoding="utf-8")
+            lines, ok = shipkit_init.assert_hook_paths(agents)
+            self.assertFalse(ok)
+            self.assertTrue(any(ln.startswith("FAIL") for ln in lines))
+
+    def test_resolving_path_ok(self):
+        real_hook = os.path.join(ROOT, "core", "hooks", "validate-crew-bash.sh")
+        with tempfile.TemporaryDirectory() as td:
+            agents = shipkit_init.Path(td)
+            (agents / "ship-crew.md").write_text(
+                self.DEF_TMPL.format(cmd=f"bash {real_hook}"), encoding="utf-8")
+            lines, ok = shipkit_init.assert_hook_paths(agents)
+            self.assertTrue(ok, f"expected ok, got: {lines}")
+
+
+class TestUiEmptySlot(unittest.TestCase):
+    def test_ui_module_currently_installs_nothing(self):
+        self.assertTrue(shipkit_init.module_installs_nothing("ui"))
+        self.assertFalse(shipkit_init.module_installs_nothing("core"))
+
+    def test_smoke_lines_say_empty_slot(self):
+        with tempfile.TemporaryDirectory() as td:
+            p = shipkit_init.Path(td)
+            joined = "\n".join(shipkit_init.smoke_test_lines(
+                ["core", "autonomous", "ui"], p, p))
+            self.assertIn("EMPTY SLOT", joined)
+            self.assertNotIn("cd ui &&", joined)
+
+
+class TestEndToEndFreshInstall(unittest.TestCase):
+    """Subprocess runs against a scratch COPY of the repo (simulating a fresh clone:
+    no loop.config.json, no mate.local.md) with redirected agents/skills targets.
+    Covers: --defaults resolution, fresh config creation from the example, the
+    hook-path FAIL -> non-zero exit contract, and --refresh-agents recovery."""
+
+    import subprocess as _sp
+
+    def _make_kit(self, td):
+        import shutil as _sh
+        kit = os.path.join(td, "kit")
+        _sh.copytree(ROOT, kit, ignore=_sh.ignore_patterns(
+            ".git", "__pycache__", "*.pyc", "loop.config.json", "mate.local.md"))
+        return kit
+
+    def _run(self, kit, *argv):
+        return self._sp.run(
+            [sys.executable, os.path.join(kit, "shipkit_init.py"), *argv],
+            capture_output=True, text=True, cwd=kit)
+
+    def test_defaults_fresh_install(self):
+        with tempfile.TemporaryDirectory() as td:
+            kit = self._make_kit(td)
+            agents = os.path.join(td, "agents")
+            skills = os.path.join(td, "skills")
+            res = self._run(kit, "--defaults",
+                            "--agents-target", agents, "--skills-target", skills)
+            self.assertEqual(res.returncode, 0, res.stdout + res.stderr)
+            self.assertIn("--defaults chose: preset=core", res.stdout)
+            # Fresh clone has no config -> the run must CREATE it from the example.
+            self.assertIn("wrote loop.config.json", res.stdout)
+            self.assertTrue(os.path.isfile(os.path.join(kit, "loop.config.json")))
+            self.assertNotIn("exists — left untouched (pass --force-config", res.stdout)
+            # Core agents installed; no FAIL lines anywhere.
+            self.assertTrue(os.path.isfile(os.path.join(agents, "ship-crew.md")))
+            self.assertNotIn("FAIL", res.stdout)
+            # The setup skill self-installs and is NOT an orphan.
+            self.assertTrue(os.path.exists(os.path.join(skills, "shipkit-setup")))
+            for ln in res.stdout.splitlines():
+                if "shipkit-setup" in ln:
+                    self.assertNotIn("ORPHAN", ln)
+
+    def test_defaults_mutually_exclusive(self):
+        with tempfile.TemporaryDirectory() as td:
+            kit = self._make_kit(td)
+            res = self._run(kit, "--defaults", "--preset", "autonomous")
+            self.assertNotEqual(res.returncode, 0)
+            self.assertIn("mutually exclusive", res.stderr)
+
+    def test_broken_ship_root_exits_nonzero_and_refresh_recovers(self):
+        with tempfile.TemporaryDirectory() as td:
+            kit = self._make_kit(td)
+            agents = os.path.join(td, "agents")
+            skills = os.path.join(td, "skills")
+            elsewhere = os.path.join(td, "not-the-ship")
+            os.makedirs(elsewhere)
+            common = ["--preset", "core",
+                      "--agents-target", agents, "--skills-target", skills]
+            # Wrong ship-root: hook paths don't resolve -> FAIL lines AND exit != 0.
+            res = self._run(kit, *common, "--ship-root", elsewhere)
+            self.assertNotEqual(res.returncode, 0,
+                                "hook-path FAIL must not exit green:\n" + res.stdout)
+            self.assertIn("FAIL", res.stdout)
+            self.assertIn("hook-path assertion", res.stderr)
+            # Naive re-run with the CORRECT root but no flag: defs left untouched,
+            # still broken, still non-zero.
+            res2 = self._run(kit, *common, "--ship-root", ".")
+            self.assertNotEqual(res2.returncode, 0)
+            self.assertIn("left untouched (pass --refresh-agents", res2.stdout)
+            # The documented recovery: --refresh-agents re-renders -> clean, exit 0.
+            res3 = self._run(kit, *common, "--ship-root", ".", "--refresh-agents")
+            self.assertEqual(res3.returncode, 0, res3.stdout + res3.stderr)
+            self.assertIn("refreshed (re-rendered", res3.stdout)
+            self.assertNotIn("FAIL", res3.stdout)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

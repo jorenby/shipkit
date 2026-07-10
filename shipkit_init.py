@@ -39,11 +39,13 @@ to a copy.
 
 Usage
 -----
+  shipkit_init.py --defaults                         # fresh-machine one-shot: core, ship-root=., platform install mode
   shipkit_init.py --preset core        --ship-root /abs/path/to/ship
   shipkit_init.py --preset autonomous  --ship-root .  --install-mode symlink
   shipkit_init.py --modules ui                       # resolves requires[] transitively
   shipkit_init.py --preset autonomous --dry-run
   shipkit_init.py --answers /tmp/answers.json
+  shipkit_init.py --refresh-agents --preset core --ship-root .   # re-render existing agent defs
 """
 
 from __future__ import annotations
@@ -433,10 +435,16 @@ def _rewrite_hook_command_lines(content: str, interpreter: str) -> str:
     return "".join(out)
 
 
-def install_agents(module_list, agents_target, ship_root_abs, dry_run, interpreter="bash"):
+def install_agents(module_list, agents_target, ship_root_abs, dry_run, interpreter="bash",
+                   refresh=False):
     """Write each selected module's agent defs into agents_target, substituting {SHIP_DIR}
     in the hook command paths and rendering the hook interpreter resolved at install time
-    (Finding A). Always WRITTEN (never symlinked) so the substitution lands."""
+    (Finding A). Always WRITTEN (never symlinked) so the substitution lands.
+
+    refresh=False (default): an existing def is left untouched — upgrades are the SKILL's
+    judgment. refresh=True (--refresh-agents): existing defs are RE-RENDERED from the
+    current manifests — the sanctioned recovery when installed defs carry a broken hook
+    path (e.g. a first run with the wrong --ship-root)."""
     lines = []
     if not dry_run:
         agents_target.mkdir(parents=True, exist_ok=True)
@@ -450,14 +458,17 @@ def install_agents(module_list, agents_target, ship_root_abs, dry_run, interpret
             dst = agents_target / Path(rel).name
             content = src.read_text(encoding="utf-8").replace("{SHIP_DIR}", ship_root_abs)
             content = _rewrite_hook_command_lines(content, interpreter)
-            if dst.exists():
-                lines.append(f"{dst.name}: exists — left untouched (remove it to refresh; the SKILL judges upgrades)")
+            existed = dst.exists()
+            if existed and not refresh:
+                lines.append(f"{dst.name}: exists — left untouched (pass --refresh-agents to re-render; the SKILL judges upgrades)")
                 continue
+            verb = "refresh (re-render)" if existed else "install"
             if dry_run:
-                lines.append(f"{dst.name}: would install ({{SHIP_DIR}} -> {ship_root_abs}, interp={interpreter})")
+                lines.append(f"{dst.name}: would {verb} ({{SHIP_DIR}} -> {ship_root_abs}, interp={interpreter})")
                 continue
             dst.write_text(content, encoding="utf-8")
-            lines.append(f"{dst.name}: installed ({{SHIP_DIR}} substituted; hook interp={interpreter})")
+            done = "refreshed (re-rendered from current manifests" if existed else "installed ({SHIP_DIR} substituted"
+            lines.append(f"{dst.name}: {done}; hook interp={interpreter})")
     return lines
 
 
@@ -536,8 +547,12 @@ def assert_hook_paths(agents_target):
     invokes bash against the script, so the exec bit is NOT load-bearing for enforcement
     (Git-Bash / NTFS has no exec bit). We still REPORT a missing +x on POSIX as
     belt-and-suspenders (never a FAIL). On win32 we ALSO assert the resolved interpreter
-    path itself exists — a bad interpreter fails open just like a bad script path."""
+    path itself exists — a bad interpreter fails open just like a bad script path.
+
+    Returns (lines, ok). ok=False on ANY FAIL — the caller must exit non-zero (a printed
+    FAIL with a green exit code is exactly the fail-open a script/skimmer would miss)."""
     lines = []
+    ok = True
     for f in sorted(agents_target.glob("ship-*.md")):
         try:
             text = f.read_text(encoding="utf-8")
@@ -548,11 +563,13 @@ def assert_hook_paths(agents_target):
                 continue
             interp = _interpreter_from_command(cmd)
             if interp is not None and not Path(interp).is_file():
+                ok = False
                 lines.append(f"FAIL {f.name}: hook INTERPRETER NOT FOUND: {interp} "
                              f"(FAILS OPEN — resolve a real Git-Bash and re-render)")
                 continue
             pth = Path(_hook_path_from_command(cmd))
             if not pth.is_file():
+                ok = False
                 lines.append(f"FAIL {f.name}: hook NOT FOUND: {pth} (FAILS OPEN — fix before relying on it)")
             elif not os.access(pth, os.X_OK):
                 # Invoked via `bash <path>`, so this is fine on Git-Bash/NTFS. Note it on POSIX.
@@ -561,7 +578,7 @@ def assert_hook_paths(agents_target):
                 lines.append(f"ok   {f.name}: {pth.name} resolves + executable (invoked via `bash`)")
     if not lines:
         lines.append("(no installed agent-def hook command paths to assert)")
-    return lines
+    return lines, ok
 
 
 # Injected template tokens follow an UPPER_SNAKE_CASE convention ({SHIP_DIR} is the only one
@@ -721,7 +738,7 @@ def detect_prior_state(module_list, skills_target):
     - copied-vs-symlinked installed skills (a copied old ship-watch-start silently keeps /loop)
     - missing loop.config.json schema keys (vs the example) — never auto-migrated here"""
     findings = []
-    selected_skills = {"shipkit-init"}  # the installer skill is always expected
+    selected_skills = {"shipkit-setup"}  # the setup skill is always expected, never an orphan
     source_skill_dirs = {}  # basename -> repo source dir (to tell a stale copy from a current one)
     for name in module_list:
         for rel in load_module(name).get("skills", []):
@@ -730,7 +747,7 @@ def detect_prior_state(module_list, skills_target):
 
     if skills_target.is_dir():
         for entry in sorted(skills_target.iterdir()):
-            if not (entry.name.startswith("ship") or entry.name in ("bosun-tick", "shipkit-init")):
+            if not (entry.name.startswith("ship") or entry.name == "bosun-tick"):
                 continue
             if entry.is_symlink():
                 try:
@@ -791,6 +808,13 @@ def seed_state(dry_run):
     return [f"seeded state/status.json ({res.stdout.strip()})"]
 
 
+def module_installs_nothing(name: str) -> bool:
+    """True when a module's manifest declares NO installable artifacts (agents/hooks/
+    skills/scripts) — a reserved slot (e.g. ui before its files land on the UI PR)."""
+    meta = load_module(name)
+    return not any(meta.get(k) for k in ("agents", "hooks", "skills", "scripts"))
+
+
 def smoke_test_lines(module_list, skills_target, agents_target):
     has_autonomous = "autonomous" in module_list
     has_ui = "ui" in module_list
@@ -812,10 +836,17 @@ def smoke_test_lines(module_list, skills_target, agents_target):
             "  5. Flip a bookkeeping item -> NO wake; it reconciles at the next wake.",
         ]
     if has_ui:
-        lines += [
-            "  6. (ui) cd ui && start its server, open it in a browser, confirm it renders",
-            "     state/status.json. (UI files ship on the stacked UI PR.)",
-        ]
+        if module_installs_nothing("ui"):
+            lines += [
+                "  6. (ui) NOTE: the ui module is currently an EMPTY SLOT — its files ship on the",
+                "     stacked UI PR. This run installed NOTHING extra for the ui tier beyond",
+                "     autonomous; re-run /shipkit-setup at this preset once the UI files land.",
+            ]
+        else:
+            lines += [
+                "  6. (ui) cd ui && start its server, open it in a browser, confirm it renders",
+                "     state/status.json. (UI files ship on the stacked UI PR.)",
+            ]
     lines += [
         "",
         f"Agent defs installed under: {agents_target}  ({{SHIP_DIR}} substituted).",
@@ -832,11 +863,19 @@ def main():
     p = argparse.ArgumentParser(prog="shipkit_init.py",
                                 description="Manifest-driven apply step for shipkit onboarding.")
     p.add_argument("--answers", metavar="PATH")
+    p.add_argument("--defaults", action="store_true",
+                   help="one-shot fresh install: --preset core --ship-root . --install-mode "
+                        "<platform default>. Zero further flags; mutually exclusive with the "
+                        "flags it sets.")
     p.add_argument("--preset", help="a preset name from presets.json (core / autonomous / ui)")
     p.add_argument("--modules", nargs="*", help="explicit module set (requires[] resolved transitively)")
     p.add_argument("--ship-root", help="ship_root for loop.config.json + {SHIP_DIR} substitution (default '.')")
     p.add_argument("--max-concurrent-crew", type=int, dest="max_crew")
     p.add_argument("--install-mode", choices=["symlink", "copy"], default=None)
+    p.add_argument("--refresh-agents", action="store_true",
+                   help="re-render EXISTING agent defs from the current manifests/ship-root "
+                        "(the recovery for defs installed with a broken hook path). Default "
+                        "behavior leaves existing defs untouched.")
     p.add_argument("--skills-target", metavar="DIR")
     p.add_argument("--agents-target", metavar="DIR")
     p.add_argument("--force-config", action="store_true")
@@ -845,6 +884,21 @@ def main():
     p.add_argument("--force-prefs", action="store_true")
     p.add_argument("--dry-run", action="store_true")
     args = p.parse_args()
+
+    if args.defaults:
+        conflicts = [flag for flag, val in (
+            ("--preset", args.preset), ("--modules", args.modules),
+            ("--ship-root", args.ship_root), ("--install-mode", args.install_mode),
+            ("--answers", args.answers),
+        ) if val is not None]
+        if conflicts:
+            _err(f"--defaults is one-shot and mutually exclusive with {', '.join(conflicts)}. "
+                 f"Drop --defaults to choose your own values.")
+        args.preset = "core"
+        args.ship_root = "."
+        args.install_mode = DEFAULT_INSTALL_MODE
+        print(f"--defaults chose: preset=core  ship-root=. (this shipkit clone)  "
+              f"install-mode={DEFAULT_INSTALL_MODE} (platform default)")
 
     answers = _load_json(Path(args.answers)) if args.answers else {}
     if not isinstance(answers, dict):
@@ -887,6 +941,9 @@ def main():
     print(f"{prefix}shipkit init — preset={preset or 'custom'} modules={module_list} mode={install_mode}")
     print(f"{prefix}agents target: {agents_target}   skills target: {skills_target}")
     print(f"{prefix}ship_root (for {{SHIP_DIR}}): {ship_root_abs}")
+    if "ui" in module_list and module_installs_nothing("ui"):
+        print(f"{prefix}NOTE: the ui module is currently an EMPTY SLOT — its files ship on the "
+              f"stacked UI PR. This run installs NOTHING extra for the ui tier beyond autonomous.")
 
     # LOAD-BEARING invariant: the hooks live in THIS repo (core/hooks/,
     # modules/*/hooks/), and the agent defs' hook command paths are built from
@@ -930,13 +987,17 @@ def main():
     plan.append("== mate.local.md (behavioral prefs / taste) ==")
     plan += [f"  {ln}" for ln in write_prefs(answers, args.dry_run, args.force_prefs)]
     plan.append("== agents ({SHIP_DIR} substituted; hook interpreter resolved) ==")
-    plan += [f"  {ln}" for ln in install_agents(module_list, agents_target, ship_root_abs, args.dry_run, hook_interpreter)]
+    plan += [f"  {ln}" for ln in install_agents(module_list, agents_target, ship_root_abs,
+                                                args.dry_run, hook_interpreter,
+                                                refresh=args.refresh_agents)]
     plan.append("== hooks (+x — POSIX belt-and-suspenders; commands invoke via `bash`) ==")
     plan += [f"  {ln}" for ln in chmod_hooks(module_list, args.dry_run)]
     placeholder_ok = True
+    hook_paths_ok = True
     if not args.dry_run:
         plan.append("== hook path assertion (a broken hook path = silent zero enforcement) ==")
-        plan += [f"  {ln}" for ln in assert_hook_paths(agents_target)]
+        hp_lines, hook_paths_ok = assert_hook_paths(agents_target)
+        plan += [f"  {ln}" for ln in hp_lines]
         plan.append("== placeholder verification (a leftover {SHIP_DIR} = enforcement silently OFF) ==")
         ph_lines, placeholder_ok = verify_no_unexpanded_placeholders(agents_target, module_list)
         plan += [f"  {ln}" for ln in ph_lines]
@@ -954,13 +1015,21 @@ def main():
     for line in smoke_test_lines(module_list, skills_target, agents_target):
         print(f"{prefix}{line}" if line else "")
 
-    # CRITICAL gate: a leftover template token means a hook path is garbage and the bright
-    # lines are silently disarmed. FAIL LOUDLY (non-zero) so the install cannot be trusted
-    # as green. (Dry-run skips this — nothing is installed to verify.)
-    if not placeholder_ok:
+    # CRITICAL gates: a leftover template token OR a hook path that doesn't resolve means
+    # the bright lines are silently disarmed. FAIL LOUDLY (non-zero) so the install cannot
+    # be trusted as green — a printed FAIL with exit 0 is exactly what a script or a
+    # skimming agent misses. (Dry-run skips these — nothing is installed to verify.)
+    if not placeholder_ok or not hook_paths_ok:
         print()
-        print("ERROR: install FAILED placeholder verification — ENFORCEMENT WOULD BE SILENTLY OFF. "
-              "See the '== placeholder verification ==' section above.", file=sys.stderr)
+        if not placeholder_ok:
+            print("ERROR: install FAILED placeholder verification — ENFORCEMENT WOULD BE SILENTLY OFF. "
+                  "See the '== placeholder verification ==' section above.", file=sys.stderr)
+        if not hook_paths_ok:
+            print("ERROR: install FAILED the hook-path assertion — one or more installed agent defs "
+                  "carry a hook command path (or interpreter) that does NOT resolve, so those "
+                  "bright-line hooks FAIL OPEN with zero enforcement. Most common cause: --ship-root "
+                  "is not this shipkit clone (sanctioned topology: --ship-root .). Fix the cause, "
+                  "then re-run with --refresh-agents to re-render the affected defs.", file=sys.stderr)
         sys.exit(1)
 
 

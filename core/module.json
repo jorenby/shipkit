@@ -5,7 +5,7 @@
   "role_docs": ["mate.md", "crew.md"],
   "agents": ["agents/ship-crew.md", "agents/ship-lookout.md", "agents/ship-reviewer.md", "agents/ship-pilot.md"],
   "hooks": ["hooks/validate-crew-bash.sh", "hooks/validate-readonly-bash.sh"],
-  "skills": [],
+  "skills": ["../skills/shipkit-setup"],
   "scripts": [],
   "lib": [],
   "templates": ["templates/ticket.md", "templates/captain.md", "templates/queue.md", "templates/crew-allow-local.sh"],

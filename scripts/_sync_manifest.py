@@ -16,6 +16,7 @@ synced.
 Usage: _sync_manifest.py <upstream-dir>   (defaults to this script's ship root)
 """
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -57,7 +58,9 @@ def main():
 
     def add(path: Path):
         if path.is_file():
-            r = rel(path)
+            # Normalize manifest paths that climb out of the module dir
+            # (core's "../skills/shipkit-setup" -> "skills/shipkit-setup").
+            r = rel(Path(os.path.normpath(path)))
             if r not in out:
                 out.append(r)
 

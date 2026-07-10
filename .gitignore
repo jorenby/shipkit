@@ -1,6 +1,11 @@
 __pycache__/
 *.pyc
 
+# Generated machine config (created from loop.config.example.json on first install;
+# the example is the tracked artifact — a tracked config would make every fresh
+# clone's first run report "exists — left untouched" and silently drop answers).
+loop.config.json
+
 # Generated behavioral-prefs overlay (yours; pull-upstream never touches it).
 mate.local.md
 
