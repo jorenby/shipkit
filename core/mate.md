@@ -285,6 +285,10 @@ your enforcement policy (`mate.local.md`) — is the **review-cycle module**:
 **Drops** (`inbox/drops/`):
 - Items from external processes (CI hooks, review tools, sensors, automation) + **Bosun
   delta-drops**. Naming: `{source}-{YYYY-MM-DD-HHMM}-{topic}.md`.
+- **Queue-change requests routed by another role/session** (new ticket, re-prioritize,
+  status flip, re-summarize a line) — you are the sole writer of `queue.md`, so others
+  request changes via a drop rather than writing the index directly; apply the change,
+  then delete. This keeps the shared index from being written by two sessions at once.
 - Process the same as captain.md items; move to `inbox/drops/processed/` or delete after
   handling. In autonomous mode, the wake-monitor only *wakes* you on `wake`-class drops;
   `batch`-class accumulate silently and drain at the next wake's reconcile.
@@ -324,7 +328,10 @@ format from the Pull Requests section; the `pr:` ticket-frontmatter convention i
 4. Add it to queue.md under "## Ready" in priority order.
 5. Clear the inbox item after processing.
 
-**Naming convention:** with a tracker ID, `{ID}-{slug}.md`; without, `{DESCRIPTIVE-SLUG}.md`.
+**Naming convention:** with a tracker ID, `{ID}-{slug}.md` (the tracker ID already provides
+uniqueness and ordering; don't add a sequence prefix). Without one, either `{DESCRIPTIVE-SLUG}.md`
+or sequentially numbered `{NNN}-{slug}.md` (e.g. `001-dbt-project-improvements.md`) — pick one
+convention per ship and stay consistent; if numbering, check existing tickets for the next number.
 Slugs short (2–4 words), lowercase, hyphenated, human-scannable.
 
 ## Pull Requests
