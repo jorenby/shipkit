@@ -115,7 +115,6 @@ preset to install the delta). `presets.json` is the source of truth; this mirror
 |---|---|---|
 | **1 — core** | `core` | plain **request/response** Mate (`core/mate.md`) + the worker agents (ship-crew/lookout; ship-reviewer via the review-cycle depth module) + crew-safety hooks + this setup skill + the non-loop depth modules. **No loop, no Bosun, no UI.** (ship-pilot is the opt-in `pilot` module — `--modules pilot`, Chrome-MCP dep — not in any preset.) |
 | **2 — autonomous** | `autonomous` | + the bg-Mate/Bosun heartbeat kernel: the two role agents (ship-mate, ship-bosun), `bosun.md`, the event-driven + bosun-loop doctrine, the mate/bosun hooks, mate-lock, bosun_emit, launchers, and the wake-monitor. |
-| **3 — ui** | `ui` | + the status-surface PWA console. **Currently an empty slot** — its files ship on the stacked UI PR; the apply step says so loudly rather than silently installing nothing. |
 
 Shared infra lives in `lib/` (`status_writer.py`, `classify_input.py`, `status.schema.md`) and
 is pulled in automatically by whichever modules declare it in their `module.json` `lib[]`.
@@ -214,7 +213,6 @@ The apply step (mechanical, idempotent):
   wake-monitor → bootstrap Bosun → preflight → idle); it does **not** launch `/loop`. The Bosun
   is ticking (`tail state/bosun-heartbeat.log`). A directive wakes the Mate; a bookkeeping
   change does not.
-- **ui tier:** the PWA renders `status.json` — once the UI files land (empty slot today).
 - (upgrade) see [`upgrade.md`](upgrade.md) → "Upgrade verification".
 
 **Sandbox guidance:** running the agent in a sandbox is recommended (defense-in-depth on top of

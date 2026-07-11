@@ -70,10 +70,9 @@ IS_WINDOWS = os.name == "nt"
 DEFAULT_INSTALL_MODE = "copy" if IS_WINDOWS else "symlink"
 
 # A module's folder, keyed by module name. Most live under modules/<name>/; the tier-1
-# anchor is core/ and the tier-3 slot is ui/ (both at root).
+# anchor is core/ (at root). The tier-3 UI slot ships on the stacked UI PR.
 MODULE_DIRS = {
     "core": SHIPKIT_ROOT / "core",
-    "ui": SHIPKIT_ROOT / "ui",
 }
 
 
@@ -817,7 +816,6 @@ def module_installs_nothing(name: str) -> bool:
 
 def smoke_test_lines(module_list, skills_target, agents_target):
     has_autonomous = "autonomous" in module_list
-    has_ui = "ui" in module_list
     lines = ["", "Smoke test (the acceptance):"]
     if not has_autonomous:
         lines += [
@@ -835,18 +833,6 @@ def smoke_test_lines(module_list, skills_target, agents_target):
             "  4. Drop a directive (inbox/captain.md edit or inbox/drops/) -> the Mate WAKES.",
             "  5. Flip a bookkeeping item -> NO wake; it reconciles at the next wake.",
         ]
-    if has_ui:
-        if module_installs_nothing("ui"):
-            lines += [
-                "  6. (ui) NOTE: the ui module is currently an EMPTY SLOT — its files ship on the",
-                "     stacked UI PR. This run installed NOTHING extra for the ui tier beyond",
-                "     autonomous; re-run /shipkit-setup at this preset once the UI files land.",
-            ]
-        else:
-            lines += [
-                "  6. (ui) cd ui && start its server, open it in a browser, confirm it renders",
-                "     state/status.json. (UI files ship on the stacked UI PR.)",
-            ]
     lines += [
         "",
         f"Agent defs installed under: {agents_target}  ({{SHIP_DIR}} substituted).",
@@ -941,9 +927,6 @@ def main():
     print(f"{prefix}shipkit init — preset={preset or 'custom'} modules={module_list} mode={install_mode}")
     print(f"{prefix}agents target: {agents_target}   skills target: {skills_target}")
     print(f"{prefix}ship_root (for {{SHIP_DIR}}): {ship_root_abs}")
-    if "ui" in module_list and module_installs_nothing("ui"):
-        print(f"{prefix}NOTE: the ui module is currently an EMPTY SLOT — its files ship on the "
-              f"stacked UI PR. This run installs NOTHING extra for the ui tier beyond autonomous.")
 
     # LOAD-BEARING invariant: the hooks live in THIS repo (core/hooks/,
     # modules/*/hooks/), and the agent defs' hook command paths are built from

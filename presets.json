@@ -1,13 +1,27 @@
 {
   "_comment": "Preset -> module-folder list. THE single source of truth for what each tier installs (shipkit_init.py reads this + each module's module.json). A preset is just 'install these module folders'. Tiers are start-at OR progress-through: re-run with a higher preset to install the delta. requires[] in each module.json is resolved transitively, so a custom --modules set auto-pulls its prerequisites + shared lib/.",
   "presets": {
-    "core": ["core", "subagent-roster", "pull-requests", "review-cycle", "compound"],
-    "autonomous": ["core", "subagent-roster", "pull-requests", "review-cycle", "compound", "autonomous", "wake-monitor", "dispatch-bands", "sensors"],
-    "ui": ["core", "subagent-roster", "pull-requests", "review-cycle", "compound", "autonomous", "wake-monitor", "dispatch-bands", "sensors", "ui"]
+    "core": [
+      "core",
+      "subagent-roster",
+      "pull-requests",
+      "review-cycle",
+      "compound"
+    ],
+    "autonomous": [
+      "core",
+      "subagent-roster",
+      "pull-requests",
+      "review-cycle",
+      "compound",
+      "autonomous",
+      "wake-monitor",
+      "dispatch-bands",
+      "sensors"
+    ]
   },
   "blurbs": {
-    "core": "TIER 1 — plain request/response Mate: core/mate.md + worker agents + crew-safety hooks + the tier-1 depth modules (subagent-roster, pull-requests, review-cycle) + the compound learning loop. No loop, no Bosun, no UI.",
-    "autonomous": "TIER 2 — adds the bg-Mate/Bosun heartbeat kernel (2 role agents, bosun.md, event-driven + bosun-loop doctrine, hooks, mate-lock, bosun_emit, launchers, wake-monitor).",
-    "ui": "TIER 3 — adds the status-surface PWA console (the ui/ tier; its files ship on the stacked UI PR)."
+    "core": "TIER 1 \u2014 plain request/response Mate: core/mate.md + worker agents + crew-safety hooks + the tier-1 depth modules (subagent-roster, pull-requests, review-cycle) + the compound learning loop. No loop, no Bosun, no UI.",
+    "autonomous": "TIER 2 \u2014 adds the bg-Mate/Bosun heartbeat kernel (2 role agents, bosun.md, event-driven + bosun-loop doctrine, hooks, mate-lock, bosun_emit, launchers, wake-monitor)."
   }
 }

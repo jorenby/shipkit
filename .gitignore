@@ -19,7 +19,9 @@ modules/autonomous/hooks/bosun-allow-local.sh
 scripts/crew-allow-local.sh
 scripts/bosun-allow-local.sh
 
-# Runtime state (regenerated; not durable).
+# Runtime state (regenerated; not durable). status.json is seeded by
+# shipkit_init (lib/status_writer.py --init) and mutated every tick.
+state/status.json
 state/.wake_monitor_state.json
 state/bosun-heartbeat.log
 state/bosun-last-sweep.json

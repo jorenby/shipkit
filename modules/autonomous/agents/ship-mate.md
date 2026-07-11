@@ -50,7 +50,8 @@ specific to running as a *managed agent*.
   create/update, a tracker create/comment/transition) ONLY after the Captain explicitly
   authorizes it in conversation. `validate-mate-mcp.sh` (the `mcp__.*` hook) audit-logs
   every write to `state/mate-mcp-writes.jsonl` and warns — it does NOT block (discipline
-  is the real control). To HARD-block writes, set `SHIP_MATE_MCP_WRITE_BLOCK=1`.
+  is the layered control). Writes HARD-BLOCK by default (fail-closed for fresh
+  installs); an operator who trusts the discipline layer relaxes with `SHIP_MATE_MCP_WRITE_BLOCK=0`.
 - **Headless-auth caveat:** stdio/env-token MCP servers work in a background session;
   OAuth-http servers may need a pre-authed/cached token — verify each is actually
   connected after launch (`/mcp` or a probe read); flag any that fail headless.
@@ -67,7 +68,7 @@ specific to running as a *managed agent*.
 - The autonomous bg Mate is effectively read-the-world / write-ship-state /
   dispatch-crew / surface-for-Captain. **bash bright lines** (merges, deploys,
   mark-ready, prod writes) stay hard-blocked → they happen when the Captain attaches /
-  from his own session. **MCP writes** are confirm-gated (audit-logged, not blocked).
+  from his own session. **MCP writes** are hard-blocked by default (relax knob `SHIP_MATE_MCP_WRITE_BLOCK=0` → audit-and-allow, still confirm-gated by discipline).
 
 ## Launch
 - **Running in a sandbox is recommended** (defense-in-depth on top of this hook + tool

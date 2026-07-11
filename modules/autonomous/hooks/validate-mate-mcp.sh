@@ -17,9 +17,11 @@
 #
 # Self-scopes on agent_type == "ship-mate" (works in --bg). CHMOD +x is load-bearing.
 #
-# TIGHTENING KNOB: set SHIP_MATE_MCP_WRITE_BLOCK=1 to HARD-block writes (exit 2) instead
-# of audit-and-allow — turning "confirm-gated" into "surface-only" like the bash bright
-# lines. Off by default.
+# DEFAULT: HARD-BLOCK (fail-closed for fresh installs — Captain ratified 2026-07-11).
+# RELAX KNOB: set SHIP_MATE_MCP_WRITE_BLOCK=0 to switch to audit-and-allow (writes are
+# audit-logged + warned but permitted; the confirm-gate discipline rule carries it).
+# An established ship whose operator trusts the discipline layer runs 0; strangers
+# cloning the kit get the block until they consciously relax it.
 
 SHIP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 AUDIT_LOG="$SHIP_DIR/state/mate-mcp-writes.jsonl"
@@ -57,7 +59,7 @@ SUMMARY=$(echo "$INPUT" | jq -c '{ts:"'"$TS"'", tool:.tool_name, input:(.tool_in
 mkdir -p "$SHIP_DIR/state" 2>/dev/null
 [ -n "$SUMMARY" ] && echo "$SUMMARY" >> "$AUDIT_LOG" 2>/dev/null
 
-if [ "${SHIP_MATE_MCP_WRITE_BLOCK:-0}" = "1" ]; then
+if [ "${SHIP_MATE_MCP_WRITE_BLOCK:-1}" != "0" ]; then
   echo "Blocked (Mate MCP write-block ON): $TOOL is an external write. Surface it for the Captain." >&2
   exit 2
 fi

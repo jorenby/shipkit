@@ -255,7 +255,7 @@ python3 shipkit_init.py --preset autonomous --ship-root . --install-mode symlink
 ```
 
 Presets: `core` (request/response Mate + worker agents + crew hooks), `autonomous`
-(+ the bg-Mate/Bosun kernel), `ui` (+ the status-surface slot). Tiers are start-at OR
+(+ the bg-Mate/Bosun kernel). (Tier 3, the thread-first UI, arrives on the stacked UI PR.) Tiers are start-at OR
 progress-through — re-run at a higher preset any time and only the delta installs (idempotent).
 
 > **Topology warning (load-bearing).** Keep `--ship-root .` — the ship-root MUST be the shipkit
@@ -357,8 +357,6 @@ Confirm each before trusting the install:
     Confirm the Bosun is ticking: `tail state/bosun-heartbeat.log` (a fresh line). Drop a
     directive (`inbox/drops/` or an `inbox/captain.md` edit) → the Mate WAKES. Flip a
     bookkeeping-only item → NO wake.
-  - **ui tier:** start the UI server and confirm it renders `state/status.json` (UI files ship
-    on the stacked UI PR).
 - [ ] **(sandbox, recommended)** Run the agent in a sandbox for defense-in-depth on top of the
       hooks. On macOS, [agent-safehouse.dev](https://agent-safehouse.dev/) — point
       `SHIP_SANDBOX_RUN` / `launch.sandbox_wrapper` at its wrapper. Bare `claude` is the

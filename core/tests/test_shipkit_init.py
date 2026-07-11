@@ -394,19 +394,6 @@ class TestAssertHookPathsExitContract(unittest.TestCase):
             self.assertTrue(ok, f"expected ok, got: {lines}")
 
 
-class TestUiEmptySlot(unittest.TestCase):
-    def test_ui_module_currently_installs_nothing(self):
-        self.assertTrue(shipkit_init.module_installs_nothing("ui"))
-        self.assertFalse(shipkit_init.module_installs_nothing("core"))
-
-    def test_smoke_lines_say_empty_slot(self):
-        with tempfile.TemporaryDirectory() as td:
-            p = shipkit_init.Path(td)
-            joined = "\n".join(shipkit_init.smoke_test_lines(
-                ["core", "autonomous", "ui"], p, p))
-            self.assertIn("EMPTY SLOT", joined)
-            self.assertNotIn("cd ui &&", joined)
-
 
 class TestEndToEndFreshInstall(unittest.TestCase):
     """Subprocess runs against a scratch COPY of the repo (simulating a fresh clone:
