@@ -53,12 +53,13 @@ autonomous mate-lock has a `.py` parity).
 
 ### 2. Run the setup
 
-Open Claude Code in the clone and say:
+Open Claude Code in the clone and run:
 
-> Run the Ship setup: read `skills/shipkit-setup/SKILL.md` and follow its FAST PATH.
+> `/shipkit-setup`
 
-(There's no slash command yet on a fresh machine — the setup skill installs itself, so
-`/shipkit-setup` resolves from the next session on, for tier bumps and upgrades.)
+The setup skill ships project-level (`.claude/skills/shipkit-setup/`), so the command
+resolves immediately in a fresh clone — no install step first. It's always the version
+your checkout carries, for first setup, tier bumps, and upgrades alike.
 
 The fresh-machine default is three questions and one command (`python3 shipkit_init.py
 --defaults`): the **core** tier — a request/response Mate + worker agents + safety hooks, no
@@ -84,7 +85,7 @@ through one full cycle.
 ### Upgrading an existing install?
 
 Tier bumps and older (pre-v2) installs go through `/shipkit-setup` too — the upgrade judgment
-lives in [`skills/shipkit-setup/upgrade.md`](skills/shipkit-setup/upgrade.md), and
+lives in [`.claude/skills/shipkit-setup/upgrade.md`](.claude/skills/shipkit-setup/upgrade.md), and
 [`UPGRADING.md`](UPGRADING.md) is the runnable runbook.
 
 ---

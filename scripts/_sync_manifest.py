@@ -59,7 +59,7 @@ def main():
     def add(path: Path):
         if path.is_file():
             # Normalize manifest paths that climb out of the module dir
-            # (core's "../skills/shipkit-setup" -> "skills/shipkit-setup").
+            # (a "../<path>" entry collapses to its repo-relative form).
             r = rel(Path(os.path.normpath(path)))
             if r not in out:
                 out.append(r)

@@ -14,6 +14,7 @@ fix in the environment — but never a hard failure that masks the resolution co
 
 import os
 import re
+import json
 import sys
 import tempfile
 import unittest
@@ -340,20 +341,29 @@ class TestOrphanWhitelist(unittest.TestCase):
     def test_shipkit_setup_not_orphan_even_outside_module_set(self):
         with tempfile.TemporaryDirectory() as td:
             target = shipkit_init.Path(td)
-            os.symlink(os.path.join(ROOT, "skills", "shipkit-setup"),
+            os.symlink(os.path.join(ROOT, ".claude", "skills", "shipkit-setup"),
                        target / "shipkit-setup", target_is_directory=True)
             # "compound" does NOT carry the setup skill — only the always-expected
-            # whitelist can save it here.
+            # whitelist can save it here (a hand-placed legacy copy in ~/.claude).
             findings = shipkit_init.detect_prior_state(["compound"], target)
             setup_lines = [ln for ln in findings if "shipkit-setup" in ln]
             self.assertTrue(setup_lines, "shipkit-setup symlink not scanned at all")
             for ln in setup_lines:
                 self.assertNotIn("ORPHAN", ln)
 
-    def test_setup_skill_is_in_core_manifest(self):
-        skills = shipkit_init.load_module("core").get("skills", [])
-        self.assertTrue(any(os.path.basename(s) == "shipkit-setup" for s in skills),
-                        "core module must install the setup skill (chicken-and-egg)")
+    def test_setup_skill_is_project_level_not_manifest_installed(self):
+        # The skill's canonical home is the repo's own .claude/skills/ (resolves as
+        # /shipkit-setup in a fresh clone with zero install); a ~/.claude copy would
+        # be a staleness surface, so no module may install it.
+        self.assertTrue(
+            os.path.isfile(os.path.join(ROOT, ".claude", "skills", "shipkit-setup", "SKILL.md")))
+        with open(os.path.join(ROOT, "presets.json")) as f:
+            all_modules = {m for mods in json.load(f)["presets"].values() for m in mods}
+        for mod in sorted(all_modules):
+            skills = shipkit_init.load_module(mod).get("skills", [])
+            self.assertFalse(
+                any(os.path.basename(s) == "shipkit-setup" for s in skills),
+                f"module {mod} must not install the project-level setup skill")
 
 
 class TestAssertHookPathsExitContract(unittest.TestCase):
@@ -435,7 +445,10 @@ class TestEndToEndFreshInstall(unittest.TestCase):
             self.assertTrue(os.path.isfile(os.path.join(agents, "ship-crew.md")))
             self.assertNotIn("FAIL", res.stdout)
             # The setup skill self-installs and is NOT an orphan.
-            self.assertTrue(os.path.exists(os.path.join(skills, "shipkit-setup")))
+            # Project-level skill: never installed to the skills target.
+            self.assertFalse(os.path.exists(os.path.join(skills, "shipkit-setup")))
+            self.assertTrue(os.path.isfile(
+                os.path.join(kit, ".claude", "skills", "shipkit-setup", "SKILL.md")))
             for ln in res.stdout.splitlines():
                 if "shipkit-setup" in ln:
                     self.assertNotIn("ORPHAN", ln)

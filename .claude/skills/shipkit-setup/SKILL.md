@@ -185,8 +185,9 @@ The apply step (mechanical, idempotent):
    unenforced install must never be silent OR exit green). Fix the cause, re-run with
    `--refresh-agents`.
 5. Verifies the unioned `lib/` deps are present (and preflights `jq`, which the hooks require).
-6. Symlinks-or-copies the selected modules' skill dirs (incl. this setup skill, so
-   `/shipkit-setup` resolves from the next session on).
+6. Symlinks-or-copies the selected modules' skill dirs. (This setup skill itself is NOT
+   installed to `~/.claude` — it lives project-level in the clone's `.claude/skills/`, so
+   `/shipkit-setup` always resolves in the ship dir and can never go stale.)
 7. Seeds `state/status.json` via `lib/status_writer.py --init`.
 8. **Reports prior-install state** (orphans, copied-vs-symlinked, missing config keys) — you act
    on these per [`upgrade.md`](upgrade.md); the script does not.

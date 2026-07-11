@@ -174,8 +174,8 @@ Open Claude Code **in the ship dir** and run the skill:
 /shipkit-setup
 ```
 
-The skill (`skills/shipkit-setup/SKILL.md`; the upgrade judgment lives in
-`skills/shipkit-setup/upgrade.md`) carries the judgment; `shipkit_init.py` is the
+The skill (`.claude/skills/shipkit-setup/SKILL.md`; the upgrade judgment lives in
+`.claude/skills/shipkit-setup/upgrade.md`) carries the judgment; `shipkit_init.py` is the
 mechanical apply step. The skill will:
 
 1. **Detect** whether this is fresh, a tier bump, or an older/diverged install — it runs the
