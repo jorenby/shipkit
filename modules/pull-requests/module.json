@@ -1,0 +1,13 @@
+{
+  "name": "pull-requests",
+  "tier": "core",
+  "doc": "pull-requests.md",
+  "agents": [],
+  "hooks": [],
+  "skills": [],
+  "scripts": [],
+  "lib": [],
+  "templates": [],
+  "tests": [],
+  "requires": ["core"]
+}

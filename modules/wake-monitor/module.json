@@ -1,0 +1,13 @@
+{
+  "name": "wake-monitor",
+  "tier": "autonomous",
+  "doc": "wake-monitor.md",
+  "agents": [],
+  "hooks": [],
+  "skills": [],
+  "scripts": ["wake_monitor.py", "wake_monitor_native.py"],
+  "lib": ["classify_input.py"],
+  "templates": [],
+  "tests": ["tests/test_wake_monitor.py"],
+  "requires": ["autonomous"]
+}

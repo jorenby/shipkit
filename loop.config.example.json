@@ -1,0 +1,59 @@
+{
+  "_comment": "Reference example — copy values into loop.config.json and edit. Every field is documented inline below. Optional fields may be null; Ship degrades gracefully (no headroom signal => the Bosun paces by heat anyway; no validator => the reconcile step is a no-op).",
+
+  "ship_root": "/Users/you/dev/work/ship",
+  "_ship_root": "Absolute path to your ship directory (queue.md, captain.md, projects/, logs/, state/). The skills + scripts resolve ship paths from here. '.' means the current working directory.",
+
+  "repos": [
+    "/Users/you/dev/work/app",
+    "/Users/you/dev/work/infra"
+  ],
+  "_repos": "The repos crew work in. Used for the preflight git-status sweep and the Bosun's curate sweep. Empty list is valid.",
+
+  "max_concurrent_crew": 2,
+  "_max_concurrent_crew": "Cap on simultaneously-dispatched crew (a flat default). Rate-aware dispatch bands are a module on top.",
+
+  "github_org": "YourOrg",
+  "_github_org": "Org for PR links + the Bosun's curate sweep (gh pr list / search scoped here).",
+
+  "chat_surface": {
+    "kind": "file",
+    "path": "inbox/captain.md"
+  },
+  "_chat_surface": "Where directives arrive that should WAKE the Mate (vs. batch). classify_input.py decides wake-vs-batch; the wake-monitor (wake_monitor.py) watches this + inbox/drops/. The Bosun also writes wake-class drops into inbox/drops/.",
+
+  "validator_cmd": "ruby scripts/validate_tickets.rb --validate",
+  "_validator_cmd": "Optional command run at the Mate's reconcile step + the Bosun's reconcile. Exit 0 / a parseable RESULT line for CLEAN. Absent => reconcile is a no-op, validator reported 'NONE'.",
+
+  "agents": {
+    "install_target": "~/.claude/agents",
+    "defs": ["ship-mate", "ship-bosun", "ship-crew", "ship-lookout", "ship-reviewer", "ship-pilot"]
+  },
+  "_agents": "The custom subagent defs shipkit installs (the two role agents from modules/autonomous/agents/; the core workers ship-crew + ship-lookout from core/agents/; ship-reviewer from modules/review-cycle/agents/ and — opt-in only — ship-pilot from modules/pilot/agents/) into install_target, substituting {SHIP_DIR} in each def's hook command paths with ship_root. ship-mate + ship-bosun are the long-running role agents; the rest are dispatched workers. This list reflects a full install; a given install only has the defs its module set delivers.",
+
+  "hooks": {
+    "mate_bash": "modules/autonomous/hooks/validate-mate-bash.sh",
+    "mate_mcp": "modules/autonomous/hooks/validate-mate-mcp.sh",
+    "bosun_bash": "modules/autonomous/hooks/validate-bosun-bash.sh",
+    "crew_bash": "core/hooks/validate-crew-bash.sh",
+    "readonly_bash": "core/hooks/validate-readonly-bash.sh"
+  },
+  "_hooks": "The bright-line PreToolUse hooks (paths relative to ship_root). Installed agent defs invoke them as `<interpreter> <abs-path>` (a single-quoted YAML scalar, forward slashes), so enforcement does NOT depend on the exec bit or shebang resolution — it works on POSIX shells AND Git-Bash on Windows (NTFS has no exec bit). The interpreter is RESOLVED AT INSTALL TIME: POSIX keeps a bare `bash`; Windows resolves an absolute Git-Bash path (a bare `bash` on Windows can resolve to WSL's System32 stub, which can't see the Windows script path -> silent fail-open) and the install FAILS if no Git-Bash is found. shipkit-setup + ship-up.sh still `chmod +x` the hooks as POSIX belt-and-suspenders (harmless where the FS ignores it), and shipkit-setup runs a placeholder-verification pass that FAILS LOUDLY if any installed agent def still carries a literal {SHIP_DIR} or a rendered interpreter path that doesn't exist (either = a garbage hook command = enforcement silently OFF). Each hook ships a generic core + a per-deployment override block (mate_bash) or a *-allow-local.sh extension (crew/bosun).",
+
+  "launch": {
+    "mate_prompt": "/ship-watch-start",
+    "bosun_prompt": "/loop",
+    "sandbox_wrapper": "~/.config/sandbox-exec/run-sandboxed.sh",
+    "mate_mcp_config": "~/.config/ship/mate-mcp.json",
+    "bosun_mcp_config": "~/.config/ship/bosun-mcp.json"
+  },
+  "_launch": "ship-up.sh / launch-bosun.sh settings. The Mate boots EVENT-DRIVEN via mate_prompt (NOT /loop); the Bosun owns the heartbeat via bosun_prompt. sandbox_wrapper: running the agent in a sandbox is RECOMMENDED (defense-in-depth). On macOS, agent-safehouse.dev is a good option — point this at its wrapper; absent => bare 'claude' (no sandbox). MCP configs are optional (PR-1 can run empty-MCP); set SHIP_MATE_MCP / BOSUN_MCP env to override.",
+
+  "headroom_signal_path": "state/context-gauge.json",
+  "_headroom_signal_path": "Optional. The dispatch-bands module reads this for rate-aware crew-cap modulation. The Mate does NOT wind down on it (event-driven, no loop to gate) and the Bosun paces by heat — so absent is fine.",
+
+  "hosts_ports": {
+    "status_surface": "http://127.0.0.1:8000"
+  },
+  "_hosts_ports": "Optional. Only used by UI/status-surface modules. Leave null for a headless ship."
+}

@@ -1,0 +1,13 @@
+{
+  "name": "review-cycle",
+  "tier": "core",
+  "doc": "review-cycle.md",
+  "agents": ["agents/ship-reviewer.md"],
+  "hooks": [],
+  "skills": [],
+  "scripts": [],
+  "lib": [],
+  "templates": [],
+  "tests": [],
+  "requires": ["core"]
+}

@@ -67,30 +67,17 @@ else
 fi
 echo ""
 
-# Generic process files to sync (relative paths).
-# These are the "shipkit framework" files, not project-specific content.
-SYNC_FILES=(
-  # Role standing orders
-  "crew.md"
-  "mate.md"
-  "CLAUDE.md"
-  "README.md"
-  # Subagent definitions
-  "agents/ship-crew.md"
-  "agents/ship-lookout.md"
-  # Hook scripts
-  "scripts/validate-crew-bash.sh"
-  # Sync script (keeps itself up to date)
-  "scripts/pull-upstream.sh"
-  # Templates
-  "templates/captain.md"
-  "templates/queue.md"
-  "templates/ticket.md"
-)
-
-# Files that are NEVER synced (project-specific content).
-# Listed here for documentation — the script simply doesn't include them above.
-# captain.md, queue.md, inbox/, logs/, projects/
+# Generic "shipkit framework" files to sync, ENUMERATED FROM THE MANIFESTS so this list can't
+# go stale as the tiered layout grows: presets.json + every module.json declare each module's
+# agents/hooks/scripts/lib/templates/docs/tests, and shipkit_init.py + the manifests + the
+# top-level docs round it out. We sync the WHOLE upstream kernel (every tier), not a hand-picked
+# subset. Project-specific content (captain.md, queue.md, inbox/, logs/, projects/, state/,
+# loop.config.json, mate.local.md) is NEVER synced — see the helper's exclude list.
+# (portable: macOS ships bash 3.2 which lacks `mapfile`)
+SYNC_FILES=()
+while IFS= read -r _line; do
+  [ -n "$_line" ] && SYNC_FILES+=("$_line")
+done < <(python3 "$SCRIPT_DIR/_sync_manifest.py" "$UPSTREAM_DIR")
 
 NEW=0
 CHANGED=0

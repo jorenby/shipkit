@@ -1,0 +1,30 @@
+__pycache__/
+*.pyc
+
+# Generated machine config (created from loop.config.example.json on first install;
+# the example is the tracked artifact — a tracked config would make every fresh
+# clone's first run report "exists — left untouched" and silently drop answers).
+loop.config.json
+
+# Generated behavioral-prefs overlay (yours; pull-upstream never touches it).
+mate.local.md
+
+# Local hook allow-list extensions (per-deployment; not synced from upstream).
+# v2 tiered layout: the crew hook sources core/hooks/crew-allow-local.sh (next to
+# validate-crew-bash.sh) and the bosun hook sources
+# modules/autonomous/hooks/bosun-allow-local.sh. The old flat scripts/ paths are
+# kept too so a pre-v2 install's local override stays ignored across the upgrade.
+core/hooks/crew-allow-local.sh
+modules/autonomous/hooks/bosun-allow-local.sh
+scripts/crew-allow-local.sh
+scripts/bosun-allow-local.sh
+
+# Runtime state (regenerated; not durable). status.json is seeded by
+# shipkit_init (lib/status_writer.py --init) and mutated every tick.
+state/status.json
+state/.wake_monitor_state.json
+state/bosun-heartbeat.log
+state/bosun-last-sweep.json
+state/mate-lock.json
+state/mate-mcp-writes.jsonl
+inbox/drops/bosun-*.md

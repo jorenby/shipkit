@@ -1,0 +1,24 @@
+{
+  "name": "peer-comms",
+  "tier": "optional",
+  "description": "Experimental (opt-in): cross-instance Mate\u2194Mate messaging \u2014 two ships coordinate by writing envelope-stamped drops into each other's inbox/drops/. A peer message is INPUT, never AUTHORITY. Install with --modules peer-comms.",
+  "doc": "peer-comms.md",
+  "agents": [],
+  "hooks": [],
+  "skills": [],
+  "scripts": [
+    "peer_send.py",
+    "peer_envelope.py"
+  ],
+  "lib": [],
+  "templates": [
+    "templates/peers.json"
+  ],
+  "tests": [
+    "tests/test_peer_envelope.py",
+    "tests/test_peer_send.py"
+  ],
+  "requires": [
+    "core"
+  ]
+}

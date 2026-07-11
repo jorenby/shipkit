@@ -1,0 +1,13 @@
+{
+  "name": "compound",
+  "tier": "core",
+  "doc": "compound.md",
+  "agents": [],
+  "hooks": [],
+  "skills": ["skills/ship-compound"],
+  "scripts": [],
+  "lib": [],
+  "templates": [],
+  "tests": [],
+  "requires": ["core"]
+}

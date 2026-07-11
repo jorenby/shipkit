@@ -1,0 +1,13 @@
+{
+  "name": "sensors",
+  "tier": "autonomous",
+  "doc": "sensors.md",
+  "agents": [],
+  "hooks": [],
+  "skills": [],
+  "scripts": [],
+  "lib": [],
+  "templates": [],
+  "tests": [],
+  "requires": ["autonomous"]
+}
