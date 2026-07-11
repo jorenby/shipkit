@@ -99,7 +99,7 @@ install the delta.
 
 | Tier / dir | Contents | Purpose |
 |-----------|----------|---------|
-| **`core/`** (tier 1) | `mate.md` (request/response), `crew.md`, `agents/ship-{crew,lookout,reviewer,pilot}.md`, `hooks/validate-{crew,readonly}-bash.sh`, `templates/`, `mate.local.example.md` | The plain request/response Mate + worker agents + crew-safety hooks. No loop, no Bosun, no UI. |
+| **`core/`** (tier 1) | `mate.md` (request/response), `crew.md`, `agents/ship-{crew,lookout}.md` (reviewer ships with `modules/review-cycle/`, pilot with opt-in `modules/pilot/`), `hooks/validate-{crew,readonly}-bash.sh`, `templates/`, `mate.local.example.md` | The plain request/response Mate + worker agents + crew-safety hooks. No loop, no Bosun, no UI. |
 | **`modules/autonomous/`** (tier 2) | `bosun.md`, `mate-event-driven.md`, `bosun-loop.md`, `agents/ship-{mate,bosun}.md`, `hooks/validate-{mate,mate-mcp,bosun}-*.sh`, `skills/{ship-watch-start,bosun-tick}`, `scripts/{bosun_emit.py,launch-bosun.sh,ship-up.sh,mate-lock.{rb,py}}` | The bg-Mate/Bosun heartbeat kernel. |
 | **`modules/wake-monitor/`** (tier 2) | `wake-monitor.md`, `wake_monitor.py`, `wake_monitor_native.py` | The Mate's wake monitor (the one optional capability inside autonomous). |
 | **`modules/{subagent-roster,pull-requests,review-cycle,dispatch-bands,sensors}/`** | a doc + `module.json` each | Depth-doctrine modules (roster/PR/review are tier 1; dispatch-bands/sensors tier 2). |

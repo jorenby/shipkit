@@ -853,7 +853,7 @@ def main():
                    help="one-shot fresh install: --preset core --ship-root . --install-mode "
                         "<platform default>. Zero further flags; mutually exclusive with the "
                         "flags it sets.")
-    p.add_argument("--preset", help="a preset name from presets.json (core / autonomous / ui)")
+    p.add_argument("--preset", help="a preset name from presets.json (core / autonomous)")
     p.add_argument("--modules", nargs="*", help="explicit module set (requires[] resolved transitively)")
     p.add_argument("--ship-root", help="ship_root for loop.config.json + {SHIP_DIR} substitution (default '.')")
     p.add_argument("--max-concurrent-crew", type=int, dest="max_crew")

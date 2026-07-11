@@ -23,7 +23,9 @@
 # An established ship whose operator trusts the discipline layer runs 0; strangers
 # cloning the kit get the block until they consciously relax it.
 
-SHIP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Root is three up from modules/autonomous/hooks/ (dogfood F1 2026-07-11: one level
+# short put the audit log at modules/autonomous/state/, outside the gitignore).
+SHIP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 AUDIT_LOG="$SHIP_DIR/state/mate-mcp-writes.jsonl"
 
 # jq DEPENDENCY GUARD (fail CLOSED): every gate below parses the PreToolUse stdin
