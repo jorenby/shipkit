@@ -239,7 +239,7 @@ class TestStrictYamlRoundTrip(unittest.TestCase):
         import glob
         agent_defs = (
             glob.glob(os.path.join(ROOT, "core", "agents", "ship-*.md"))
-            + glob.glob(os.path.join(ROOT, "modules", "autonomous", "agents", "ship-*.md"))
+            + glob.glob(os.path.join(ROOT, "modules", "*", "agents", "ship-*.md"))
         )
         self.assertGreater(len(agent_defs), 0, "no source agent defs found")
         for src_path in agent_defs:

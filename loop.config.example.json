@@ -29,7 +29,7 @@
     "install_target": "~/.claude/agents",
     "defs": ["ship-mate", "ship-bosun", "ship-crew", "ship-lookout", "ship-reviewer", "ship-pilot"]
   },
-  "_agents": "The custom subagent defs shipkit installs (the two role agents from modules/autonomous/agents/, the workers from core/agents/) into install_target, substituting {SHIP_DIR} in each def's hook command paths with ship_root. ship-mate + ship-bosun are the long-running role agents; the rest are dispatched workers.",
+  "_agents": "The custom subagent defs shipkit installs (the two role agents from modules/autonomous/agents/; the core workers ship-crew + ship-lookout from core/agents/; ship-reviewer from modules/review-cycle/agents/ and — opt-in only — ship-pilot from modules/pilot/agents/) into install_target, substituting {SHIP_DIR} in each def's hook command paths with ship_root. ship-mate + ship-bosun are the long-running role agents; the rest are dispatched workers. This list reflects a full install; a given install only has the defs its module set delivers.",
 
   "hooks": {
     "mate_bash": "modules/autonomous/hooks/validate-mate-bash.sh",

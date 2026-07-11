@@ -8,9 +8,7 @@
   ],
   "agents": [
     "agents/ship-crew.md",
-    "agents/ship-lookout.md",
-    "agents/ship-reviewer.md",
-    "agents/ship-pilot.md"
+    "agents/ship-lookout.md"
   ],
   "hooks": [
     "hooks/validate-crew-bash.sh",

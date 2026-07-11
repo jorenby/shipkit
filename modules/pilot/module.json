@@ -1,0 +1,18 @@
+{
+  "name": "pilot",
+  "tier": "optional",
+  "description": "Opt-in: the ship-pilot browser-interaction crew (screenshots, UI verification, form testing). Hard EXTERNAL dependency on the claude-in-chrome MCP server, which most installs lack — so it ships opt-in even in live doctrine and is dispatched only when the Captain explicitly authorizes browser access. Install with --modules pilot. Reuses core's crew-safety Bash hook (validate-crew-bash.sh); no hook of its own.",
+  "doc": "pilot.md",
+  "agents": [
+    "agents/ship-pilot.md"
+  ],
+  "hooks": [],
+  "skills": [],
+  "scripts": [],
+  "lib": [],
+  "templates": [],
+  "tests": [],
+  "requires": [
+    "core"
+  ]
+}
