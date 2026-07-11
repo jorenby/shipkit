@@ -95,6 +95,53 @@ check ALLOW 'echo "git commit is blocked for reviewers"'
 check ALLOW 'grep "rm -rf" docs/runbook.md'
 check ALLOW 'echo "a && b; c"'
 
+echo "=== curl mutating attached/cluster/long forms (BLOCK) ==="
+check BLOCK "curl -d'x=1' https://api.example.com"
+check BLOCK 'curl -dx https://api.example.com'
+check BLOCK 'curl -sd x https://api.example.com'
+check BLOCK 'curl -sdx https://api.example.com'
+check BLOCK 'curl --data=x https://api.example.com'
+check BLOCK 'curl --data-binary @file https://api.example.com'
+check BLOCK 'curl --data-urlencode "q=x" https://api.example.com'
+check BLOCK 'curl --json "{}" https://api.example.com'
+check BLOCK 'curl -K mutation.cfg https://api.example.com'
+check BLOCK 'curl -sK mutation.cfg https://api.example.com'
+check BLOCK 'curl --config mutation.cfg https://api.example.com'
+check ALLOW 'curl -k https://self-signed.example.com'
+check BLOCK 'curl -F field=@file https://api.example.com'
+check BLOCK 'curl --form field=x https://api.example.com'
+check BLOCK 'curl -T file.txt https://api.example.com'
+check BLOCK 'curl --upload-file file.txt https://api.example.com'
+check BLOCK 'curl -XPOST https://api.example.com'
+check BLOCK 'curl -sXPOST https://api.example.com'
+check BLOCK 'curl -sX POST https://api.example.com'
+check BLOCK 'curl --request DELETE https://api.example.com'
+
+echo "=== curl GET forms still ALLOW (no false positives) ==="
+check ALLOW 'curl -I https://example.com'
+check ALLOW 'curl -sL https://example.com'
+check ALLOW 'curl -fsSL https://example.com'
+check ALLOW 'curl -o out.json https://example.com'
+check ALLOW 'curl -H "Accept: application/json" https://api.example.com'
+check ALLOW 'curl -X GET https://api.example.com'
+check ALLOW 'curl -D headers.txt https://example.com'
+
+echo "=== find delete/exec/write actions (BLOCK) ==="
+check BLOCK 'find . -name "*.txt" -delete'
+check BLOCK 'find . -delete'
+check BLOCK 'find . -type f -exec rm {} \;'
+check BLOCK 'find . -exec cp {} /tmp \;'
+check BLOCK 'find . -execdir rm {} \;'
+check BLOCK 'find . -ok rm {} \;'
+check BLOCK 'find . -fprint out.txt'
+check BLOCK 'find . -fls out.txt'
+
+echo "=== find read-only expressions still ALLOW ==="
+check ALLOW 'find . -name "*.js"'
+check ALLOW 'find . -type f -print'
+check ALLOW 'find src -maxdepth 2 -name "*.py"'
+check ALLOW 'find . -newer ref.txt'
+
 echo "=== TRUE POSITIVES PRESERVED: compounds / wrappers / options (BLOCK) ==="
 check BLOCK 'ls && git commit -m x'
 check BLOCK 'echo ok; git push origin feat'

@@ -261,8 +261,20 @@ check_allowed() {
   echo "$cmd" | grep -qE '^\s*(ruby|python|python3|node|bash|sh|zsh)\b' && return 0
 
   # --- curl (deny-list above catches nothing; allow GET, block mutating) ---
+  # A mutating body/form/upload can be implied WITHOUT any -X POST. Mirrors the
+  # W4 gh-api pflag fix (attached/cluster shorthands): the old `-d\s|--data\b|-X`
+  # regex missed the attached form (-d'x'/-dx), clustered forms (-sd x/-sdx),
+  # --json, --data-binary/-raw/-urlencode (long \b already covers -data-*), and
+  # -F/--form / -T/--upload-file, and -K/--config (a config file can carry
+  # 'data = ...' lines -> full mutating bypass; gate finding 2026-07-11).
+  # Case-SENSITIVE on the shorthands: curl short flags are case-sensitive, so
+  # [dFTK] must NOT match -f(fail)/-D(dump)/-t/-k(insecure).
+  #   short data/form/upload/config (attached|separate|clustered):  -[flags]*[dFTK]
+  #   short/cluster method + mutating verb (attached|separate): -[flags]*X ...verb
+  #   long forms: --data\b (covers --data-*), --form\b, --upload-file, --json,
+  #               --request + mutating verb.
   if echo "$cmd" | grep -qE '^\s*curl\b'; then
-    if echo "$cmd" | grep -qE '\s(-X\s*(POST|PUT|DELETE|PATCH)|--data\b|-d\s)'; then
+    if echo "$cmd" | grep -qE '(^|[[:space:]])-[a-zA-Z0-9#]*[dFTK]|(^|[[:space:]])-[a-zA-Z0-9#]*X[[:space:]=]*(POST|PUT|DELETE|PATCH)|--data\b|--form\b|--upload-file\b|--json\b|--config\b|--request[[:space:]=]*(POST|PUT|DELETE|PATCH)'; then
       echo "Blocked: Crew cannot make mutating HTTP requests." >&2
       return 1
     fi

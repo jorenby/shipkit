@@ -56,6 +56,50 @@ check 0 ship-bosun 'cat state/status.json'
 check 0 ship-bosun 'echo hi 2>/dev/null'
 check 0 ship-bosun 'curl https://example.com'
 
+echo "=== curl mutating attached/cluster/long forms (BLOCK = exit 2) ==="
+check 2 ship-bosun "curl -d'x=1' https://api.example.com"
+check 2 ship-bosun 'curl -dx https://api.example.com'
+check 2 ship-bosun 'curl -sd x https://api.example.com'
+check 2 ship-bosun 'curl -sdx https://api.example.com'
+check 2 ship-bosun 'curl --data=x https://api.example.com'
+check 2 ship-bosun 'curl --data-binary @file https://api.example.com'
+check 2 ship-bosun 'curl --json "{}" https://api.example.com'
+check 2 ship-bosun 'curl -K mutation.cfg https://api.example.com'
+check 2 ship-bosun 'curl -sK mutation.cfg https://api.example.com'
+check 2 ship-bosun 'curl --config mutation.cfg https://api.example.com'
+check 0 ship-bosun 'curl -k https://self-signed.example.com'
+check 2 ship-bosun 'curl -F field=@file https://api.example.com'
+check 2 ship-bosun 'curl --form field=x https://api.example.com'
+check 2 ship-bosun 'curl -T file.txt https://api.example.com'
+check 2 ship-bosun 'curl --upload-file file.txt https://api.example.com'
+check 2 ship-bosun 'curl -XPOST https://api.example.com'
+check 2 ship-bosun 'curl -sXPOST https://api.example.com'
+check 2 ship-bosun 'curl -sX POST https://api.example.com'
+check 2 ship-bosun 'curl --request PUT https://api.example.com'
+
+echo "=== curl GET forms still ALLOW (no false positives) ==="
+check 0 ship-bosun 'curl -I https://example.com'
+check 0 ship-bosun 'curl -sL https://example.com'
+check 0 ship-bosun 'curl -fsSL https://example.com'
+check 0 ship-bosun 'curl -o out.json https://example.com'
+check 0 ship-bosun 'curl -H "Accept: application/json" https://api.example.com'
+check 0 ship-bosun 'curl -X GET https://api.example.com'
+check 0 ship-bosun 'curl -D headers.txt https://example.com'
+
+echo "=== find delete/exec/write actions (BLOCK = exit 2) ==="
+check 2 ship-bosun 'find . -name "*.txt" -delete'
+check 2 ship-bosun 'find . -delete'
+check 2 ship-bosun 'find . -type f -exec rm {} \;'
+check 2 ship-bosun 'find . -exec cp {} /tmp \;'
+check 2 ship-bosun 'find . -execdir rm {} \;'
+check 2 ship-bosun 'find . -ok rm {} \;'
+check 2 ship-bosun 'find . -fprint out.txt'
+
+echo "=== find read-only expressions still ALLOW (exit 0) ==="
+check 0 ship-bosun 'find . -name "*.js"'
+check 0 ship-bosun 'find . -type f -print'
+check 0 ship-bosun 'find src -maxdepth 2 -name "*.py"'
+
 echo "=== FALSE POSITIVES FIXED: trigger tokens as DATA (ALLOW = exit 0) ==="
 # Quoted alternation pipes no longer fragment the segment (reviewer instance #3 class)
 check 0 ship-bosun 'grep -E "(activate|send_test)" ui/server.ts'

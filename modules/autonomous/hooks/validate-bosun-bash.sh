@@ -200,6 +200,15 @@ bosun_check_raw() {
     echo "Blocked: Bosun cannot delete files." >&2
     exit 2
   fi
+  # find actions that delete/execute/write bypass the no-delete/no-write bright
+  # line (find is allow-listed but is a wrapper): -delete removes files with no
+  # `rm`; -exec/-execdir/-ok/-okdir run arbitrary commands; -fprint/-fprintf/-fls
+  # write to a named file. `-exec rm` was already caught by \brm\b — -delete and
+  # non-rm exec/write targets were not.
+  if echo "$seg" | grep -qE '(^|[[:space:]])find\b' && echo "$seg" | grep -qE '(^|[[:space:]])-(delete|exec|execdir|ok|okdir|fprint|fprintf|fls)\b'; then
+    echo "Blocked: Bosun cannot use find -delete/-exec/-execdir/-ok/-fprint (deletes/executes/writes files). Surface via a drop." >&2
+    exit 2
+  fi
   if echo "$seg" | grep -qiE '\bgh\s+(pr|issue)\s+(create|comment|approve|merge|close|review|edit|reopen)\b'; then
     echo "Blocked: Bosun cannot modify PRs or issues (bright line). Surface via a drop." >&2
     exit 2
@@ -237,6 +246,13 @@ bosun_check_anchored() {
   fi
   if echo "$nq" | grep -qiE '^[[:space:]]*rm\b'; then
     echo "Blocked: Bosun cannot delete files." >&2
+    exit 2
+  fi
+  # find delete/exec/write actions — see bosun_check_raw. (find is not transparent
+  # today so it lands in the raw path; this keeps raw/anchored symmetric and
+  # fail-closed if find is ever added to BOSUN_SAFE_ARGV.)
+  if echo "$nq" | grep -qE '(^|[[:space:]])find\b' && echo "$nq" | grep -qE '(^|[[:space:]])-(delete|exec|execdir|ok|okdir|fprint|fprintf|fls)\b'; then
+    echo "Blocked: Bosun cannot use find -delete/-exec/-execdir/-ok/-fprint (deletes/executes/writes files). Surface via a drop." >&2
     exit 2
   fi
   if echo "$nq" | grep -qiE '^[[:space:]]*gh[[:space:]]+(pr|issue)[[:space:]]+(create|comment|approve|merge|close|review|edit|reopen)\b'; then
@@ -306,8 +322,18 @@ check_allowed() {
   echo "$cmd" | grep -qE '^\s*diff\b' && return 0
 
   # --- curl (GET only) ---
+  # A mutating body/form/upload can be implied WITHOUT any -X POST. Mirrors the
+  # W4 gh-api pflag fix (attached/cluster shorthands): the old delimiter-requiring
+  # regex missed the attached form (-d'x'/-dx / -F'a=b'), clustered forms (-sd x/
+  # -sdx), --json, and --data-binary/-raw/-urlencode (long \b covers -data-*).
+  # Case-SENSITIVE on the shorthands: curl short flags are case-sensitive, so
+  # [dFT] must NOT match -f(fail)/-D(dump)/-t.
+  #   short data/form/upload/config (attached|separate|clustered):  -[flags]*[dFTK]
+  #   short/cluster method + mutating verb (attached|separate): -[flags]*X ...verb
+  #   long forms: --data\b (covers --data-*), --form\b, --upload-file, --json,
+  #               --request + mutating verb.
   if echo "$cmd" | grep -qE '^\s*curl\b'; then
-    if echo "$cmd" | grep -qE '\s(-X\s*(POST|PUT|DELETE|PATCH)|--data\b|-d\s|--form\b|-F\s|--upload-file\b|-T\s)'; then
+    if echo "$cmd" | grep -qE '(^|[[:space:]])-[a-zA-Z0-9#]*[dFTK]|(^|[[:space:]])-[a-zA-Z0-9#]*X[[:space:]=]*(POST|PUT|DELETE|PATCH)|--data\b|--form\b|--upload-file\b|--json\b|--config\b|--request[[:space:]=]*(POST|PUT|DELETE|PATCH)'; then
       echo "Blocked: Bosun cannot make mutating HTTP requests." >&2
       return 1
     fi
