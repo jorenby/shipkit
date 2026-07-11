@@ -95,8 +95,9 @@ dir, and say:
 The Mate reads ship state, reports status, and asks for steering. Fill in `captain.md` with
 your situation and priorities (ask the Mate to interview you), drop work into
 `inbox/captain.md`, and the Mate will triage it into tickets under `projects/{area}/`,
-dispatch crew, and report back. The setup skill's "Your first watch" section walks you
-through one full cycle.
+dispatch crew, and report back. For a guided first watch — and short, self-contained
+lessons on crew dispatch, the review gate, going autonomous, and staying current — run
+**`/ship-tour`** (project-level like the setup skill, so it resolves in any fresh clone).
 
 ### Upgrading an existing install?
 
