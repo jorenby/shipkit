@@ -30,6 +30,22 @@ Ship lives in a single directory on your machine (not inside any one repo). It c
 
 ## Getting started
 
+**The fast way — have Claude set it up for you.** Already in a Claude Code session? Paste
+this and it does the rest:
+
+> Clone `<shipkit-url>` into a directory named `ship` alongside my other repos — the clone
+> IS the ship, don't create a separate ship dir. Then follow the clone's setup skill
+> (`.claude/skills/shipkit-setup/SKILL.md`) to set the ship up, asking me its questions as
+> you go.
+
+Claude clones, checks prerequisites (it'll tell you if `jq` is missing), runs the setup
+interview (or the three-question `--defaults` fast path), and verifies enforcement is
+actually armed. Then pick up at [step 3](#3-restart-claude-code-then-run-your-first-watch)
+for your first watch.
+
+Prefer to drive it yourself, or want to see what the setup does? The same path, step by
+step:
+
 ### 1. Clone shipkit — the clone IS your ship
 
 Ship is **per-machine, not per-project**: one directory coordinates work across all your
