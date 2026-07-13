@@ -16,8 +16,7 @@ The Mate is event-driven and does not watch your plain output. The **only** way 
 reaches it is a **drop you write via `modules/autonomous/scripts/bosun_emit.py drop`** (which the Mate's
 wake-monitor picks up). A sweep that ends without surfacing an actionable finding is fine
 — that's a quiet tick — but a sweep that *finds* something and doesn't drop it is **lost
-work that looks like silence**. The founding bug (a Bosun that did sweeps but never
-routed findings, reading as "idle" for a full day) is what this rule prevents.
+work that looks like silence** (history: `DECISIONS.md`).
 
 - **Heartbeat every tick, always** (`bosun_emit.py heartbeat`) — proof-of-life even on a
   no-delta tick, so the Mate/Captain can see you're alive.

@@ -39,7 +39,7 @@ Both empty → **fresh machine, stay on this path.** Anything found → jump to
    Ship (bg Mate + Bosun) from day one.
 2. **Ship dir?** → **this clone IS your ship** (`--ship-root .`). The hooks live in this
    repo and the installed agent defs' hook paths point into it — any other ship-root
-   breaks enforcement (the apply step will fail loudly if you try). One ship per machine.
+   breaks enforcement (the apply step will fail loudly if you try).
 3. **Set taste now?** → default **no**. `mate.local.md` is generated with sane defaults
    and is hand-editable anytime; the full interview below exists for people who want it.
 
@@ -83,7 +83,8 @@ on low context / a resting point.
    safest first dispatch — see `core/crew.md` for the dispatch contract) OR a housekeeping action
    (reconcile a queue entry, trim a stale Done item). Keep it bounded — the point is to feel the
    dispatch → log → reconcile loop once, not to do real work.
-4. **Wind down.** Walk the wind-down ceremony (`core/mate.md` → wind-down): write the mate log
+4. **Wind down.** Walk the wrap-up (`core/mate.md` → "Sessions and Logs"; the full sweep is
+   `modules/session-ceremony/session-ceremony.md` → "End of session"): write the mate log
    (did / left-off / next-steps), reconcile `queue.md`, checkpoint anything you'd be sad to lose.
    A watch ENDS here — it does not loop back on its own; the next wake (a directive drop, a
    Captain turn) opens the next one.
@@ -127,7 +128,9 @@ AskUserQuestion-style, one decision at a time; skip anything a prior answer sett
   the recommendation (bump later is a clean delta); autonomous when the user wants the full
   bg-Mate/Bosun Ship now.
 - **(b) Ship-root** — the single ship-root for this machine: the shipkit clone, `.` (see the
-  FAST PATH invariant). **One ship per machine** — never set up multiple ship-roots.
+  FAST PATH invariant). **One ship per machine** — a current limitation, not a virtue: agent
+  defs install globally with a single baked ship path, so a second ship-root would fight
+  over them. Never set up multiple.
 - **(c) Install method** — symlink (default macOS/Linux; `git pull` updates in place) vs copy
   (frozen snapshot; survives moving the repo but won't track upstream). Windows defaults to
   copy. (Agent defs are always *written* with `{SHIP_DIR}` substituted, never symlinked.)
@@ -145,6 +148,8 @@ AskUserQuestion-style, one decision at a time; skip anything a prior answer sett
   overlay?* If yes, remove the `mate.local.md` line from `.gitignore` and commit the overlay
   (its house notes are ship history, not secrets — keep genuine secrets in a separate
   gitignored file / the OS keychain, never in the overlay either way). If no, leave it ignored.
+  The same answer applies to `DECISIONS.local.md` (the ship's own dated incidents/rulings log,
+  seeded from `DECISIONS.local.example.md`) — track or ignore the two together.
 
 ## The apply step (call the script once)
 
@@ -170,19 +175,17 @@ The apply step (mechanical, idempotent):
 1. Writes `loop.config.json` from the example (gitignored; untouched unless `--force-config`).
 2. Writes `mate.local.md` from `core/mate.local.example.md` (untouched unless `--force-prefs`).
 3. Installs the selected tiers' agent defs, substituting `{SHIP_DIR}`. Hook commands render as
-   `<interpreter> <abs-path>` as a **single-quoted YAML scalar** with **forward slashes**. The
-   interpreter is **resolved at install time**: POSIX keeps a bare `bash`; Windows resolves an
-   **absolute Git-Bash path** (a bare `bash` on Windows can resolve to WSL's `System32\bash.exe`
-   stub, which can't see the Windows script path → silent fail-open) and FAILS the install if no
-   Git-Bash is found. Enforcement works on POSIX AND Git-Bash without depending on the exec bit.
-   Existing defs are left untouched unless `--refresh-agents`.
+   `<interpreter> <abs-path>` (single-quoted YAML scalar, forward slashes), with the interpreter
+   **resolved at install time** — POSIX keeps a bare `bash`; Windows requires an absolute
+   Git-Bash path and the install FAILS without one (the WSL-stub scar: `DECISIONS.md`).
+   Enforcement works on POSIX AND Git-Bash without depending on the exec bit. Existing defs are
+   left untouched unless `--refresh-agents`.
 4. Sets +x on the selected hooks (POSIX belt-and-suspenders; commands invoke via `bash` so the
    exec bit is no longer load-bearing), then **asserts every installed agent-def hook command
    path resolves** and runs a **placeholder-verification pass**. **ANY `FAIL` in either — a
    broken hook path, a missing interpreter, or a leftover literal `{SHIP_DIR}` — exits
-   non-zero** (the v1 footgun was a garbage hook path with enforcement silently OFF; an
-   unenforced install must never be silent OR exit green). Fix the cause, re-run with
-   `--refresh-agents`.
+   non-zero**: an unenforced install must never be silent or exit green (history:
+   `DECISIONS.md`). Fix the cause, re-run with `--refresh-agents`.
 5. Verifies the unioned `lib/` deps are present (and preflights `jq`, which the hooks require).
 6. Symlinks-or-copies the selected modules' skill dirs. (This setup skill itself is NOT
    installed to `~/.claude` — it lives project-level in the clone's `.claude/skills/`, so
@@ -222,7 +225,7 @@ the hooks). On macOS, [agent-safehouse.dev](https://agent-safehouse.dev/) — po
 
 ## Bounds
 - Run as needed (onboarding / tier bump / upgrade). Not a per-tick skill.
-- **One ship per machine** — never multiple ship-roots.
+- **One ship per machine** — never multiple ship-roots (agent defs are global; see (b) above).
 - **You carry the upgrade judgment; the script stays mechanical.** Never push divergence-
   resolution into the script.
 - The preset → module mapping lives in `presets.json` + each `module.json` — if they and this

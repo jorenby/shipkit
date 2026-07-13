@@ -64,11 +64,7 @@ preflight() {
 
   # 3. Lock cycle works.
   echo "[lock]"
-  if command -v ruby >/dev/null 2>&1 && [ -f "$AUTO/scripts/mate-lock.rb" ]; then
-    LOCKER="ruby modules/autonomous/scripts/mate-lock.rb"
-  else
-    LOCKER="python3 modules/autonomous/scripts/mate-lock.py"
-  fi
+  LOCKER="python3 modules/autonomous/scripts/mate-lock.py"
   if $LOCKER status >/dev/null 2>&1 || [ $? -eq 1 ]; then
     LOCKLINE=$($LOCKER status 2>&1 | grep -E "STATE|Holder|Freshness" | tr '\n' ' ')
     ok "mate-lock runs ($LOCKER) — $LOCKLINE"
@@ -159,7 +155,7 @@ case "$MODE" in
     fi
     do_launch_mate
     echo "── rotation: outgoing lock ───────────────────────"
-    LOCKER=$(command -v ruby >/dev/null 2>&1 && [ -f "$AUTO/scripts/mate-lock.rb" ] && echo "ruby modules/autonomous/scripts/mate-lock.rb" || echo "python3 modules/autonomous/scripts/mate-lock.py")
+    LOCKER="python3 modules/autonomous/scripts/mate-lock.py"
     if [ -n "${SHIP_OUTGOING_LOCK_ID:-}" ]; then
       sleep 8
       $LOCKER release "$SHIP_OUTGOING_LOCK_ID" --force 2>&1 | sed 's/^/  /'

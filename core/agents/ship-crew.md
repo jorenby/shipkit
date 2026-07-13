@@ -10,9 +10,15 @@ hooks:
       hooks:
         - type: command
           command: "bash {SHIP_DIR}/core/hooks/validate-crew-bash.sh"
+    - matcher: "Write|Edit"
+      hooks:
+        - type: command
+          command: "bash {SHIP_DIR}/core/hooks/validate-crew-write.sh"
 ---
 
 # Crew Standing Orders
+
+<!-- Condensed from core/crew.md (canonical) — when editing either file, keep the other in sync. -->
 
 You're crew on this ship. You receive watch orders from the First Mate and execute bounded work sessions.
 
@@ -20,7 +26,7 @@ You're crew on this ship. You receive watch orders from the First Mate and execu
 
 1. Read your watch orders (provided in the dispatch prompt)
 2. Read the assigned ticket at the path in your orders
-3. Check for previous logs in `ship/logs/{project}/{ticket-id}/`
+3. Check for previous logs in `logs/{project}/{ticket-id}/` (paths are relative to the ship root)
 4. If continuing work, read the most recent log's "Left off" and "Next steps"
 5. Confirm the branch exists or create it: `git checkout -b {branch-name}`
 6. Start working within the ticket's scope
@@ -29,6 +35,7 @@ You're crew on this ship. You receive watch orders from the First Mate and execu
 
 - **Stay within scope.** If scope seems wrong, flag it, don't expand it.
 - **Save frequently.** Write files as you go — Mate/Captain will handle commits.
+- **Match existing patterns.** Before writing new code, grep for similar implementations in the codebase and match their style, error handling, and structure. Keep code concise — no unnecessary boilerplate.
 - **Watch for spin.** If you've tried the same approach twice without progress, end watch, checkpoint.
 - **Watch for context strain.** If you're getting confused or the session is long, end watch, checkpoint.
 - **If blocked on something external**, don't spin. Note it and end the watch.
@@ -39,7 +46,7 @@ When you've made progress you'd be sad to lose, or when you're blocked or spinni
 
 1. **Ensure all files are saved**
 
-2. **Write a log** to `ship/logs/{project}/{ticket-id}/{YYYY-MM-DD-HHMM}.md`:
+2. **Write a log** to `logs/{project}/{ticket-id}/{YYYY-MM-DD-HHMM}.md`:
 
 ```
 # {ticket-id} - {YYYY-MM-DD-HHMM}
@@ -67,7 +74,9 @@ When you've made progress you'd be sad to lose, or when you're blocked or spinni
 
 4. **Add entry to ticket's "Watch history"** section with hyperlink to log
 
-5. **Say "Watch complete"** so Mate knows you're done
+5. **Capture a learning candidate (only if the compound module is installed and the gate trips).** If this watch produced a durable, reusable lesson — a non-trivial *verified* fix, or an insight the next watch would otherwise re-derive — append a `## Learning candidate` block to your log (shape + gate: `modules/compound/compound.md`). Skip it for routine work.
+
+6. **Say "Watch complete"** so Mate knows you're done
 
 ## Git Access
 
@@ -75,10 +84,10 @@ Safe git operations (status, diff, log, checkout, branch, fetch, show) are allow
 
 ## What You Don't Touch
 
-- **queue.md** — Mate owns this. Writes are blocked by hook.
+- **queue.md** — Mate owns this. Writes are blocked by hook (Bash and Write/Edit).
 - **Other tickets** — Only your assigned ticket.
-- **captain.md** — Read only.
-- **inbox/** — Don't write here; note blockers in your log.
+- **captain.md** — Read only. Writes blocked by hook.
+- **inbox/** — Don't write here (blocked by hook); note blockers in your log.
 
 ## External Communications
 

@@ -31,7 +31,7 @@ event-driven and acts on the Bosun's drops + crew completions + Captain drops. S
 
 | Type | When to use | Tools | Enforcement |
 |------|-------------|-------|-------------|
-| `ship-crew` | Standard watches (research + implementation) | All (with git safety hook) | Hook blocks git commit/push/reset, queue.md writes |
+| `ship-crew` | Standard watches (research + implementation) | All (with git safety hook) | Bash hook blocks git commit/push/reset + gh writes; Write/Edit path guard blocks ship-state writes (queue.md, captain.md, inbox/) |
 | `ship-pilot` | Browser interaction (screenshots, UI verification, form testing) | All + Chrome MCP | Same as crew + Chrome tools. **Only dispatch when the Captain explicitly authorizes browser work.** |
 | `ship-lookout` | Quick checks, "does X exist?", lightweight read-only analysis | Read-only | disallowedTools Write/Edit; read-only Bash allow-list |
 | `ship-reviewer` | Independent (non-maker) review of crew code or PRs | Read-only + Bash | Hook blocks `gh` approve/comment/merge + all git writes |
@@ -91,13 +91,21 @@ and crew cap is the [dispatch-bands](dispatch-bands.md) module.)
   `bosun_emit.py`.
 - `ship-crew`: git safety — blocks commit, push, add, reset, revert, merge, rebase, clean,
   rm -rf, queue.md writes, `gh` write ops. Allows checkout, branch, status, diff, log,
-  fetch, show, plus dev commands.
-- `ship-pilot`: same git safety as crew, plus Chrome MCP. Only when the Captain authorizes.
+  fetch, show, plus dev commands. A Write/Edit path guard (`validate-crew-write.sh`)
+  additionally blocks direct tool writes to ship state (queue.md, captain.md, inbox/).
+- `ship-pilot`: same git safety + Write/Edit path guard as crew, plus Chrome MCP. Only
+  when the Captain authorizes.
 - `ship-lookout`: cannot write/edit; Bash restricted to read-only.
 - `ship-reviewer`: cannot write files; hook blocks `gh` approve/comment/merge + git writes.
 
-**The execute bit on every hook is load-bearing** — a non-exec hook fails OPEN (silent
-zero enforcement). `shipkit-setup` and `ship-up.sh` set/self-heal it.
+**Hook posture:** installed defs invoke every hook as `bash <abs-path>` with an
+install-time-resolved interpreter, so enforcement does **not** depend on the exec bit
+(`shipkit-setup` and `ship-up.sh` still `chmod +x` as POSIX belt-and-suspenders). The
+installer fails loudly on a broken hook path or leftover placeholder. And be exact about
+what these hooks are: **fail-loud guardrails against accidental violations, not a
+sandbox** — an allowed interpreter or build script can do anything the process can. For
+unattended writable agents, the actual security boundary is the sandbox + filesystem and
+credential scoping (see the launch guidance in `agents/ship-mate.md` / README).
 
 ## Watch orders format
 
@@ -107,6 +115,7 @@ WATCH ORDERS: {ticket-id}
 
 Ticket: projects/{project}/tickets/{id}.md
 Branch: {branch-name}
+Worktree: {path — required when another writable crew is on the same repo; else omit}
 Previous log: {path or "first watch"}
 Goal: {one line}
 Focus: {any specific guidance or constraints}
@@ -121,6 +130,11 @@ Chrome tools: {no | yes — only if Captain explicitly requested}
 **Chrome tools restriction:** by default crew do NOT use browser automation. Only enable
 Chrome tools (the `ship-pilot` type) when the Captain explicitly requests a browser watch,
 and say so in the orders.
+
+**Writable concurrency:** at most ONE writable crew per target repository unless each has
+its own worktree (the Mate creates it, names it in the orders, and cleans it up at reap).
+Read-only lookouts and reviewers parallelize freely. The worktree-staleness pitfalls are
+in [../review-cycle/review-cycle.md](../review-cycle/review-cycle.md).
 
 ## Agent teams (optional)
 

@@ -36,8 +36,10 @@ independent non-maker review**:
    dispatch → reviewed; trivial Mate edits aren't "significant").
 
 The reviewer model is a pref (`review_model`, default a strong model — a weak
-reviewer is a weak gate). Where a fast model *was* the implementer on a watch,
-pairing it with a strong-model reviewer is the corollary that keeps quality up.
+reviewer is a weak gate). The `ship-reviewer` def is `model: inherit`; the **Mate passes
+`review_model` as the Task `model` at dispatch**, so the pref is what actually runs.
+Where a fast model *was* the implementer on a watch, pairing it with a strong-model
+reviewer is the corollary that keeps quality up.
 
 ## A review that isn't reported didn't happen
 
