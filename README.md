@@ -33,7 +33,7 @@ Ship lives in a single directory on your machine (not inside any one repo). It c
 **The fast way — have Claude set it up for you.** Already in a Claude Code session? Paste
 this and it does the rest:
 
-> Clone `<shipkit-url>` into a directory named `ship` alongside my other repos — the clone
+> Clone `https://github.com/wstrinz/shipkit` into a directory named `ship` alongside my other repos — the clone
 > IS the ship, don't create a separate ship dir. Then follow the clone's setup skill
 > (`.claude/skills/shipkit-setup/SKILL.md`) to set the ship up, asking me its questions as
 > you go.
@@ -54,7 +54,7 @@ repos. The shipkit clone itself is that directory — **don't create a separate 
 separate dir disarms them, and the installer fails loudly if you try).
 
 ```
-git clone <shipkit-url> ship
+git clone https://github.com/wstrinz/shipkit ship
 cd ship
 ```
 
@@ -87,15 +87,22 @@ carries the judgment and calls the deterministic apply step (`shipkit_init.py`).
 ### 3. Restart Claude Code, then run your first watch
 
 Restart the session (Claude Code snapshots agent defs at session start), open it in the ship
-dir, and say:
+dir, and run **one command**:
+
+> `/ship-tour`
+
+Lesson 1 takes the Mate role itself and walks one real cycle with you — read ship state,
+fill in `captain.md` (the tour interviews you), run one real inbox item through the loop,
+wind down. The other lessons (crew dispatch, the review gate, going autonomous, staying
+current) are short and self-contained — take any of them, anytime. (Both skills are
+project-level, so they resolve in any fresh clone.)
+
+Driving without the tour? The manual boot line is:
 
 > You're First Mate on this ship. Read `core/mate.md` for your standing orders.
 
-The Mate reads ship state, reports status, and asks for steering. Fill in `captain.md` with
-your situation and priorities (ask the Mate to interview you), drop work into
-`inbox/captain.md`, and the Mate will triage it into tickets under `projects/{area}/`,
-dispatch crew, and report back. The setup skill's "Your first watch" section walks you
-through one full cycle.
+The Mate reads ship state, reports status, and asks for steering; drop work into
+`inbox/captain.md` and it triages into tickets, dispatches crew, and reports back.
 
 ### Upgrading an existing install?
 

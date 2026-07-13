@@ -2,15 +2,17 @@
 name: shipkit-setup
 description: >
   The conversational onboarding AND upgrade interview for shipkit's tiered, manifest-driven
-  install (core / autonomous / ui). Invoke (`/shipkit-setup`) when standing Ship up on a
-  machine for the first time, when progressing to a higher tier, or when upgrading an older
-  (incl. pre-v2 "Mate-runs-/loop") install. Fresh machines take the FAST PATH: three
-  questions, two commands, one verify screen. The agent CONDUCTS the interview AND CARRIES
-  THE UPGRADE JUDGMENT (see upgrade.md for diverged installs) — then calls the MINIMAL
-  deterministic apply step (`shipkit_init.py`), which reads presets.json + each module.json,
-  installs the selected tiers' files, substitutes {SHIP_DIR}, asserts hook paths (non-zero
-  exit on any FAIL), and REPORTS prior-install state for the agent to act on. Conversational
-  + judgment front; mechanical apply. Runs as needed, then yields.
+  install. Invoke (`/shipkit-setup`) when standing Ship up on a machine for the first time,
+  when progressing to a higher tier, or when upgrading an older (incl. pre-v2
+  "Mate-runs-/loop") install. Fresh machines take the FAST PATH: three questions — the first
+  asks INTENT (show me the ropes / the full ship / custom), and the tier (core / autonomous /
+  a module set) falls out of the answer — two commands, one verify screen. The agent CONDUCTS
+  the interview AND CARRIES THE UPGRADE JUDGMENT (see upgrade.md for diverged installs) —
+  then calls the MINIMAL deterministic apply step (`shipkit_init.py`), which reads
+  presets.json + each module.json, installs the selected tiers' files, substitutes
+  {SHIP_DIR}, asserts hook paths (non-zero exit on any FAIL), and REPORTS prior-install
+  state for the agent to act on. Conversational + judgment front; mechanical apply. Runs as
+  needed, then yields.
 ---
 
 # /shipkit-setup — onboarding + upgrade interview (tiered, manifest-driven)
@@ -33,25 +35,41 @@ Both empty → **fresh machine, stay on this path.** Anything found → jump to
 
 **Three questions** (one at a time; accept the default on a shrug):
 
-1. **Tier?** → recommend **core** first. A tier bump later is a clean, pure delta
-   (re-run at the higher preset; existing files untouched — tested). Recommend
-   `autonomous` up front only when the user explicitly asks for the full autonomous
-   Ship (bg Mate + Bosun) from day one.
+1. **How do you want to start?** — ask INTENT, not architecture; the tier falls out of the
+   answer. (A shrug = **(a)**.)
+   - **(a) Show me the ropes** → installs the **core** tier (a request/response Mate +
+     worker crew + safety hooks — no background autonomy) and, after the verify, hands
+     you to **lesson 1 of `/ship-tour`** for a guided first watch. The right answer for
+     nearly everyone: a tier bump later is a clean, pure delta (re-run at the higher
+     preset; existing files untouched — tested).
+   - **(b) The full ship — I'll find my way** → installs the **autonomous** tier
+     (everything in core + the bg-Mate/Bosun heartbeat kernel). You get **the map**
+     (below), not the tour — minimal narration.
+   - **(c) Custom** → pick modules yourself. Jump to the full interview's item (a) and
+     drive the apply step with `--modules` (prerequisites resolve transitively).
 2. **Ship dir?** → **this clone IS your ship** (`--ship-root .`). The hooks live in this
    repo and the installed agent defs' hook paths point into it — any other ship-root
    breaks enforcement (the apply step will fail loudly if you try).
 3. **Set taste now?** → default **no**. `mate.local.md` is generated with sane defaults
    and is hand-editable anytime; the full interview below exists for people who want it.
 
-**Apply** (dry-run, show the plan, then real):
+**Apply** (dry-run, show the plan, then real) — the command follows from question 1:
 
 ```
+# (a) Show me the ropes — the core tier:
 python3 shipkit_init.py --defaults --dry-run
 python3 shipkit_init.py --defaults
+
+# (b) The full ship — the autonomous tier:
+python3 shipkit_init.py --preset autonomous --ship-root . --dry-run
+python3 shipkit_init.py --preset autonomous --ship-root .
+
+# (c) Custom — your module set (requires[] resolved transitively):
+python3 shipkit_init.py --modules <name> ... --ship-root . --dry-run
 ```
 
-(`--defaults` = `--preset core --ship-root . --install-mode <platform default>`. Chose a
-different tier or taste? Use the explicit flags — see "The apply step" below.)
+(`--defaults` = `--preset core --ship-root . --install-mode <platform default>`. Chose
+taste or a non-default install mode? Use the explicit flags — see "The apply step" below.)
 
 **Verify** (one screen):
 
@@ -63,34 +81,32 @@ different tier or taste? Use the explicit flags — see "The apply step" below.)
 - **RESTART the Claude Code session** — the agent-def registry is snapshotted at session
   start, so the session that ran the install can't see the defs it just wrote.
 
-Done. Go run "Your first watch" below.
+Done. Now hand off by intent:
 
-## Your first watch (guided)
+## After the verify — the handoff (by question-1 answer)
 
-Post-install, walk the operator through ONE cycle so the ceremony is muscle memory before they
-run solo. Event-driven model — there is **no `/loop`**; a watch opens, runs long, and winds down
-on low context / a resting point.
+**(a) Show me the ropes** → after the restart, the operator's next move is **lesson 1 of the
+tour**: open Claude Code in the ship dir and say **`/ship-tour`**. Tell them this explicitly —
+it's the single next action, and the tour (`.claude/skills/ship-tour/`) conducts the guided
+first watch (boot the Mate, read state, one inbox item through the loop, wind down). Don't
+walk the first watch here; the tour owns it.
 
-1. **Boot the Mate.** Open Claude Code in the ship dir; say "you're First Mate." At the
-   **autonomous** tier, run `/ship-watch-start` — it re-anchors, acquires the mate-lock, arms the
-   wake-monitor, bootstraps the Bosun, preflights, then IDLES. At **core** tier there's no
-   boot skill — the Mate just reads `core/mate.md` and runs request/response.
-2. **Read the state.** Have the Mate re-anchor on the ship: `queue.md` (what's Ready / Active /
-   Awaiting-Captain), `captain.md` (standing priorities), the latest mate log in `logs/mate/`.
-   This is the "where are we" that every watch opens with (see `core/mate.md` → the role + the
-   event-driven overlay `modules/autonomous/mate-event-driven.md`).
-3. **Do ONE small thing.** Either dispatch a tiny crew watch (a lookout read-only check is the
-   safest first dispatch — see `core/crew.md` for the dispatch contract) OR a housekeeping action
-   (reconcile a queue entry, trim a stale Done item). Keep it bounded — the point is to feel the
-   dispatch → log → reconcile loop once, not to do real work.
-4. **Wind down.** Walk the wrap-up (`core/mate.md` → "Sessions and Logs"; the full sweep is
-   `modules/session-ceremony/session-ceremony.md` → "End of session"): write the mate log
-   (did / left-off / next-steps), reconcile `queue.md`, checkpoint anything you'd be sad to lose.
-   A watch ENDS here — it does not loop back on its own; the next wake (a directive drop, a
-   Captain turn) opens the next one.
+**(b) The full ship** → print **the map** and get out of the way:
 
-Point the operator at the doc for each step rather than re-explaining it — the goal is to teach
-them where the standing orders live, not to duplicate them here.
+- **Boot**: restart, open Claude Code in the ship dir, run `/ship-watch-start` (the
+  event-driven Mate boot: re-anchor → mate-lock → wake-monitor → bootstrap Bosun →
+  preflight → idle). `tail state/bosun-heartbeat.log` to see the heartbeat.
+- **Doctrine**: `core/mate.md` (the request/response base) + `modules/autonomous/mate-event-driven.md`
+  (the event-driven overlay) + `modules/autonomous/bosun.md` (the heartbeat). Crew contract:
+  `core/crew.md`.
+- **State**: `queue.md` (Mate-owned), `captain.md` (your priorities), `inbox/captain.md`
+  (your drop point), `logs/` (the handoff record), `state/` (reconciled mirrors).
+- **Taste**: `mate.local.md` (hand-editable anytime). Machine config: `loop.config.json`.
+- **Sandbox**: recommended for the bg agents — see "Sandbox guidance" below.
+- The lessons exist if wanted, piecemeal, anytime: `/ship-tour` (each is self-contained).
+
+**(c) Custom** → point at the docs of whichever modules they chose (each folder's
+`module.json` names its `doc`), plus `/ship-tour` for the shared spine.
 
 ## NOT FRESH? (tier bump / older install)
 
@@ -124,9 +140,10 @@ is pulled in automatically by whichever modules declare it in their `module.json
 
 AskUserQuestion-style, one decision at a time; skip anything a prior answer settles.
 
-- **(a) Preset / tier** — core / autonomous / ui (or a custom `--modules` set). Core-first is
-  the recommendation (bump later is a clean delta); autonomous when the user wants the full
-  bg-Mate/Bosun Ship now.
+- **(a) Preset / tier** — core / autonomous (or a custom `--modules` set — the picker: walk
+  `modules/README.md` + each folder's `module.json` description; `requires[]` pulls
+  prerequisites transitively). Core-first is the recommendation (bump later is a clean
+  delta); autonomous when the user wants the full bg-Mate/Bosun Ship now.
 - **(b) Ship-root** — the single ship-root for this machine: the shipkit clone, `.` (see the
   FAST PATH invariant). **One ship per machine** — a current limitation, not a virtue: agent
   defs install globally with a single baked ship path, so a second ship-root would fight
@@ -158,7 +175,7 @@ AskUserQuestion-style, one decision at a time; skip anything a prior answer sett
 ```
 python3 shipkit_init.py \
   [--defaults]                             # fresh one-shot: core, ship-root=., platform mode \
-  --preset <core|autonomous|ui> \
+  --preset <core|autonomous> \
   [--modules core autonomous ...]          # explicit set; requires[] resolved transitively \
   --ship-root <. | /abs/path>              # also the {SHIP_DIR} value for the agent defs \
   --install-mode <symlink|copy> \
