@@ -13,6 +13,7 @@ non-peer drops never touch the peer path.
 """
 
 import io
+import json
 import os
 import sys
 import tempfile
@@ -312,6 +313,11 @@ class TestPeerPreFilter(unittest.TestCase):
         self._tmp = tempfile.TemporaryDirectory(prefix="classify-peer-test.")
         self.tmp = self._tmp.name
         self._env_before = os.environ.pop("SHIPKIT_PEER_ENVELOPE", None)
+        # Pin the install record to a NONEXISTENT path so these tests run in
+        # legacy (pre-record) mode regardless of whether the repo has a real
+        # state/install.json — enablement-by-record has its own test class.
+        self._manifest_before = os.environ.pop("SHIPKIT_INSTALL_MANIFEST", None)
+        os.environ["SHIPKIT_INSTALL_MANIFEST"] = os.path.join(self.tmp, "no-manifest.json")
         self._reset_guard()
 
     def tearDown(self):
@@ -319,6 +325,10 @@ class TestPeerPreFilter(unittest.TestCase):
             os.environ["SHIPKIT_PEER_ENVELOPE"] = self._env_before
         else:
             os.environ.pop("SHIPKIT_PEER_ENVELOPE", None)
+        if self._manifest_before is not None:
+            os.environ["SHIPKIT_INSTALL_MANIFEST"] = self._manifest_before
+        else:
+            os.environ.pop("SHIPKIT_INSTALL_MANIFEST", None)
         self._reset_guard()
         self._tmp.cleanup()
 
@@ -389,6 +399,55 @@ class TestPeerPreFilter(unittest.TestCase):
         self._reset_guard()
         self.assertIsNone(classify_input._peer_envelope())
         self.assertIsNone(classify_input._PEER_ENVELOPE[0])  # cached, not "unset"
+
+
+class TestInstallRecordGating(TestPeerPreFilter):
+    """Enablement comes from state/install.json (the semantic install record):
+    present -> authoritative; absent/unreadable -> legacy file-existence.
+    Inherits the env hygiene from TestPeerPreFilter."""
+
+    def _write_manifest(self, modules):
+        p = os.path.join(self.tmp, "install.json")
+        with open(p, "w", encoding="utf-8") as fh:
+            json.dump({"schema": 1, "preset": "core", "modules": modules}, fh)
+        os.environ["SHIPKIT_INSTALL_MANIFEST"] = p
+        self._reset_guard()
+        return p
+
+    def test_record_with_peer_comms_activates_prefilter(self):
+        self._write_manifest(["core", "peer-comms"])
+        p = self._write("peer-ship-evil-2026-07-02-1300-note.md", DUP_KEY_ATTACK)
+        got, err = self._classify(p)
+        self.assertEqual(got, "quarantine")
+        self.assertIn("QUARANTINE", err)
+
+    def test_record_without_peer_comms_deactivates_despite_source_present(self):
+        """The whole point: a full clone carries modules/peer-comms/ on disk,
+        but the record says it wasn't selected -> the pre-filter must be OFF."""
+        self._write_manifest(["core", "compound"])
+        p = self._write("peer-ship-evil-2026-07-02-1300-note.md", DUP_KEY_ATTACK)
+        got, err = self._classify(p)
+        self.assertEqual(got, "wake")  # ladder behavior, no quarantine
+        self.assertNotIn("QUARANTINE", err)
+        self.assertIsNone(classify_input._PEER_ENVELOPE[0])
+
+    def test_unreadable_record_falls_back_to_legacy(self):
+        p = os.path.join(self.tmp, "install.json")
+        with open(p, "w", encoding="utf-8") as fh:
+            fh.write("{not json")
+        os.environ["SHIPKIT_INSTALL_MANIFEST"] = p
+        self._reset_guard()
+        drop = self._write("peer-ship-evil-2026-07-02-1300-note.md", DUP_KEY_ATTACK)
+        got, _ = self._classify(drop)
+        # Legacy mode in this repo = peer_envelope.py exists -> pre-filter active.
+        self.assertEqual(got, "quarantine")
+
+    def test_enabled_helper_states(self):
+        self.assertIsNone(classify_input._peer_comms_enabled())  # no record
+        self._write_manifest(["core", "peer-comms"])
+        self.assertIs(classify_input._peer_comms_enabled(), True)
+        self._write_manifest(["core"])
+        self.assertIs(classify_input._peer_comms_enabled(), False)
 
 
 if __name__ == "__main__":

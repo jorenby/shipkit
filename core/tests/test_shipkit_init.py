@@ -474,5 +474,63 @@ class TestEndToEndFreshInstall(unittest.TestCase):
             self.assertNotIn("FAIL", res3.stdout)
 
 
+class TestInstallManifest(unittest.TestCase):
+    """write_install_manifest — the semantic install record (state/install.json)."""
+
+    def test_fresh_write_records_preset_and_modules(self):
+        with tempfile.TemporaryDirectory() as td:
+            path = os.path.join(td, "install.json")
+            lines = shipkit_init.write_install_manifest(
+                ["core", "session-ceremony"], "core", "symlink", dry_run=False, path=path)
+            self.assertTrue(any("recorded" in ln for ln in lines))
+            doc = json.loads(open(path, encoding="utf-8").read())
+            self.assertEqual(doc["schema"], 1)
+            self.assertEqual(doc["preset"], "core")
+            self.assertEqual(doc["modules"], ["core", "session-ceremony"])
+            self.assertEqual(doc["install_mode"], "symlink")
+            self.assertIn("updated_at", doc)
+
+    def test_rerun_unions_modules_additively(self):
+        """A later --modules opt-in run must union into the record, not replace it,
+        and must keep the prior preset when the new run is preset-less."""
+        with tempfile.TemporaryDirectory() as td:
+            path = os.path.join(td, "install.json")
+            shipkit_init.write_install_manifest(
+                ["core", "compound"], "core", "symlink", dry_run=False, path=path)
+            shipkit_init.write_install_manifest(
+                ["core", "peer-comms"], None, "symlink", dry_run=False, path=path)
+            doc = json.loads(open(path, encoding="utf-8").read())
+            self.assertEqual(doc["modules"], ["compound", "core", "peer-comms"])
+            self.assertEqual(doc["preset"], "core", "preset must survive a --modules-only run")
+
+    def test_tier_bump_updates_preset(self):
+        with tempfile.TemporaryDirectory() as td:
+            path = os.path.join(td, "install.json")
+            shipkit_init.write_install_manifest(["core"], "core", "copy", dry_run=False, path=path)
+            shipkit_init.write_install_manifest(
+                ["core", "autonomous"], "autonomous", "copy", dry_run=False, path=path)
+            doc = json.loads(open(path, encoding="utf-8").read())
+            self.assertEqual(doc["preset"], "autonomous")
+            self.assertEqual(doc["modules"], ["autonomous", "core"])
+
+    def test_dry_run_writes_nothing(self):
+        with tempfile.TemporaryDirectory() as td:
+            path = os.path.join(td, "install.json")
+            lines = shipkit_init.write_install_manifest(
+                ["core"], "core", "symlink", dry_run=True, path=path)
+            self.assertTrue(any("would record" in ln for ln in lines))
+            self.assertFalse(os.path.exists(path))
+
+    def test_corrupt_prior_record_does_not_crash(self):
+        with tempfile.TemporaryDirectory() as td:
+            path = os.path.join(td, "install.json")
+            with open(path, "w", encoding="utf-8") as fh:
+                fh.write("{not json")
+            shipkit_init.write_install_manifest(["core"], "core", "symlink",
+                                                dry_run=False, path=path)
+            doc = json.loads(open(path, encoding="utf-8").read())
+            self.assertEqual(doc["modules"], ["core"])
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

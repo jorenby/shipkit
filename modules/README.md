@@ -52,7 +52,10 @@ separate "roles" or plugin mechanism; a new capability is a new module folder:
    `hooks`, `skills`, `scripts`, `templates`, `tests`, `lib` (shared `lib/` deps),
    `role_docs`, plus `tier` and `requires[]` (resolved transitively).
 2. Add the folder to a preset in `presets.json`, or leave it preset-less for explicit
-   opt-in (`--modules {name}`, like peer-comms and pilot).
+   opt-in (`--modules {name}`, like peer-comms and pilot). Selection is durable either
+   way: the installer records the enabled set in `state/install.json` — which is what
+   makes a doc-only module's installation real (membership in the enabled set), and what
+   runtime integrations check instead of file existence.
 3. If core has a seam for it, reference it from core with one plain (non-`@`) pointer line —
    core must stay functional without the module.
 4. Tunables go in `mate.local.md` / `loop.config.json`, never hard-coded in the module doc.

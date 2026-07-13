@@ -24,6 +24,11 @@ modules/autonomous/hooks/bosun-allow-local.sh
 scripts/crew-allow-local.sh
 scripts/bosun-allow-local.sh
 
+# The semantic install record (what the operator ENABLED on this machine —
+# preset + resolved module set). Per-machine like loop.config.json; written by
+# shipkit_init.py after a successful apply, read by classify_input.py & upgrades.
+state/install.json
+
 # Runtime state (regenerated; not durable). status.json is seeded by
 # shipkit_init (lib/status_writer.py --init) and mutated every tick.
 state/status.json

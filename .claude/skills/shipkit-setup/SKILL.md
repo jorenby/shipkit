@@ -23,15 +23,17 @@ install files, verify enforcement, and *report* what it finds.
 
 ## FAST PATH — fresh machine (most users; start here)
 
-**Freshness check** (two commands):
+**Freshness check** (three commands; the first is authoritative when it exists):
 
 ```
+cat state/install.json 2>/dev/null
 ls ~/.claude/skills/ 2>/dev/null | grep -E 'ship|bosun'
 ls ~/.claude/agents/ 2>/dev/null | grep ship
 ```
 
-Both empty → **fresh machine, stay on this path.** Anything found → jump to
-"NOT FRESH?" below.
+`state/install.json` is the semantic install record (preset + enabled modules) — present
+means a current-generation install already ran here. All three empty → **fresh machine,
+stay on this path.** Anything found → jump to "NOT FRESH?" below.
 
 **Three questions** (one at a time; accept the default on a shrug):
 
@@ -208,8 +210,11 @@ The apply step (mechanical, idempotent):
    installed to `~/.claude` — it lives project-level in the clone's `.claude/skills/`, so
    `/shipkit-setup` always resolves in the ship dir and can never go stale.)
 7. Seeds `state/status.json` via `lib/status_writer.py --init`.
-8. **Reports prior-install state** (orphans, copied-vs-symlinked, missing config keys) — you act
-   on these per [`upgrade.md`](upgrade.md); the script does not.
+8. **Reports prior-install state** (orphans, copied-vs-symlinked, missing config keys, the
+   recorded install state) — you act on these per [`upgrade.md`](upgrade.md); the script does not.
+9. **Records the enabled set** in `state/install.json` (schema, preset, resolved modules,
+   source commit) — after the gates pass, never on a failed install. Re-runs union
+   additively; this record is what runtime integrations and upgrades consult.
 
 ## Acceptance details (beyond the one-screen verify)
 

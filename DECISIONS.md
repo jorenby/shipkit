@@ -119,6 +119,24 @@ unattended writable agents is the sandbox + filesystem/credential scoping.
 **Lives in:** `core/hooks/validate-crew-write.sh` (+ tests), `subagent-roster.md`
 § Security model.
 
+## Available ≠ enabled: the install record (2026-07)
+
+**Finding (external review):** a full shipkit clone carries every module's source whether
+or not the operator selected it, and the installer forgot its answer the moment it exited
+— so "installed" meant three different things (present in the clone / selected /
+materialized), a doc-only module's selection evaporated, and peer-comms activated by
+file-existence rather than by choice.
+
+**Decision:** the installer persists the semantic install record to `state/install.json`
+(schema, preset, resolved module set, install mode, source commit) after — and only after
+— the enforcement gates pass. Re-runs union additively, mirroring the installer's
+file-level behavior. The record is authoritative for consumers when present:
+`classify_input.py` gates the peer-comms pre-filter on it (legacy file-existence only as
+the pre-record fallback), the dry-run report surfaces it, and upgrades/doctor diff against
+it. Per-machine and gitignored, like `loop.config.json`.
+**Lives in:** `shipkit_init.py` (`write_install_manifest`), `lib/classify_input.py`
+(`_peer_comms_enabled`).
+
 ## Modules are the single extension surface (2026-07)
 
 **Decision:** the vestigial `roles/` mechanism is removed. A new capability — including a

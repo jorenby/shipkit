@@ -33,6 +33,9 @@ diff its non-`_` keys against `loop.config.example.json`.
 
 Beyond the dry-run report, inspect directly:
 
+- `cat state/install.json` — present on current-generation installs: the recorded preset +
+  enabled modules + source commit, far more reliable than inferring from installed agent
+  names. Absent = a pre-record install; infer from the artifacts below.
 - `ls ~/.claude/skills/ | grep -E 'ship|bosun'` and `ls ~/.claude/agents/ | grep ship`
 - For each installed skill/agent: **is it a symlink into this repo, a symlink elsewhere, or a
   COPY?** (`ls -l`). This is the load-bearing distinction — see item 1 below.
