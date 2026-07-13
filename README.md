@@ -138,7 +138,7 @@ Ship defines custom subagents with enforced tool restrictions. Two are long-runn
 |------|---------|-------------|--------|
 | `ship-mate` | The First Mate as a bg agent — event-driven coordination | Yes (broad) | Deny-list hook blocks the bright lines (merge/ready/comment/deploy/prod/push-to-main) + confirm-gates MCP writes |
 | `ship-bosun` | Heartbeat-owner — runs its own `/loop`, surfaces findings to the Mate via drops | Read-only + `bosun_emit.py` | No Write/Edit/Task; allow-list hook (sole write path is `bosun_emit.py`) |
-| `ship-crew` | Standard watches (research + implementation) | Yes | Allow-list hook blocks git writes, rm -rf, gh writes |
+| `ship-crew` | Standard watches (research + implementation) | Yes | Allow-list hook blocks git writes, rm -rf, gh writes; Write/Edit path guard on ship state (queue.md, captain.md, inbox/) |
 | `ship-lookout` | Quick read-only checks | No (enforced) | disallowedTools + allow-list hook for Bash |
 | `ship-reviewer` | Independent (non-maker) PR/code review | No (enforced) | Read-only hook |
 | `ship-pilot` | Browser interaction (Captain-authorized) | Yes + Chrome MCP | Same git safety as crew |

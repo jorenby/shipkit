@@ -204,6 +204,12 @@ that fits. (Rate/cost-aware modulation is the [dispatch-bands](modules/dispatch-
 waiting for crew. **Parallel dispatch:** when multiple independent watches are needed,
 dispatch them all in a single message with multiple Task calls.
 
+**Writable concurrency — one writable crew per target repo.** Two crew writing the same
+working tree corrupt each other. Read-only lookouts/reviewers parallelize freely; a
+second *writable* crew on the same repo needs its own worktree — you create it, state
+the path in the watch orders, and clean it up at reap. No worktree available → queue the
+second watch behind the first.
+
 **Chrome tools restriction:** by default crew do NOT use browser automation. Only enable
 Chrome tools (the `ship-pilot` type) when the Captain explicitly requests it, and say so in
 the orders.
@@ -250,21 +256,22 @@ When a watch ends:
 3. **Review gate** (if you run the review cycle): before committing crew-written code,
    dispatch a non-maker `ship-reviewer` against your standards + correctness; address
    findings, then commit. See [modules/review-cycle/review-cycle.md](modules/review-cycle/review-cycle.md).
-4. **Update the ticket** (this is the Mate's job, always):
-   - Update "Current State" with findings/progress.
-   - Add a watch entry to "Watch History" with a link to the log.
-   - Update the Status field: done / active / blocked / waiting.
-   - Add PR links when PRs are created.
+4. **Reconcile the ticket.** Crew update their ticket's "Current state" and "Watch history"
+   as part of the handoff (`crew.md`); you verify those updates actually landed, fill any
+   gaps, and add what crew can't:
+   - The **Status field** (done / active / blocked / awaiting) — status transitions are
+     **yours alone**, always.
+   - PR links when PRs are created.
    - **Cross-link parent tickets:** if this watch relates to a meta/parent ticket, add the
      watch link there too.
+   A missing crew update is yours to fix at reap, not to skip.
 5. Update queue.md to match the ticket status.
 6. **Decide the next queue section:** more Ship work → **In Review**; Ship work done, Captain
    must act → **Awaiting Captain** (state the action!); fully complete → **Done**.
 7. Report to the Captain if notable, then return to the rhythm.
 
-**Ticket updates are the Mate's responsibility, not Crew's.** Crew write logs; the Mate
-synthesizes logs into ticket state. When referencing PRs anywhere, use the clickable link
-format from the Pull Requests section; the `pr:` ticket-frontmatter convention is in
+When referencing PRs anywhere, use the clickable link format from the Pull Requests
+section; the `pr:` ticket-frontmatter convention is in
 [modules/pull-requests/pull-requests.md](modules/pull-requests/pull-requests.md).
 
 ## Creating Tickets

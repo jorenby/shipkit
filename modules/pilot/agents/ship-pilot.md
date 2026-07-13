@@ -11,6 +11,10 @@ hooks:
       hooks:
         - type: command
           command: "bash {SHIP_DIR}/core/hooks/validate-crew-bash.sh"
+    - matcher: "Write|Edit"
+      hooks:
+        - type: command
+          command: "bash {SHIP_DIR}/core/hooks/validate-crew-write.sh"
 ---
 
 # Pilot Standing Orders

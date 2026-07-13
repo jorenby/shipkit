@@ -2,6 +2,9 @@
 
 > **Owned by First Mate.** Crew: read only.
 
+<!-- CANONICAL SECTIONS — this is the queue state machine; docs and seeds must match:
+  Ready | Active | In Review | Awaiting Captain | Blocked | Backlog | Done (recent) -->
+
 <!-- ENTRY RETENTION RULE — the ticket is the durable record; this queue is the index.
   Per line, keep WHETHER/WHEN to act (gate, blocker, trigger, fork-point, date);
   cut HOW (impl recipe, paths, commands) — that lives in the ticket.
@@ -27,6 +30,18 @@
 ## In Review
 <!-- Has PR(s) waiting on CI, review, or merge -->
 <!-- Format: 1. [ticket-id](path) - PR link + status | last: YYYY-MM-DD -->
+
+<!-- empty -->
+
+## Awaiting Captain
+<!-- Ship work done; a Captain action is needed. STATE THE ACTION. -->
+<!-- Format: 1. [ticket-id](path) - the concrete action needed | last: YYYY-MM-DD -->
+
+<!-- empty -->
+
+## Blocked
+<!-- Waiting on external input / a decision. Name the blocker. -->
+<!-- Format: 1. [ticket-id](path) - blocker summary | last: YYYY-MM-DD -->
 
 <!-- empty -->
 

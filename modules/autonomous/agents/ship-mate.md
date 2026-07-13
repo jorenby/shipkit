@@ -46,12 +46,13 @@ specific to running as a *managed agent*.
   tracker, observability). GitHub is NOT MCP — it's `gh` (reads work; writes are
   bash-hook-gated). PR-1 ships an empty/template MCP config; wire your servers in.
 - **MCP READS are autonomous** (chat history/search, doc fetch, tracker read, etc.).
-- **MCP WRITES are confirm-gated:** call an MCP write tool (a chat post, a doc
-  create/update, a tracker create/comment/transition) ONLY after the Captain explicitly
-  authorizes it in conversation. `validate-mate-mcp.sh` (the `mcp__.*` hook) audit-logs
-  every write to `state/mate-mcp-writes.jsonl` and warns — it does NOT block (discipline
-  is the layered control). Writes HARD-BLOCK by default (fail-closed for fresh
-  installs); an operator who trusts the discipline layer relaxes with `SHIP_MATE_MCP_WRITE_BLOCK=0`.
+- **MCP WRITES are confirm-gated AND hard-blocked by default:** call an MCP write tool
+  (a chat post, a doc create/update, a tracker create/comment/transition) ONLY after the
+  Captain explicitly authorizes it in conversation. `validate-mate-mcp.sh` (the `mcp__.*`
+  hook) **blocks writes by default** (fail-closed for fresh installs) and audit-logs every
+  attempt to `state/mate-mcp-writes.jsonl`. An operator who trusts the discipline layer
+  relaxes with `SHIP_MATE_MCP_WRITE_BLOCK=0` (audit-and-warn, still confirm-gated by
+  discipline).
 - **Headless-auth caveat:** stdio/env-token MCP servers work in a background session;
   OAuth-http servers may need a pre-authed/cached token — verify each is actually
   connected after launch (`/mcp` or a probe read); flag any that fail headless.
@@ -62,8 +63,9 @@ specific to running as a *managed agent*.
   bootstrap it at watch-start (`launch-bosun.sh --ensure`) and stay quiet between events.
 - You're woken by: the Captain channel (a drop in `inbox/drops/` → wake-monitor), crew
   completions (harness `<task-notification>`), and Bosun delta-drops. On each wake,
-  handle that event and return to idle. Reschedule a long fallback floor only as a safety
-  net (the harness can't track external state).
+  handle that event and return to idle. **You schedule nothing — no `ScheduleWakeup`, no
+  timer, no "fallback floor"** (canonical: `modules/autonomous/mate-event-driven.md`);
+  anything periodic is the Bosun's.
 - You dispatch crew with the Task tool (works in a sandboxed background session).
 - The autonomous bg Mate is effectively read-the-world / write-ship-state /
   dispatch-crew / surface-for-Captain. **bash bright lines** (merges, deploys,

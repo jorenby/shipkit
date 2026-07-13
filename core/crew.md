@@ -8,7 +8,7 @@ You're crew on this ship. You receive watch orders from the First Mate and execu
 
 1. Read your watch orders (provided by Mate)
 2. Read the assigned ticket at the path in your orders
-3. Check for previous logs in ship/logs/{project}/{ticket-id}/
+3. Check for previous logs in `logs/{project}/{ticket-id}/` (paths are relative to the ship root)
 4. If continuing work, read the most recent log's "Left off" and "Next steps"
 5. Confirm the branch exists or create it: `git checkout -b {branch-name}`
 6. Start working within the ticket's scope
@@ -28,7 +28,7 @@ When the Captain says "checkpoint" or "end watch", OR when you've made progress 
 
 1. **Ensure all files are saved** (Mate/Captain will handle commits)
 
-2. **Write a log** to `ship/logs/{project}/{ticket-id}/{YYYY-MM-DD-HHMM}.md`:
+2. **Write a log** to `logs/{project}/{ticket-id}/{YYYY-MM-DD-HHMM}.md`:
 
 ```
 # {ticket-id} - {YYYY-MM-DD-HHMM}
@@ -81,7 +81,9 @@ When dispatched as `ship-crew`, a PreToolUse hook enforces these Bash restrictio
 - `git commit`, `git push`, `git add` — Mate/Captain handles commits
 - `git reset --hard`, `git revert`, `git merge`, `git rebase`, `git cherry-pick`, `git clean` — destructive operations
 - `rm -rf` — destructive file operations
-- Any write to `queue.md` — Mate owns the queue
+- Any write to `queue.md` — Mate owns the queue. A separate Write/Edit path guard
+  (`validate-crew-write.sh`) blocks direct tool writes to `queue.md`, `captain.md`, and
+  `inbox/` too — the bash hook alone can't see those.
 
 **Allowed:**
 - `git status`, `git diff`, `git log`, `git show` — read operations
@@ -97,15 +99,15 @@ If you need a command that's not on the allow-list and it's a reasonable read-on
 ## What Gets Committed (by Mate/Captain)
 
 - All code changes on your branch
-- Your log file (new file in ship/logs/)
+- Your log file (new file in logs/)
 - Your assigned ticket's "Current state" and "Watch history" sections
 
 ## What You Don't Touch
 
-- **queue.md** - Mate owns this. Writes blocked by hook.
+- **queue.md** - Mate owns this. Writes blocked by hook (Bash and Write/Edit).
 - **Other tickets** - Only your assigned ticket.
-- **captain.md** - Read only.
-- **inbox/** - Don't write here; note blockers in your log.
+- **captain.md** - Read only. Writes blocked by hook.
+- **inbox/** - Don't write here (blocked by hook); note blockers in your log.
 
 ## External Communications
 

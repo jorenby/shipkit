@@ -10,6 +10,10 @@ hooks:
       hooks:
         - type: command
           command: "bash {SHIP_DIR}/core/hooks/validate-crew-bash.sh"
+    - matcher: "Write|Edit"
+      hooks:
+        - type: command
+          command: "bash {SHIP_DIR}/core/hooks/validate-crew-write.sh"
 ---
 
 # Crew Standing Orders
@@ -22,7 +26,7 @@ You're crew on this ship. You receive watch orders from the First Mate and execu
 
 1. Read your watch orders (provided in the dispatch prompt)
 2. Read the assigned ticket at the path in your orders
-3. Check for previous logs in `ship/logs/{project}/{ticket-id}/`
+3. Check for previous logs in `logs/{project}/{ticket-id}/` (paths are relative to the ship root)
 4. If continuing work, read the most recent log's "Left off" and "Next steps"
 5. Confirm the branch exists or create it: `git checkout -b {branch-name}`
 6. Start working within the ticket's scope
@@ -42,7 +46,7 @@ When you've made progress you'd be sad to lose, or when you're blocked or spinni
 
 1. **Ensure all files are saved**
 
-2. **Write a log** to `ship/logs/{project}/{ticket-id}/{YYYY-MM-DD-HHMM}.md`:
+2. **Write a log** to `logs/{project}/{ticket-id}/{YYYY-MM-DD-HHMM}.md`:
 
 ```
 # {ticket-id} - {YYYY-MM-DD-HHMM}
@@ -80,10 +84,10 @@ Safe git operations (status, diff, log, checkout, branch, fetch, show) are allow
 
 ## What You Don't Touch
 
-- **queue.md** — Mate owns this. Writes are blocked by hook.
+- **queue.md** — Mate owns this. Writes are blocked by hook (Bash and Write/Edit).
 - **Other tickets** — Only your assigned ticket.
-- **captain.md** — Read only.
-- **inbox/** — Don't write here; note blockers in your log.
+- **captain.md** — Read only. Writes blocked by hook.
+- **inbox/** — Don't write here (blocked by hook); note blockers in your log.
 
 ## External Communications
 

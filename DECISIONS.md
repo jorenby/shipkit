@@ -98,6 +98,22 @@ librarian can't corrupt the store. Upgrades from the pre-v2 shape carry known fo
 resolve) — the judgment for those lives in `.claude/skills/shipkit-setup/upgrade.md` and
 `UPGRADING.md`, which deliberately keep their history inline.
 
+## 2026-07-13 — the enforcement envelope, made exact
+
+**Finding (external review):** crew agents carry Write/Edit tools, but the only
+PreToolUse hook matched Bash — so a *direct* Write/Edit call to `queue.md`,
+`captain.md`, or `inbox/` never passed through any guard, while the docs said "writes
+blocked by hook." Prose claimed more than the mechanism delivered.
+
+**Decisions:** (1) a Write/Edit path guard (`core/hooks/validate-crew-write.sh`) now
+blocks the indisputable shared-state boundaries for crew/pilot; ticket single-ticket
+scope stays prompt-governed. (2) The docs describe the command hooks as what they are —
+**fail-loud guardrails against accidental violations, not a sandbox** (an allowed
+interpreter or build script can do anything the process can); the security boundary for
+unattended writable agents is the sandbox + filesystem/credential scoping.
+**Lives in:** `core/hooks/validate-crew-write.sh` (+ tests), `subagent-roster.md`
+§ Security model.
+
 ## 2026-07-13 — modules are the single extension surface
 
 **Decision:** the vestigial `roles/` mechanism is removed. A new capability — including a
