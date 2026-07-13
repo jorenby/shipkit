@@ -35,7 +35,7 @@ seams, not one monolithic command:
 | Phase | Who | When (seam) | Writes? |
 |---|---|---|---|
 | **Capture** | Crew | End of a crew watch (`crew.md` → "Ending a Watch") | A *candidate* block in the watch log (crew can't commit — by invariant) |
-| **Consolidate** | Mate | Wind-down retro + housekeeping (`mate.md` → "End of Session Housekeeping" / "Ship Maintenance & Housekeeping") | The durable `docs/knowledge/` doc, committed in the same sweep |
+| **Consolidate** | Mate | Wind-down retro + housekeeping (`mate.md` → "Sessions and Logs" wrap-up / "Ship Maintenance & Housekeeping"; the full sweep is `modules/session-ceremony/session-ceremony.md` → "End of session") | The durable `docs/knowledge/` doc, committed in the same sweep |
 | **Refresh / detect** | Bosun | Per-tick delta sweep (autonomous tier — `modules/autonomous/bosun.md`) | Nothing — read-only; *surfaces* stale or capture-worthy items, Mate acts |
 
 **Why this split (and not the alternatives):**
@@ -167,9 +167,10 @@ Compound is inert until it's referenced from the seams. The three pointers:
 - **`crew.md` → "Ending a Watch":** insert a capture step *before* "Say Watch complete"
   — "If this watch tripped the compound gate (`modules/compound/compound.md`), append a
   `## Learning candidate` block to your log."
-- **Wind-down ceremony / retro** (`mate.md` → "End of Session Housekeeping" and the
-  "consolidate knowledge from recent learnings" line under "Ship Maintenance &
-  Housekeeping"): add — "run `/ship-compound` over this session's logs before the commit."
+- **Wind-down ceremony / retro** (`mate.md` → "Sessions and Logs" close step and the
+  consolidate-learnings line under "Ship Maintenance & Housekeeping";
+  `modules/session-ceremony/session-ceremony.md` → "End of session"): add — "run
+  `/ship-compound` over this session's logs before the commit."
 - **`modules/README.md`** table: register the module (capability / Any / "the
   capture→consolidate→refresh learning loop").
 

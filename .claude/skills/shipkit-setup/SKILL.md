@@ -83,7 +83,8 @@ on low context / a resting point.
    safest first dispatch — see `core/crew.md` for the dispatch contract) OR a housekeeping action
    (reconcile a queue entry, trim a stale Done item). Keep it bounded — the point is to feel the
    dispatch → log → reconcile loop once, not to do real work.
-4. **Wind down.** Walk the wind-down ceremony (`core/mate.md` → wind-down): write the mate log
+4. **Wind down.** Walk the wrap-up (`core/mate.md` → "Sessions and Logs"; the full sweep is
+   `modules/session-ceremony/session-ceremony.md` → "End of session"): write the mate log
    (did / left-off / next-steps), reconcile `queue.md`, checkpoint anything you'd be sad to lose.
    A watch ENDS here — it does not loop back on its own; the next wake (a directive drop, a
    Captain turn) opens the next one.

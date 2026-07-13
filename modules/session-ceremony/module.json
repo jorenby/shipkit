@@ -1,0 +1,13 @@
+{
+  "name": "session-ceremony",
+  "tier": "core",
+  "doc": "session-ceremony.md",
+  "agents": [],
+  "hooks": [],
+  "skills": [],
+  "scripts": [],
+  "lib": [],
+  "templates": [],
+  "tests": [],
+  "requires": ["core"]
+}

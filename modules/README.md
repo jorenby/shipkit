@@ -17,8 +17,8 @@ optional capability *inside* the autonomous tier (event-driven works on the fall
 without it).
 
 The remaining modules are *depth docs* pared out of a core section that stays functional
-inline (subagent-roster, pull-requests, review-cycle — tier 1) or *capabilities* for the
-autonomous tier (dispatch-bands, sensors — tier 2). All are referenced from core as a
+inline (session-ceremony, subagent-roster, pull-requests, review-cycle — tier 1) or
+*capabilities* for the autonomous tier (dispatch-bands, sensors — tier 2). All are referenced from core as a
 **plain (non-`@`) pointer** (read-on-demand).
 
 | Module | Tier | For | What it adds |
@@ -28,6 +28,7 @@ autonomous tier (dispatch-bands, sensors — tier 2). All are referenced from co
 | [wake-monitor/wake-monitor.md](wake-monitor/wake-monitor.md) | 2 | Event-driven Mate | The watcher that wakes the idle Mate on directives (incl. Bosun drops). Contract + the pitfalls (enumerate-don't-glob, dedup-by-filename, classify-before-wake, clear-safe key). |
 | [dispatch-bands/dispatch-bands.md](dispatch-bands/dispatch-bands.md) | 2 | Autonomous mode | Rate/cost-aware modulation of the crew cap + dispatch appetite, with fixed bright-line guardrails. |
 | [sensors/sensors.md](sensors/sensors.md) | 2 | Autonomous mode | Watching external signals (PR comments, CI, resolved-out-of-band) via a cheap sub-agent sweep — the generic pattern the Bosun embodies. |
+| [session-ceremony/session-ceremony.md](session-ceremony/session-ceremony.md) | 1 | The Mate | The session open/close *ceremony*: fresh-day vs continuation start checklists, the two-artifact cadence (handoff vs standup), standup rules, the log format, the wrap-up sweep. Core carries the handoff contract inline. |
 | [subagent-roster/subagent-roster.md](subagent-roster/subagent-roster.md) | 1 | Dispatch | The full roster (incl. `ship-mate` + `ship-bosun` as first-class role agents), dispatch patterns, per-type security model, watch-orders template, agent teams. |
 | [pull-requests/pull-requests.md](pull-requests/pull-requests.md) | 1 | PR workflow | Mergeability re-checks, stacked-PR propagation, the `pr:` frontmatter convention. Core carries the draft-only / never-`gh pr ready` bright lines + the PR-link format. |
 | [review-cycle/review-cycle.md](review-cycle/review-cycle.md) | 1 | Any | The maker≠checker *enforcement* mechanism: **ships the non-maker `ship-reviewer` agent def** (`agents/ship-reviewer.md`, read-only, reuses core's readonly Bash hook) + the standards doc + the policy knobs (core ships only the principle). Also: the reviewer-must-report rule, the browser-verify gate for UI work, and apply-crew-work commit hygiene. In every preset, so every preset delivers the reviewer transitively. |
