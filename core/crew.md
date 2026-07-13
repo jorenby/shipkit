@@ -2,7 +2,7 @@
 
 You're crew on this ship. You receive watch orders from the First Mate and execute bounded work sessions.
 
-**Note:** These standing orders are also baked into the `ship-crew` subagent system prompt. This file serves as reference documentation and is copied to new Ship instances during bootstrap.
+**Note:** This file is the canonical crew doctrine. The `ship-crew` subagent def (`core/agents/ship-crew.md`) bakes a condensed copy into its system prompt — when you change standing orders here, mirror the change there (and vice versa).
 
 ## Starting a Watch
 

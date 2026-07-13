@@ -25,7 +25,7 @@ autonomous tier (dispatch-bands, sensors — tier 2). All are referenced from co
 |---|---|---|---|
 | [autonomous/bosun-loop.md](autonomous/bosun-loop.md) | 2 | The Bosun (heartbeat) | The **complete** heartbeat doctrine: the bosun-tick loop, self-pacing **by heat** (not headroom), `/loop`-not-`/goal` keep-alive (the exit-guard, folded in), restart/post-compaction continuation. |
 | [autonomous/mate-event-driven.md](autonomous/mate-event-driven.md) | 2 | The Mate (idle/wake) | The **complete** event-driven-Mate doctrine: the core inversion (no `/loop`, no timer, headroom-not-a-blocker), wake sources, the per-wake handler, single-instance + lock, post-compaction continuation, structural bright lines. |
-| [wake-monitor/wake-monitor.md](wake-monitor/wake-monitor.md) | 2 | Event-driven Mate | The watcher that wakes the idle Mate on directives (incl. Bosun drops). Contract + the incident-scar pitfalls (enumerate-don't-glob, dedup-by-filename, classify-before-wake, clear-safe key). |
+| [wake-monitor/wake-monitor.md](wake-monitor/wake-monitor.md) | 2 | Event-driven Mate | The watcher that wakes the idle Mate on directives (incl. Bosun drops). Contract + the pitfalls (enumerate-don't-glob, dedup-by-filename, classify-before-wake, clear-safe key). |
 | [dispatch-bands/dispatch-bands.md](dispatch-bands/dispatch-bands.md) | 2 | Autonomous mode | Rate/cost-aware modulation of the crew cap + dispatch appetite, with fixed bright-line guardrails. |
 | [sensors/sensors.md](sensors/sensors.md) | 2 | Autonomous mode | Watching external signals (PR comments, CI, resolved-out-of-band) via a cheap sub-agent sweep — the generic pattern the Bosun embodies. |
 | [subagent-roster/subagent-roster.md](subagent-roster/subagent-roster.md) | 1 | Dispatch | The full roster (incl. `ship-mate` + `ship-bosun` as first-class role agents), dispatch patterns, per-type security model, watch-orders template, agent teams. |
@@ -37,3 +37,24 @@ autonomous tier (dispatch-bands, sensors — tier 2). All are referenced from co
 
 Each module's tunable values live in `mate.local.md` (behavioral prefs) and/or
 `loop.config.json` (machine config), not in the module doc itself.
+
+## Adding a module
+
+**Modules are the single extension surface** — including new agent types. There is no
+separate "roles" or plugin mechanism; a new capability is a new module folder:
+
+1. Create `modules/{name}/` with a `{name}.md` doc (the doctrine/contract — what it adds,
+   who reads it, its bright lines) and a `module.json` manifest. The manifest keys are
+   plain file lists the installer (`shipkit_init.py`) and sync tooling
+   (`scripts/_sync_manifest.py`) read: `agents` (subagent defs — **this is how a module
+   ships a new agent type**; review-cycle ships `ship-reviewer`, pilot ships `ship-pilot`),
+   `hooks`, `skills`, `scripts`, `templates`, `tests`, `lib` (shared `lib/` deps),
+   `role_docs`, plus `tier` and `requires[]` (resolved transitively).
+2. Add the folder to a preset in `presets.json`, or leave it preset-less for explicit
+   opt-in (`--modules {name}`, like peer-comms and pilot).
+3. If core has a seam for it, reference it from core with one plain (non-`@`) pointer line —
+   core must stay functional without the module.
+4. Tunables go in `mate.local.md` / `loop.config.json`, never hard-coded in the module doc.
+5. An agent def that needs enforcement gets a PreToolUse hook (reuse core's
+   `validate-crew-bash.sh` / `validate-readonly-bash.sh` where the posture matches) with
+   its command path written as `{SHIP_DIR}/...` — the installer substitutes and verifies it.

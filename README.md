@@ -64,8 +64,7 @@ working skeleton — `captain.md`, `queue.md`, `inbox/`, `projects/`, `logs/`, t
 
 **Prerequisites:** `git`, `python3`, `bash`, and **`jq`** (the enforcement hooks parse their
 input with jq; the installer hard-fails without it — `brew install jq` / `apt-get install jq` /
-`winget install jqlang.jq`). On Windows the hooks run under Git-Bash. `ruby` is optional (the
-autonomous mate-lock has a `.py` parity).
+`winget install jqlang.jq`). On Windows the hooks run under Git-Bash.
 
 ### 2. Run the setup
 
@@ -129,6 +128,8 @@ install the delta.
 
 One ship directory coordinates all your work across repos. Crew agents work in whatever repo the ticket points to, but ship state (queue, tickets, logs) lives in the ship directory.
 
+**One ship per machine is a current limitation, not a virtue:** agent defs install globally (`~/.claude/agents`) with a single baked ship path in their hook commands, so a second ship-root would fight over them. If you need separate work/personal ships, that's the constraint to lift first.
+
 ### Subagent types
 
 Ship defines custom subagents with enforced tool restrictions. Two are long-running **role agents** (the autonomous shape); the rest are dispatched **worker agents**:
@@ -142,7 +143,7 @@ Ship defines custom subagents with enforced tool restrictions. Two are long-runn
 | `ship-reviewer` | Independent (non-maker) PR/code review | No (enforced) | Read-only hook |
 | `ship-pilot` | Browser interaction (Captain-authorized) | Yes + Chrome MCP | Same git safety as crew |
 
-**Hook commands invoke via a resolved bash interpreter** — the installed agent defs render each hook as `<interpreter> <abs-path>` (a single-quoted YAML scalar, forward slashes), so enforcement runs the script under `bash` and does **not** depend on the exec bit or shebang resolution. The interpreter is **resolved at install time**: POSIX keeps a bare `bash`; Windows resolves an **absolute Git-Bash path** (a bare `bash` on Windows can resolve to WSL's `System32\bash.exe` stub, which can't see the Windows script path → silent fail-open) and FAILS the install if no Git-Bash is found. Works on POSIX shells AND Git-Bash on Windows (NTFS has no exec bit). `shipkit-setup` and `ship-up.sh` still `chmod +x` as POSIX belt-and-suspenders, and `shipkit-setup` runs a placeholder-verification pass that FAILS LOUDLY if any installed agent def still carries a literal `{SHIP_DIR}` or a rendered interpreter path that doesn't exist (either = a garbage hook command = enforcement silently OFF).
+**Hook commands invoke via an install-time-resolved bash interpreter**, so enforcement never depends on the exec bit or shebang resolution — it works on POSIX shells and Git-Bash on Windows alike, and the installer **fails loudly** if it can't resolve a working interpreter or if any installed def still carries a literal `{SHIP_DIR}` (an unenforced install must never exit green). The full mechanics live in `loop.config.example.json` (`_hooks`); the scars behind the design, in [`DECISIONS.md`](DECISIONS.md).
 
 ### Logs are the handoff
 
@@ -165,9 +166,9 @@ The doctrine lives in `modules/autonomous/bosun.md` + `modules/autonomous/mate-e
 Shipkit is a starting point. As you use it, you'll likely:
 
 - Add knowledge docs for your environment (`docs/knowledge/env-config.md`)
-- Create additional subagent types for specialized work
+- Add a module for a new capability — including new agent types; a module can ship agent
+  defs, skills, hooks, and scripts (see [modules/README.md](modules/README.md) → "Adding a module")
 - Extend crew permissions with `core/hooks/crew-allow-local.sh` (see below)
-- Add project-specific hooks for domain-specific safety rules
 - Evolve the role docs as you learn what works for your team
 
 The core mechanism (watches + logs + structured dispatch) stays stable while everything else adapts.
@@ -196,4 +197,4 @@ The crew bash allow-list (`core/hooks/validate-crew-bash.sh`) is synced from ups
 
 ### Upgrading an existing / older install
 
-For standing a **new machine** up, a **tier bump**, or **upgrading an older (pre-v2) install** with operator divergence, follow [`UPGRADING.md`](UPGRADING.md) — the runnable-verbatim runbook a foreign Ship instance's Mate uses: clone/fetch, `/shipkit-setup`, the reason-about-divergence conversation, the post-install verification checklist, and rollback. It states the platform assumptions explicitly (bash hooks invoked via an install-time-resolved bash interpreter → macOS/Linux/Windows-with-Git-Bash; the exec bit is POSIX-only belt-and-suspenders, WSL not required for the hooks — and a bare `bash` is NOT used on Windows because it can resolve to the WSL stub).
+For standing a **new machine** up, a **tier bump**, or **upgrading an older (pre-v2) install** with operator divergence, follow [`UPGRADING.md`](UPGRADING.md) — the runnable-verbatim runbook a foreign Ship instance's Mate uses: clone/fetch, `/shipkit-setup`, the reason-about-divergence conversation, the post-install verification checklist, rollback, and the platform assumptions (macOS / Linux / Windows-with-Git-Bash).

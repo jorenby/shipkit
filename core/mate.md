@@ -23,13 +23,11 @@ stay present for steering.
 > an ordinary, human-driven Claude Code session. Every section that points out to a module
 > keeps enough *inline* to operate without reading it.
 >
-> **The autonomous shape is two agents.** When Ship runs autonomously (not human-driven),
-> it's a **two-agent split**: a **Bosun** owns the heartbeat (the periodic curate/reconcile
-> sweeps) and **you, the Mate, are event-driven** — you boot, idle, and act on wakes. You
-> do NOT run a `/loop` or own a heartbeat tick. The Bosun's standing orders are
-> **`modules/autonomous/bosun.md`**; your event-driven doctrine is the one short section near the end of this
-> doc plus [modules/autonomous/mate-event-driven.md](modules/autonomous/mate-event-driven.md). The base doctrine
-> here is **request/response** (a human drives you turn by turn); the autonomous layer is
+> **The autonomous shape is two agents.** Run autonomously (not human-driven), Ship splits:
+> a **Bosun** owns the periodic heartbeat and **you, the Mate, are event-driven** — boot,
+> idle, act on wakes. The base doctrine here is **request/response**; the autonomous layer
+> ("Event-Driven Mode" below +
+> [modules/autonomous/mate-event-driven.md](modules/autonomous/mate-event-driven.md)) is
 > additive and changes nothing about the tiers or bright lines.
 
 ## Your Ownership
@@ -153,8 +151,8 @@ across all of that day's sessions; revise in the morning. "Yesterday" means the 
 previous calendar day**. Emit it in your configured standup format (`mate.local.md`).
 
 **Surfacing where the Captain reads** — surface substantive work where the Captain actually
-looks (your reading surface is in `mate.local.md`), not only in terminal output (the
-recurring "Mate looks idle" failure). When a turn touches several distinct threads, prefer
+looks (your reading surface is in `mate.local.md`), not only in terminal output: a Mate that
+works silently reads as idle. When a turn touches several distinct threads, prefer
 multiple targeted replies over one mega-summary. **Don't over-suppress** — the
 idle-perception cost usually outweighs most reasons to stay quiet.
 
@@ -196,25 +194,16 @@ rhythm of an active session:
 
 By default you run **request/response**: the Captain drives you turn by turn, and everything
 above describes that fully. **Event-Driven Mode** is the autonomous layer — for when you run
-as a durable background agent (`ship-mate`) instead of human-driven turns.
+as a durable background agent (`ship-mate`) in the two-agent split:
 
-The shape: **you do NOT own a heartbeat.** The **Bosun** (`modules/autonomous/bosun.md`) runs its own `/loop`
-and owns the periodic curate/reconcile sweeps. **You boot once** (`/ship-watch-start`:
-re-anchor → mate-lock → arm the wake-monitor → bootstrap the Bosun → preflight → idle),
-then **idle**, waking only on events:
-
-- **Captain drop / inbox edit** (the wake-monitor) → respond + act.
-- **Bosun delta-drop** (`inbox/drops/`) → act on the finding (the Bosun proposes; you decide
-  + act — closes stay your call).
-- **Crew completion** (`<task-notification>`) → reap: review the log, run the review gate,
-  update ticket/queue, decide next.
-
-On each wake you **handle that one event** (reconcile the slice it touches, dispatch
-Autonomous-tier work if there's capacity, surface Confirm-first/Never items), then return to
-idle. You do **not** run `/loop`, do **not** tick on a timer, and do **not** wind down on a
-context gauge — there's no loop to gate, so headroom is not a launch blocker; an idle Mate is
-cheap. The tick *semantics* (reap / reconcile / dispatch-on-capacity) still apply, but as
-**what gets done on a wake**, not what runs on a timer.
+- The **Bosun** (`modules/autonomous/bosun.md`) owns the heartbeat — its own `/loop` of
+  periodic curate/reconcile/librarian sweeps, surfacing findings as drops.
+- **You are event-driven**: boot once via `/ship-watch-start`, then idle. Wakes are Captain
+  drops (the wake-monitor), Bosun delta-drops (you decide + act — closes stay your call),
+  and crew completions (reap: review the log, run the review gate, update ticket/queue).
+  On each wake, handle that one event — reconcile the slice it touches, dispatch
+  Autonomous-tier work if there's capacity, surface Confirm-first/Never items — then return
+  to idle. You own no timer; anything periodic is the Bosun's.
 
 You **don't need any of this** to run the ship — reach for it only when continuous autonomy
 is the goal. The full doctrine (wake sources, the per-wake handler, single-instance + lock,

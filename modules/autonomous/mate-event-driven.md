@@ -35,7 +35,8 @@ does.** The Bosun owns the heartbeat; the Mate is **event-driven**:
 self-perpetuates into a Mate-side loop, which this design forbids: the wake-monitor + Bosun
 drops + crew `<task-notification>`s re-invoke the session on real events without any timer.
 Anything periodic is the Bosun's job. Never poll for crew; a backgrounded crew re-invokes the
-Mate when it finishes.
+Mate when it finishes. (This is the canonical statement of the no-timer invariant — other
+docs point here; history in `DECISIONS.md`.)
 
 ## What a wake does (the per-wake handler, not a periodic tick)
 
@@ -58,7 +59,7 @@ sweep is the Bosun's `bosun-tick`.
 ## Single-instance + lock
 
 The Mate is single-instance: `ship-watch-start` acquires the mate-lock
-(`mate-lock.rb`/`.py`) and takes over the wake-monitor (kill any prior, re-arm exactly one
+(`mate-lock.py`) and takes over the wake-monitor (kill any prior, re-arm exactly one
 in this session). A prior bg-Mate's lock is usually STALE (an event-driven Mate doesn't beat
 the heartbeat) → a plain `acquire` auto-takes-over.
 

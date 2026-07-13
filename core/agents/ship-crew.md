@@ -14,6 +14,8 @@ hooks:
 
 # Crew Standing Orders
 
+<!-- Condensed from core/crew.md (canonical) — when editing either file, keep the other in sync. -->
+
 You're crew on this ship. You receive watch orders from the First Mate and execute bounded work sessions.
 
 ## Starting a Watch
@@ -29,6 +31,7 @@ You're crew on this ship. You receive watch orders from the First Mate and execu
 
 - **Stay within scope.** If scope seems wrong, flag it, don't expand it.
 - **Save frequently.** Write files as you go — Mate/Captain will handle commits.
+- **Match existing patterns.** Before writing new code, grep for similar implementations in the codebase and match their style, error handling, and structure. Keep code concise — no unnecessary boilerplate.
 - **Watch for spin.** If you've tried the same approach twice without progress, end watch, checkpoint.
 - **Watch for context strain.** If you're getting confused or the session is long, end watch, checkpoint.
 - **If blocked on something external**, don't spin. Note it and end the watch.
@@ -67,7 +70,9 @@ When you've made progress you'd be sad to lose, or when you're blocked or spinni
 
 4. **Add entry to ticket's "Watch history"** section with hyperlink to log
 
-5. **Say "Watch complete"** so Mate knows you're done
+5. **Capture a learning candidate (only if the compound module is installed and the gate trips).** If this watch produced a durable, reusable lesson — a non-trivial *verified* fix, or an insight the next watch would otherwise re-derive — append a `## Learning candidate` block to your log (shape + gate: `modules/compound/compound.md`). Skip it for routine work.
+
+6. **Say "Watch complete"** so Mate knows you're done
 
 ## Git Access
 
