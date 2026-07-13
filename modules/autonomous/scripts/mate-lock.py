@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """mate-lock.py — Mate session lock: acquire / heartbeat / release / status.
 
-The stdlib-only, cross-platform twin of mate-lock.rb (identical contract + lock-file
-format, so the two are interchangeable — use whichever runtime your box has). Prevents
-two Mate sessions writing queue.md at once. A stale lock (heartbeat older than
+Stdlib-only and cross-platform. Prevents two Mate sessions writing queue.md at
+once. A stale lock (heartbeat older than
 STALE_MINUTES) is auto-taken-over on acquire, which is the common case when an
 event-driven Mate's prior session didn't beat the heartbeat before rotating.
 

@@ -21,10 +21,8 @@ agent/launcher/hook paths) lives in **`loop.config.json`** — see `loop.config.
 max_concurrent_crew:    4         # flat crew cap. The dispatch-bands module varies this by rate.
 ```
 
-Note: the **Mate is event-driven** — it does NOT self-pace on a context gauge (no `/loop`
-to gate). Heartbeat pacing is the **Bosun's** concern (by heat, not headroom — see
-`bosun.md`). There is no `wind_down_threshold` / `pacing_fallback` for the Mate; an idle
-Mate is cheap and waits for events.
+Note: there are no pacing/wind-down keys for the Mate — it's event-driven; heartbeat
+pacing is the Bosun's (`bosun.md`).
 
 ## Dispatch bands (if you run the dispatch-bands module)
 
@@ -83,8 +81,7 @@ search_tool:      <cmd>           # your semantic-search-across-the-vault comman
 pr_review_cmd:    <cmd>           # your PR-review entry point (if any) — the start-of-watch PR pass
 ```
 
-(There is no `loop_skill` here — the Mate doesn't run a loop. The Bosun owns the heartbeat;
-the Mate enters autonomous mode via the `ship-watch-start` skill.)
+(No `loop_skill` key — the Mate enters autonomous mode via `ship-watch-start`, not a loop.)
 
 ## Repos & org
 

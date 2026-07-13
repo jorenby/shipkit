@@ -64,7 +64,7 @@ v2 code and migrate itself, using the `/shipkit-setup` skill. It is written to b
   kill-sweep self-heals this (PowerShell variant on Git-Bash — `pkill` doesn't exist there),
   and `ship-up.sh --rotate-mate` now sweeps orphans OS-level before launching the replacement.
 - **Prereqs:** `git`, `python3` (3.10+), and Claude Code. For the autonomous tier you also want
-  `ruby` (the mate-lock has a `.rb` and a `.py` implementation) and `gh` if you use PRs.
+  `gh` if you use PRs.
 
 ---
 

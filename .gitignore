@@ -9,6 +9,11 @@ loop.config.json
 # Generated behavioral-prefs overlay (yours; pull-upstream never touches it).
 mate.local.md
 
+# This ship's own decisions/incidents log (yours; the framework's DECISIONS.md stays
+# tracked + synced). Seed from DECISIONS.local.example.md. Track it deliberately if
+# your ship dir is your durable record — same convention as mate.local.md.
+DECISIONS.local.md
+
 # Local hook allow-list extensions (per-deployment; not synced from upstream).
 # v2 tiered layout: the crew hook sources core/hooks/crew-allow-local.sh (next to
 # validate-crew-bash.sh) and the bosun hook sources

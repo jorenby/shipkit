@@ -42,9 +42,9 @@ A wake-monitor must:
    compaction. The post-compaction continuation step checks the monitor survived and re-arms
    it if not.
 
-## Pitfalls (incident scars — read these before building one)
+## Pitfalls (read these before building one)
 
-These are real failures from a production loop. They generalize to anyone building a
+All four are real failures (`DECISIONS.md`), and they generalize to anyone building a
 file-watch wake-monitor.
 
 ### 1. Enumerate, don't glob

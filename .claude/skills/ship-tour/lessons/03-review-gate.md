@@ -10,17 +10,24 @@ not a promise — blocks them from committing, pushing, or touching `queue.md`. 
 **non-maker reviewer** checks. The **Mate** commits only after the gate, and the
 **Captain** keeps the outermost ring: merges, PR-ready flips, and every word posted
 outside the ship happen on the Captain's say-so, never autonomously. Trust here is
-layered, and the layers are enforced, not honored.
+layered — and be exact about the layers, because Ship is: read-only agents are
+**structural** (the tools simply aren't there); the hooks on writable agents are
+**fail-loud guardrails** against accidental violations, not a sandbox (an allowed build
+script can do anything the process can); the actual security boundary for unattended
+writable agents is the **sandbox + credential scoping**. Guardrails catch mistakes;
+the sandbox bounds malice.
 
 **Walk it:**
 
-1. **See the enforcement — live.** Run the hook's own test suite
-   (needs `jq`, same as the hooks themselves — setup already checked it):
-   `bash core/tests/test-crew-bash.sh`. Watch what a crew agent is actually allowed and
-   denied: git reads pass, `git commit`/`push`/`reset` blocked, `queue.md` writes
-   blocked, `gh` writes blocked, destructive `rm` blocked. Then open one installed agent
-   def (`~/.claude/agents/ship-crew.md`) and find the PreToolUse hook line — the operator
-   should see that the rules are wired into the agent itself, not written on a wall.
+1. **See the guardrails — live.** Run the hooks' own test suites
+   (they need `jq`, same as the hooks themselves — setup already checked it):
+   `bash core/tests/test-crew-bash.sh` and `bash core/tests/test-crew-write.sh`. Watch
+   what a crew agent is actually allowed and denied: git reads pass,
+   `git commit`/`push`/`reset` blocked, `gh` writes blocked, destructive `rm` blocked —
+   and direct Write/Edit calls to `queue.md`/`captain.md`/`inbox/` blocked by the path
+   guard. Then open one installed agent def (`~/.claude/agents/ship-crew.md`) and find
+   the PreToolUse hook lines — the operator should see that the rules are wired into the
+   agent itself, not written on a wall.
 2. **Run one review.** Take a real diff — the work from lesson 2 if it produced one,
    otherwise any small uncommitted change on the operator's plate — and have the Mate
    dispatch a `ship-reviewer` against it (read-only, enforced; it can't "fix it while
@@ -38,8 +45,9 @@ layered, and the layers are enforced, not honored.
    default now.
 
 **Point at:** `core/mate.md` → "Maker ≠ Checker" and "Autonomy & Bright Lines",
-`modules/review-cycle/review-cycle.md`, `core/hooks/validate-crew-bash.sh` (the
-enforcement itself — it's readable).
+`modules/review-cycle/review-cycle.md`, `core/hooks/validate-crew-bash.sh` +
+`validate-crew-write.sh` (the guardrails themselves — they're readable), and
+`DECISIONS.md` for why the layers are drawn exactly there.
 
 **Next:** Lesson 4 — going autonomous: the same ship, running between your visits. Take
 it when the request/response rhythm feels solid — there's no hurry; core is complete.

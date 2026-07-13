@@ -37,10 +37,11 @@ lesson keeps — that's the design.
 4. **Trigger one wake.** Have the operator drop a line into `inbox/captain.md` and watch
    the cycle: wake → handle that one event → reconcile → back to idle. That loop is the
    whole autonomous rhythm; everything else is doctrine detail.
-5. **Sandbox, seriously.** Recommend running the background agents sandboxed —
-   defense-in-depth on top of the hooks (on macOS, agent-safehouse.dev; launch via
-   `modules/autonomous/scripts/ship-up.sh`). The hooks are good; belts and suspenders
-   are better for an agent that runs unattended.
+5. **Sandbox, seriously.** For an agent that runs unattended and writes, the sandbox +
+   credential/filesystem scoping IS the security boundary — the hooks are fail-loud
+   guardrails against accidental violations, not a container (lesson 3). Run the
+   background agents sandboxed (on macOS, agent-safehouse.dev; launch via
+   `modules/autonomous/scripts/ship-up.sh`, which resolves a sandbox wrapper if present).
 
 **Point at:** `modules/autonomous/mate-event-driven.md` (the event-driven doctrine),
 `modules/autonomous/bosun.md` (the heartbeat's standing orders), `core/mate.md` →

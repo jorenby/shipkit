@@ -3,6 +3,7 @@
   "presets": {
     "core": [
       "core",
+      "session-ceremony",
       "subagent-roster",
       "pull-requests",
       "review-cycle",
@@ -10,6 +11,7 @@
     ],
     "autonomous": [
       "core",
+      "session-ceremony",
       "subagent-roster",
       "pull-requests",
       "review-cycle",
@@ -21,7 +23,7 @@
     ]
   },
   "blurbs": {
-    "core": "TIER 1 \u2014 plain request/response Mate: core/mate.md + worker agents + crew-safety hooks + the tier-1 depth modules (subagent-roster, pull-requests, review-cycle) + the compound learning loop. No loop, no Bosun, no UI.",
+    "core": "TIER 1 \u2014 plain request/response Mate: core/mate.md + worker agents + crew-safety hooks + the tier-1 depth modules (session-ceremony, subagent-roster, pull-requests, review-cycle) + the compound learning loop. No loop, no Bosun, no UI.",
     "autonomous": "TIER 2 \u2014 adds the bg-Mate/Bosun heartbeat kernel (2 role agents, bosun.md, event-driven + bosun-loop doctrine, hooks, mate-lock, bosun_emit, launchers, wake-monitor)."
   }
 }

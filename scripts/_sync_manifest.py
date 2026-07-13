@@ -24,7 +24,7 @@ HERE = Path(__file__).resolve().parent
 SHIP_ROOT = Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else HERE.parent
 
 ROOT_FILES = [
-    "README.md", "CLAUDE.md", "UPGRADING.md",
+    "README.md", "CLAUDE.md", "UPGRADING.md", "DECISIONS.md", "DECISIONS.local.example.md",
     "shipkit_init.py", "presets.json",
     "loop.config.example.json", "mate.local.example.md",
     "scripts/pull-upstream.sh", "scripts/_sync_manifest.py",

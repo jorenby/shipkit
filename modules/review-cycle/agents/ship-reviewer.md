@@ -5,7 +5,7 @@ tools: Read, Glob, Grep, Bash
 disallowedTools: Write, Edit, NotebookEdit
 permissionMode: dontAsk
 background: true
-model: haiku
+model: inherit
 hooks:
   PreToolUse:
     - matcher: "Bash"

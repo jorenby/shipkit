@@ -42,22 +42,18 @@ State which mode you detected before proceeding.
 RESUME mode: carry context forward unbroken; do NOT open a new watch section.
 
 ## 3. Acquire the mate-lock
-`ruby modules/autonomous/scripts/mate-lock.rb acquire bg-mate-$(date +%s)` (or
-`python3 modules/autonomous/scripts/mate-lock.py acquire …`), then `status`. A prior
-bg-Mate's lock is usually STALE (an event-driven Mate
-doesn't beat the heartbeat) → a plain `acquire` auto-TAKES-OVER cleanly. Confirm you hold it.
-**Note: `status` exits 1 when the lock is held-fresh BY DESIGN** (it's an "is the lock free?"
-predicate — see its usage line). Nonzero exit alongside a healthy `STATE: held` report is
-success, not failure; don't chain it unguarded under `&&`/`set -e` (guard like ship-up.sh:
-`… status || [ $? -eq 1 ]`).
+`python3 modules/autonomous/scripts/mate-lock.py acquire bg-mate-$(date +%s)`, then `status`.
+A prior bg-Mate's lock is usually STALE (an event-driven Mate doesn't beat the heartbeat) →
+a plain `acquire` auto-TAKES-OVER cleanly. Confirm you hold it. **`status` exits 1 when the
+lock is held-fresh by design** (it's an "is the lock free?" predicate) — guard it under
+`&&`/`set -e` like ship-up.sh does: `… status || [ $? -eq 1 ]`.
 
 ## 4. Take over the wake-monitor (single-instance!)
 The Mate's wake-monitor is session-bound. **Kill any existing, then re-arm fresh in THIS
 session** via the harness Monitor tool (persistent), and confirm exactly one is running:
 - `pkill -f wake_monitor.py` (clear any prior instance). **Windows/Git-Bash: `pkill` doesn't
   exist** — use PowerShell, e.g.
-  `powershell -Command "Get-CimInstance Win32_Process | ? {$_.CommandLine -match 'wake_monitor'} | % {Stop-Process -Id $_.ProcessId -Force}"`
-  (field-proven on the 2026-07-02 Windows migration).
+  `powershell -Command "Get-CimInstance Win32_Process | ? {$_.CommandLine -match 'wake_monitor'} | % {Stop-Process -Id $_.ProcessId -Force}"`.
 - Run `python3 modules/wake-monitor/wake_monitor.py` under the Monitor tool. It watches
   `inbox/drops/` + `inbox/captain.md`, classifies each net-new item through
   `lib/classify_input.py`, and emits one `WAKE <reason>` line per wake-class item (the
@@ -105,21 +101,16 @@ Stop here and idle. Let events wake you:
   decides + acts — dispatch, queue move, surface to Captain).
 - **Crew completion** (`<task-notification>`) → review the log, run the review gate, update
   ticket/queue, decide next.
-On each wake, **handle that event** (reconcile what it touches, act if in the Autonomous
-tier, surface Confirm-first/Never items) — this is NOT a periodic tick; the Bosun owns
-periodic sweeps. **Do NOT schedule any `ScheduleWakeup` / timer: no loop on the Mate side,
-full stop.** Even a "long fallback floor" self-perpetuates into a Mate-side loop, which this
-design forbids. The Mate is woken PURELY by events — the persistent wake-monitor re-invokes
-the session on a real drop/inbox edit, and backgrounded crew re-invoke it via
-`<task-notification>`; neither needs a timer. Anything periodic is the Bosun's job; when it
-finds something actionable it wakes the Mate via an `inbox/drops/` drop. After handling a
-wake, **stop** — go quiet and wait for the next event. Don't poll, don't self-schedule.
+On each wake, **handle that one event** (reconcile what it touches, act if in the Autonomous
+tier, surface Confirm-first/Never items), then go quiet and wait for the next. **The Mate
+schedules nothing** — no `/loop`, no `ScheduleWakeup`, no polling; anything periodic is the
+Bosun's job. The invariant and its rationale:
+`modules/autonomous/mate-event-driven.md`.
 
 ## Bounds
 - Run **once** per launch/resume. Never loop ship-watch-start itself.
-- The Mate does NOT run `/loop`, does NOT own the heartbeat tick, and does NOT self-schedule
-  any `ScheduleWakeup`/timer — it is purely event-driven (wake-monitor + Bosun drops + crew
-  `<task-notification>`s). The heartbeat is the Bosun's.
+- The heartbeat is the Bosun's; the Mate is purely event-driven
+  (`modules/autonomous/mate-event-driven.md`).
 - The autonomy bright lines and all `mate.md` ceremony hold unchanged. Bash bright lines
   are hook-enforced (`validate-mate-bash.sh`); MCP writes are confirm-gated
   (`validate-mate-mcp.sh`).

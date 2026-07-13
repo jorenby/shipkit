@@ -8,23 +8,23 @@
 # nothing else gates an autonomous external write (a chat post, a tracker transition).
 # This hook is that gate.
 #
-# POLICY (confirm-gated writes):
+# POLICY (confirm-gated writes; DEFAULT: HARD-BLOCK):
 #   - READS  → allowed silently (autonomous tier; the 99% case).
-#   - WRITES → ALLOWED, but every one is AUDIT-LOGGED to state/mate-mcp-writes.jsonl
-#     and a stderr advisory is emitted. The real control is DISCIPLINE: the Mate calls
-#     an MCP write tool ONLY after the Captain authorizes it in conversation. This hook
-#     makes writes visible/auditable; it does not replace the authorization rule.
+#   - WRITES → BLOCKED by default (fail-closed for fresh installs), and every attempt
+#     is AUDIT-LOGGED to state/mate-mcp-writes.jsonl with a stderr advisory. The
+#     authorization rule still governs either way: the Mate calls an MCP write tool
+#     ONLY after the Captain authorizes it in conversation.
 #
-# Self-scopes on agent_type == "ship-mate" (works in --bg). CHMOD +x is load-bearing.
-#
-# DEFAULT: HARD-BLOCK (fail-closed for fresh installs — Captain ratified 2026-07-11).
 # RELAX KNOB: set SHIP_MATE_MCP_WRITE_BLOCK=0 to switch to audit-and-allow (writes are
 # audit-logged + warned but permitted; the confirm-gate discipline rule carries it).
 # An established ship whose operator trusts the discipline layer runs 0; strangers
 # cloning the kit get the block until they consciously relax it.
+#
+# Self-scopes on agent_type == "ship-mate" (works in --bg). Invoked as `bash <abs-path>`
+# by the installed def, so the exec bit is POSIX belt-and-suspenders, not load-bearing.
 
-# Root is three up from modules/autonomous/hooks/ (dogfood F1 2026-07-11: one level
-# short put the audit log at modules/autonomous/state/, outside the gitignore).
+# Root is three up from modules/autonomous/hooks/ (one level short puts the audit log
+# at modules/autonomous/state/, outside the gitignore).
 SHIP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 AUDIT_LOG="$SHIP_DIR/state/mate-mcp-writes.jsonl"
 

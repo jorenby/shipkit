@@ -49,7 +49,7 @@ weekend) → a long interval (e.g. 900–1800s). A Monitor armed on PR comments 
 wake; ScheduleWakeup is the fallback floor. **An empty queue / "no delta" is NOT a stop
 signal** — a quiet tick logs a heartbeat and reschedules.
 
-## Keep-alive: `/loop`, not `/goal` (the exit-guard, folded in)
+## Keep-alive: `/loop`, not `/goal`
 
 **Use `/loop` to keep the Bosun heartbeat alive.** `/loop` re-invokes the session on a
 schedule and lets each tick decide its own next wake — exactly the shape of a self-pacing
