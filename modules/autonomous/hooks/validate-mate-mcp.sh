@@ -8,7 +8,7 @@
 # nothing else gates an autonomous external write (a chat post, a tracker transition).
 # This hook is that gate.
 #
-# POLICY (confirm-gated writes; DEFAULT: HARD-BLOCK — Captain ratified 2026-07-11):
+# POLICY (confirm-gated writes; DEFAULT: HARD-BLOCK):
 #   - READS  → allowed silently (autonomous tier; the 99% case).
 #   - WRITES → BLOCKED by default (fail-closed for fresh installs), and every attempt
 #     is AUDIT-LOGGED to state/mate-mcp-writes.jsonl with a stderr advisory. The
@@ -23,8 +23,8 @@
 # Self-scopes on agent_type == "ship-mate" (works in --bg). Invoked as `bash <abs-path>`
 # by the installed def, so the exec bit is POSIX belt-and-suspenders, not load-bearing.
 
-# Root is three up from modules/autonomous/hooks/ (dogfood F1 2026-07-11: one level
-# short put the audit log at modules/autonomous/state/, outside the gitignore).
+# Root is three up from modules/autonomous/hooks/ (one level short puts the audit log
+# at modules/autonomous/state/, outside the gitignore).
 SHIP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 AUDIT_LOG="$SHIP_DIR/state/mate-mcp-writes.jsonl"
 

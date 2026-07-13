@@ -28,7 +28,7 @@ Standing orders are baked into each subagent's system prompt. See `core/mate.md`
 - `core/crew.md` - Standing orders for crew agents (also baked into ship-crew subagent)
 - `core/mate.md` - Standing orders for First Mate (request/response base; `modules/autonomous/mate-event-driven.md` is the autonomous overlay)
 - `presets.json` + each `module.json` - the tiered install manifest (`shipkit_init.py` reads them); modules are the single extension surface (see `modules/README.md`)
-- `DECISIONS.md` - dated design decisions + the incidents behind them (doctrine docs state rules once; history lives here)
+- `DECISIONS.md` - the framework's design decisions + the failures behind them (doctrine states rules once; the why lives here). This ship's own dated incidents/rulings go in `DECISIONS.local.md` (gitignored; seed from the example)
 - `projects/{name}/tickets/` - Work tickets
 - `logs/{project}/{ticket}/` - Watch logs (handoff mechanism)
 - `inbox/` - Incoming items (captain.md for inbox, drops/ for external processes)

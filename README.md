@@ -187,6 +187,11 @@ dated decisions rather than starting blank. To track it, remove the `mate.local.
 Either way, keep real secrets out of the overlay: house notes are ship history, not a secret
 store.
 
+The same convention covers your ship's decisions log: **`DECISIONS.local.md`** (seed from
+`DECISIONS.local.example.md`) holds *your* dated incidents and Captain rulings — gitignored by
+default, trackable under the same reasoning. The tracked `DECISIONS.md` is the framework's own
+design history and stays impersonal; if a local lesson would hold on any ship, upstream it there.
+
 ### Extending crew permissions
 
 The crew bash allow-list (`core/hooks/validate-crew-bash.sh`) is synced from upstream. To add project-specific commands (e.g., `aws`, `kubectl`) without losing them on upstream pulls, copy `core/templates/crew-allow-local.sh` to `core/hooks/crew-allow-local.sh` (next to the hook) and add your rules. The validation script sources it automatically if present, and `pull-upstream.sh` never touches it.

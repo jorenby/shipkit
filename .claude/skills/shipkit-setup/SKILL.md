@@ -148,6 +148,8 @@ AskUserQuestion-style, one decision at a time; skip anything a prior answer sett
   overlay?* If yes, remove the `mate.local.md` line from `.gitignore` and commit the overlay
   (its house notes are ship history, not secrets — keep genuine secrets in a separate
   gitignored file / the OS keychain, never in the overlay either way). If no, leave it ignored.
+  The same answer applies to `DECISIONS.local.md` (the ship's own dated incidents/rulings log,
+  seeded from `DECISIONS.local.example.md`) — track or ignore the two together.
 
 ## The apply step (call the script once)
 
