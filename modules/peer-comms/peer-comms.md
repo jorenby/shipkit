@@ -163,7 +163,9 @@ anything about it looks off.
   and `processed/` are structurally self-wake-proof — you can write replies and outbox
   records freely while idle. If you run a custom monitor, preserve this property.
 - **Inbound peer drops classify like any drop, behind the peer pre-filter**: with
-  peer-comms installed, `classify_input.py` validates any peer-marked drop first — an
+  peer-comms **enabled** (recorded in `state/install.json` by the `--modules peer-comms`
+  install — file presence in the clone is not enablement), `classify_input.py` validates
+  any peer-marked drop first — an
   invalid one (masquerade attempt, duplicate keys, bad source) classifies as `quarantine`
   (never wakes, never batches as normal input; inspect it deliberately, with the validation
   problems on the classifier's stderr). A valid one proceeds down the normal ladder:

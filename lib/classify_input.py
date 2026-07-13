@@ -38,11 +38,16 @@
 # first, so a duplicate-key drop (`kind: steer` + `kind: peer-note`) cannot
 # dodge the filter by ordering its lines.
 #
-# IMPORT-GUARDED: if the peer-comms module is not installed (no
-# modules/peer-comms/peer_envelope.py relative to this file, or it fails to
-# import), the pre-filter is a no-op and classification behaves exactly as
-# it did before the module existed. Non-peer-looking drops never touch this
-# path at all.
+# ENABLEMENT: whether peer-comms is "installed" is read from the semantic
+# install record, state/install.json (written by shipkit_init.py) — file
+# presence in the clone is NOT enablement (a full shipkit checkout carries
+# every module's source whether or not the operator selected it). When the
+# record exists, it is authoritative: peer-comms enabled iff "peer-comms" is
+# in its modules list. When it's absent (a pre-record install), fall back to
+# the legacy file-existence check so old ships keep working. Either way the
+# import is guarded: any failure means "not installed", the pre-filter is a
+# no-op, and classification behaves exactly as it did before the module
+# existed. Non-peer-looking drops never touch this path at all.
 #
 # =========================================================================
 # THE INPUT ENVELOPE (v1) -- declared inputs
@@ -136,19 +141,48 @@ _PEER_HINT_RE = re.compile(
 _PEER_ENVELOPE = ["unset"]
 
 
-def _peer_envelope():
-    """Load modules/peer-comms/peer_envelope.py if the module is installed.
+def _peer_comms_enabled():
+    """Is peer-comms ENABLED (not merely present in the clone)?
 
-    Returns the module or None. NEVER raises: any failure (module absent,
-    import error) means "peer-comms not installed" and the classifier behaves
-    exactly as it did before peer-comms existed. Path is resolved relative to
-    this file (lib/ -> ship root -> modules/peer-comms/); the
-    SHIPKIT_PEER_ENVELOPE env var overrides it (used by tests to simulate an
-    absent module)."""
+    Authoritative source: the semantic install record, state/install.json
+    (relative to this file: lib/ -> ship root -> state/; override with the
+    SHIPKIT_INSTALL_MANIFEST env var for tests). Record present and readable
+    -> enabled iff "peer-comms" is in its modules list. Record absent or
+    unreadable (a pre-record install) -> None, meaning "unknown — fall back
+    to the legacy file-existence check". NEVER raises."""
+    try:
+        path = os.environ.get("SHIPKIT_INSTALL_MANIFEST") or os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), "..", "state", "install.json")
+        if not os.path.isfile(path):
+            return None
+        import json
+        with open(path, "r", encoding="utf-8") as fh:
+            doc = json.load(fh)
+        modules = doc.get("modules")
+        if not isinstance(modules, list):
+            return None
+        return "peer-comms" in modules
+    except Exception:
+        return None
+
+
+def _peer_envelope():
+    """Load modules/peer-comms/peer_envelope.py if the module is ENABLED.
+
+    Returns the module or None. NEVER raises: any failure (module disabled,
+    absent, import error) means "peer-comms not installed" and the classifier
+    behaves exactly as it did before peer-comms existed. Enablement comes from
+    state/install.json when present (see _peer_comms_enabled); a pre-record
+    install falls back to file existence. Path is resolved relative to this
+    file (lib/ -> ship root -> modules/peer-comms/); the SHIPKIT_PEER_ENVELOPE
+    env var overrides it (used by tests to simulate an absent module)."""
     if _PEER_ENVELOPE[0] != "unset":
         return _PEER_ENVELOPE[0]
     mod = None
     try:
+        if _peer_comms_enabled() is False:
+            _PEER_ENVELOPE[0] = None
+            return None
         path = os.environ.get("SHIPKIT_PEER_ENVELOPE") or os.path.join(
             os.path.dirname(os.path.abspath(__file__)),
             "..", "modules", "peer-comms", "peer_envelope.py")

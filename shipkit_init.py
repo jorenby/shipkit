@@ -58,6 +58,7 @@ import shutil
 import stat
 import subprocess
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 SHIPKIT_ROOT = Path(__file__).resolve().parent
@@ -768,6 +769,17 @@ def detect_prior_state(module_list, skills_target):
             orphan = " ORPHAN (not in any selected module)" if entry.name not in selected_skills else ""
             findings.append(f"skill {entry.name}: {kind}{orphan}")
 
+    manifest = SHIPKIT_ROOT / "state" / "install.json"
+    if manifest.exists():
+        try:
+            rec = json.loads(manifest.read_text(encoding="utf-8"))
+            findings.append(
+                f"recorded install state: preset={rec.get('preset') or 'custom'} "
+                f"modules={rec.get('modules')} (updated {rec.get('updated_at')}, "
+                f"commit {(rec.get('source_commit') or 'unknown')[:12]}) — this run unions into it")
+        except (json.JSONDecodeError, OSError):
+            findings.append("state/install.json present but unreadable — the SKILL should inspect it")
+
     cfg = SHIPKIT_ROOT / "loop.config.json"
     example = SHIPKIT_ROOT / "loop.config.example.json"
     if cfg.exists() and example.exists():
@@ -812,6 +824,59 @@ def module_installs_nothing(name: str) -> bool:
     skills/scripts) — a reserved slot (e.g. ui before its files land on the UI PR)."""
     meta = load_module(name)
     return not any(meta.get(k) for k in ("agents", "hooks", "skills", "scripts"))
+
+
+def _git_head(repo: Path) -> str | None:
+    """Best-effort HEAD commit of `repo` for the install record; None outside git."""
+    try:
+        res = subprocess.run(["git", "-C", str(repo), "rev-parse", "HEAD"],
+                             capture_output=True, text=True, timeout=10)
+        return res.stdout.strip() or None if res.returncode == 0 else None
+    except OSError:
+        return None
+
+
+def write_install_manifest(module_list, preset, install_mode, dry_run, path=None):
+    """Persist the SEMANTIC install record — what the operator ENABLED — to
+    state/install.json. This is the file that lets a consumer distinguish
+    'present in the clone' from 'enabled on this machine' (classify_input's
+    peer-comms gate reads it; upgrades and a future doctor diff against it).
+
+    Semantics: re-runs are ADDITIVE, mirroring the installer (files from prior
+    installs are never removed) — `modules` is the union of the prior record and
+    this run's resolved set. `preset` records the most recent preset-shaped run;
+    a --modules-only opt-in run keeps the prior preset. Machine paths stay in
+    loop.config.json; this file is per-machine state and gitignored, like the
+    config. Doc-only modules count: membership in the enabled set IS their
+    installation."""
+    manifest = Path(path) if path else SHIPKIT_ROOT / "state" / "install.json"
+    prior = {}
+    if manifest.exists():
+        try:
+            prior = json.loads(manifest.read_text(encoding="utf-8"))
+            if not isinstance(prior, dict):
+                prior = {}
+        except (json.JSONDecodeError, OSError):
+            prior = {}
+    merged_modules = sorted(set(prior.get("modules") or []) | set(module_list))
+    doc = {
+        "schema": 1,
+        "preset": preset or prior.get("preset"),
+        "modules": merged_modules,
+        "install_mode": install_mode,
+        "source_commit": _git_head(SHIPKIT_ROOT),
+        "updated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    }
+    summary = (f"preset={doc['preset'] or 'custom'}, {len(merged_modules)} modules"
+               + (f" (+{len(set(merged_modules) - set(module_list))} carried from prior record)"
+                  if set(merged_modules) - set(module_list) else ""))
+    if dry_run:
+        return [f"would record install state: {summary}"]
+    manifest.parent.mkdir(parents=True, exist_ok=True)
+    tmp = manifest.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(doc, indent=2) + "\n", encoding="utf-8")
+    tmp.replace(manifest)
+    return [f"recorded {manifest.name}: {summary}"]
 
 
 def smoke_test_lines(module_list, skills_target, agents_target):
@@ -1014,6 +1079,13 @@ def main():
                   "is not this shipkit clone (sanctioned topology: --ship-root .). Fix the cause, "
                   "then re-run with --refresh-agents to re-render the affected defs.", file=sys.stderr)
         sys.exit(1)
+
+    # Record the semantic install state ONLY after the enforcement gates pass — a failed
+    # install must not update the record of what's enabled. (Dry-run prints the would-be
+    # record and writes nothing.)
+    print(f"{prefix}== state/install.json (the semantic install record) ==")
+    for line in write_install_manifest(module_list, preset, install_mode, args.dry_run):
+        print(f"{prefix}  {line}")
 
 
 if __name__ == "__main__":
