@@ -1,0 +1,13 @@
+{
+  "name": "night-economy",
+  "tier": "autonomous",
+  "doc": "night-economy.md",
+  "agents": [],
+  "hooks": [],
+  "skills": [],
+  "scripts": [],
+  "lib": [],
+  "templates": [],
+  "tests": [],
+  "requires": ["autonomous"]
+}

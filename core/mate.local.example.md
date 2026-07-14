@@ -49,6 +49,16 @@ model_speed:      sonnet    # speed premium (many parallel lightweight watches)
 # Corollary: if a faster model IS the implementer, pair it with a stronger-model reviewer gate.
 ```
 
+## Night economy (if you run the night-economy module)
+
+```
+model_day:        opus      # the fresh daily-rotation Mate
+model_night:      <name>    # the economy overnight Mate (cheaper tier)
+model_night_min:  <name>    # optional floor for pure-quiet coverage
+# Self-escalation license is standing doctrine (modules/night-economy/night-economy.md);
+# record any ship-specific terms + your known-noise list under House notes.
+```
+
 ## Review policy (if you run the review-cycle module)
 
 ```

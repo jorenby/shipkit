@@ -42,17 +42,21 @@ SHIP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 # Resolve a relative path against the tool call's cwd (Claude Code passes absolute
 # paths for Write/Edit, but don't rely on it — a relative path must not dodge the
-# guard). `realpath -m` normalizes ../ segments without requiring the file to exist;
-# it ships with GNU coreutils and Git-Bash. If it's genuinely absent, fall back to
-# textual normalization via the shell (still catches the plain cases) — and note the
-# deny checks below run on the NORMALIZED path only.
+# guard). `realpath -m` normalizes ../ segments without requiring the file to exist —
+# but it's GNU/Git-Bash only (macOS/BSD realpath has no -m and errors), so fall back
+# to python3's os.path.normpath (already a kit dependency), then to the raw candidate.
+# The deny checks below run on the NORMALIZED path only — a raw fallback means dotted
+# paths (./queue.md, logs/../queue.md) can dodge them, which is why the python3 rung
+# exists (found live: the GNU-only fallback left exactly that gap on macOS).
 CWD=$(echo "$INPUT" | jq -r '.cwd // empty')
 case "$FILE_PATH" in
   /*) CANDIDATE="$FILE_PATH" ;;
   *)  CANDIDATE="${CWD:-$PWD}/$FILE_PATH" ;;
 esac
-if command -v realpath >/dev/null 2>&1; then
-  NORM=$(realpath -m -- "$CANDIDATE" 2>/dev/null || printf '%s' "$CANDIDATE")
+if NORM=$(realpath -m -- "$CANDIDATE" 2>/dev/null) && [ -n "$NORM" ]; then
+  :
+elif command -v python3 >/dev/null 2>&1; then
+  NORM=$(python3 -c 'import os, sys; print(os.path.normpath(sys.argv[1]))' "$CANDIDATE")
 else
   NORM="$CANDIDATE"
 fi

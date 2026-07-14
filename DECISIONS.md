@@ -58,6 +58,23 @@ paced heartbeat into a hot loop.
 **Rule:** `/loop` and `/goal` are *alternative* session-keepers, never layered.
 **Lives in:** `modules/autonomous/bosun-loop.md`.
 
+## The `--ensure` staleness threshold must outlast the Bosun's slowest pace
+
+**Failure:** a live ship's Bosun self-paced to an hourly cadence while
+`launch-bosun.sh --ensure` kept a tighter (~45m) staleness threshold. Every morning Mate
+rotation read the healthy-but-slow heartbeat as "dead Bosun" and launched a duplicate —
+**two heartbeat owners**, each clobbering the other's sweep cursor, duplicate drops,
+and a corrected cursor overwritten by the stale twin.
+
+**Rule:** the staleness threshold must comfortably exceed the Bosun's slowest self-pace
+(the heartbeat is only touched at tick time, so its age legitimately approaches the full
+scheduled delay). The Bosun **declares** its pace — bosun-tick writes `pace_secs` into
+the cursor JSON — and `--ensure`/`--check` widen the threshold to
+`max(BOSUN_STALE_SECS, 2 × pace_secs)`. A fixed threshold alone silently breaks the
+moment the Bosun paces slower than whoever chose the constant assumed.
+**Lives in:** `modules/autonomous/scripts/launch-bosun.sh` (threshold),
+`modules/autonomous/skills/bosun-tick/SKILL.md` step 6 (the declaration).
+
 ## Wake-monitor pitfalls (production failures)
 
 **Failures:** four, all from a production loop: a zsh `nomatch` glob abort that silently

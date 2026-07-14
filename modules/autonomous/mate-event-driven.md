@@ -63,6 +63,11 @@ The Mate is single-instance: `ship-watch-start` acquires the mate-lock
 in this session). A prior bg-Mate's lock is usually STALE (an event-driven Mate doesn't beat
 the heartbeat) → a plain `acquire` auto-takes-over.
 
+Rotation (a REPLACEMENT Mate on a fresh context) is the session-lifecycle primitive:
+`ship-up.sh --rotate-mate`. The day/night cadence built on it — fresh daily rotation,
+economy-model overnight Mate, self-escalation license — is the
+[night-economy module](../night-economy/night-economy.md).
+
 ## Post-compaction continuation
 
 A long-lived bg Mate can survive an auto-compaction — it wakes into a summarized context,
@@ -79,3 +84,9 @@ writes / push-to-main, and `validate-mate-mcp.sh` confirm-gates MCP writes (audi
 A headless Mate can't get in-band confirmation, so it **surfaces** Confirm-first/Never items
 (drop / queue / Awaiting-Captain); it never executes them. The hooks are a backstop for the
 Mate's own over-eagerness — the `mate.md` discipline still governs.
+
+Per-deployment exceptions are **seams in the hook, not discipline**: the
+`mate_check_deployment` override block (your surfaces) and the push-to-main carve-out
+seam (`MATE_PUSH_MAIN_CARVEOUT` — an explicit-URL-only exception for at most one
+publish repo, force-push never; ships empty). Populate them in the hook file itself and
+extend the live-fire test suite when you do.

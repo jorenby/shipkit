@@ -9,6 +9,6 @@
   "scripts": ["scripts/bosun_emit.py", "scripts/launch-bosun.sh", "scripts/ship-up.sh", "scripts/mate-lock.py"],
   "lib": ["status_writer.py"],
   "templates": ["templates/bosun-allow-local.sh"],
-  "tests": ["tests/test_bosun_emit.py", "tests/test_mate_lock.py", "tests/test-mate-bash.sh", "tests/test-bosun-bash.sh"],
+  "tests": ["tests/test_bosun_emit.py", "tests/test_mate_lock.py", "tests/test-mate-bash.sh", "tests/test-bosun-bash.sh", "tests/test-launch-bosun.sh"],
   "requires": ["core"]
 }

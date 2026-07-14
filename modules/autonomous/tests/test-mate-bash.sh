@@ -222,6 +222,63 @@ echo "=== W2 N3: zero-segment commands fail CLOSED (BLOCK) ==="
 check 2 ship-mate ';'
 check 2 ship-mate ' ; ; '
 
+echo "=== Push-to-main carve-out seam: DEFAULT OFF (explicit-URL pushes still BLOCK) ==="
+# The seam ships EMPTY (MATE_PUSH_MAIN_CARVEOUT='') — until a deployment populates
+# it, the explicit-URL form is just another push to main.
+check 2 ship-mate 'git push git@github.com:YourOrg/your-publish-repo.git main'
+check 2 ship-mate 'git push https://github.com/YourOrg/your-publish-repo.git main'
+
+echo "=== Push-to-main carve-out seam: POPULATED (live-fire on a temp copy) ==="
+# Live-fire the seam mechanics without touching the shipped default: copy the hook,
+# populate the seam with the documented example regex, run the case matrix from the
+# pattern's origin ship. check_c mirrors check() against the temp copy.
+CARVE_HOOK=$(mktemp -t carve-hook.XXXXXX)
+sed "s|^MATE_PUSH_MAIN_CARVEOUT=''$|MATE_PUSH_MAIN_CARVEOUT='\\\\bpush[[:space:]]+(git@github\\\\.com:\|https://github\\\\.com/)YourOrg/your-publish-repo(\\\\.git)?([[:space:]]\|$)'|" "$HOOK" > "$CARVE_HOOK"
+if ! grep -q "MATE_PUSH_MAIN_CARVEOUT='.bpush" "$CARVE_HOOK"; then
+  FAIL=$((FAIL+1)); echo "  FAIL: sed did not populate the carve-out seam in the temp copy"
+fi
+check_c() {
+  local want="$1" agent="$2" cmd="$3"
+  local json got
+  json=$(jq -n --arg a "$agent" --arg c "$cmd" '{agent_type:$a, tool_input:{command:$c}}')
+  echo "$json" | bash "$CARVE_HOOK" >/dev/null 2>&1
+  got=$?
+  if [ "$got" -eq "$want" ]; then
+    PASS=$((PASS+1))
+  else
+    FAIL=$((FAIL+1)); echo "  FAIL(carve) want=$want got=$got [$agent] $cmd"
+  fi
+}
+# ALLOWS: the exact explicit-URL forms only
+check_c 0 ship-mate 'git push git@github.com:YourOrg/your-publish-repo.git main'
+check_c 0 ship-mate 'git push https://github.com/YourOrg/your-publish-repo.git main'
+check_c 0 ship-mate 'git push git@github.com:YourOrg/your-publish-repo main'
+check_c 0 ship-mate 'cd /path/to/your-publish-repo && git push git@github.com:YourOrg/your-publish-repo.git main'
+# Still BLOCKED: every other main-touching push shape
+check_c 2 ship-mate 'git push origin main'
+check_c 2 ship-mate 'cd /path/to/your-publish-repo && git push origin main'
+check_c 2 ship-mate 'git push git@github.com:YourOrg/other-repo.git main'
+check_c 2 ship-mate 'git push git@github.com:YourOrg/your-publish-repo-evil.git main'
+# FORCE-PUSH stays blocked unconditionally (checked before the ref deny)
+check_c 2 ship-mate 'git push --force git@github.com:YourOrg/your-publish-repo.git main'
+check_c 2 ship-mate 'git push -f git@github.com:YourOrg/your-publish-repo.git main'
+check_c 2 ship-mate 'git push git@github.com:YourOrg/your-publish-repo.git +main'
+# Sibling-segment smuggle: the carve-out push must NOT unlock a second push
+check_c 2 ship-mate 'git push git@github.com:YourOrg/your-publish-repo.git main && git -C /path/to/other push origin main'
+check_c 2 ship-mate 'git push git@github.com:YourOrg/your-publish-repo.git main; git push origin main'
+# Interpreter-sink smuggle (gate finding 2026-07-14): a carved URL anywhere in the
+# command must NOT unlock a push riding as DATA into an interpreter; and the raw
+# path never consults the carve-out, so even the legit push wrapped in an
+# interpreter is blocked (carve-out = direct invocation only).
+check_c 2 ship-mate 'git push git@github.com:YourOrg/your-publish-repo.git main; echo "git push origin main" | bash'
+check_c 2 ship-mate 'echo "git push git@github.com:YourOrg/your-publish-repo.git main" | bash'
+check_c 2 ship-mate 'bash -c "git push git@github.com:YourOrg/your-publish-repo.git main"'
+# Normal work: unaffected
+check_c 0 ship-mate 'git status'
+check_c 0 ship-mate 'git push origin feature-branch'
+check_c 2 ship-mate 'gh pr merge 5'
+rm -f "$CARVE_HOOK"
+
 echo "=== Non-Mate agents pass through (ALLOW) ==="
 check 0 ship-crew 'gh pr merge 5'
 check 0 ''        'git push origin main'

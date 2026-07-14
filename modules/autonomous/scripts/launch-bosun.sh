@@ -21,10 +21,37 @@
 
 set -uo pipefail
 # This script lives at modules/autonomous/scripts/ -> ship root is 3 levels up.
-SHIP="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+# SHIP_ROOT env overrides (same seam as bosun_emit.py) — used by the test suite.
+SHIP="${SHIP_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)}"
 HB="$SHIP/state/bosun-heartbeat.log"
+CURSOR="$SHIP/state/bosun-last-sweep.json"
 BOSUN_MCP="${BOSUN_MCP:-$HOME/.config/ship/bosun-mcp.json}"
-STALE_SECS="${BOSUN_STALE_SECS:-2700}"   # 45m — Bosun cadence is ~25m, so >45m = not ticking
+
+# STALENESS THRESHOLD — must comfortably EXCEED the Bosun's slowest self-pace.
+# The heartbeat is only touched at tick time, so right before a quiet tick its age
+# approaches the full scheduled delay. A threshold TIGHTER than the real cadence makes
+# --ensure launch a duplicate at every Mate boot/rotation — TWO heartbeat owners,
+# each clobbering the other's sweep cursor (seen live: an hourly-paced Bosun vs a
+# ~45m threshold double-launched every morning rotation; see DECISIONS.md).
+# Defense: the Bosun DECLARES its pace — bosun-tick writes the scheduled delay as
+# `pace_secs` in the cursor JSON — and --ensure/--check use
+#   effective threshold = max(BOSUN_STALE_SECS, 2 × declared pace_secs).
+# The 2× margin absorbs a slow/hot tick. BOSUN_STALE_SECS stays the floor for a
+# fresh ship with no cursor yet (default 2700s vs the doctrine's 1800s max quiet pace).
+STALE_SECS="${BOSUN_STALE_SECS:-2700}"
+declared_pace() {  # prints pace_secs from the cursor, or 0 (absent/unreadable/non-numeric)
+  [ -f "$CURSOR" ] || { echo 0; return; }
+  python3 - "$CURSOR" 2>/dev/null <<'PY' || echo 0
+import json, sys
+try:
+    v = json.load(open(sys.argv[1])).get("pace_secs", 0)
+    print(int(v) if isinstance(v, (int, float)) and v > 0 else 0)
+except Exception:
+    print(0)
+PY
+}
+PACE=$(declared_pace)
+[ "$PACE" -gt 0 ] 2>/dev/null && [ $(( PACE * 2 )) -gt "$STALE_SECS" ] && STALE_SECS=$(( PACE * 2 ))
 # Point SANDBOX_RUN at your sandbox wrapper (e.g. agent-safehouse.dev's). Absent → bare claude.
 SANDBOX_RUN="${SHIP_SANDBOX_RUN:-$HOME/.config/sandbox-exec/run-sandboxed.sh}"
 cd "$SHIP" || { echo "FATAL: no $SHIP"; exit 1; }

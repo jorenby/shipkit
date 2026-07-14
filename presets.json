@@ -19,7 +19,8 @@
       "autonomous",
       "wake-monitor",
       "dispatch-bands",
-      "sensors"
+      "sensors",
+      "night-economy"
     ]
   },
   "blurbs": {
