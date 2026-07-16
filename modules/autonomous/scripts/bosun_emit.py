@@ -53,6 +53,13 @@ def cmd_cursor(args):
     except json.JSONDecodeError as e:
         print(f"cursor: invalid JSON ({e})", file=sys.stderr)
         return 2
+    # Valid JSON that isn't an object ('[1,2]', '"x"', '3') used to traceback on the
+    # _updated stamp below — an unhandled crash in the one sanctioned write path.
+    # Reject it the same way as invalid JSON: loud exit 2, no traceback (the Bosun's
+    # fallback doctrine — heartbeat the finding — still applies).
+    if not isinstance(obj, dict):
+        print(f"cursor: JSON must be an object, got {type(obj).__name__}", file=sys.stderr)
+        return 2
     CURSOR.parent.mkdir(parents=True, exist_ok=True)
     obj["_updated"] = _now_iso()
     CURSOR.write_text(json.dumps(obj, indent=2) + "\n")

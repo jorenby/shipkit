@@ -61,7 +61,10 @@ All paths are relative to the ship root.
 
 6. **Update the cursor + self-pace.**
    - `python3 modules/autonomous/scripts/bosun_emit.py cursor '<json of this sweep's state>'` so the next
-     tick's delta is real.
+     tick's delta is real. **Include `"pace_secs": <the delay you schedule below>`** —
+     you are DECLARING your pace: `launch-bosun.sh --ensure` widens its staleness
+     threshold to 2× this value, so a slow self-pace doesn't read as "dead Bosun" and
+     double-launch a duplicate heartbeat owner at the next Mate boot (see DECISIONS.md).
    - `ScheduleWakeup` with a delay chosen by **HEAT**, not a fixed clock: hot (red CI /
      fresh maintainer comment on a tracked PR) → short (e.g. 60–180s); quiet → long (e.g.
      900–1800s). Pass the same `/loop` input verbatim so the loop re-enters. A Monitor you

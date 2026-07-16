@@ -185,6 +185,43 @@ MATE_SAFE_ARGV=" git gh echo printf cat ls grep rg head tail wc jq sort uniq cut
 # like -C <path> / -c k=v / --git-dir=…). Used on the quote-char-stripped segment.
 GIT_PUSH_INVOKED='^[[:space:]]*git([[:space:]]+-[^[:space:]]+([[:space:]]+[^-][^[:space:]]*)?)*[[:space:]]+push\b'
 
+# ============================================================
+# PUSH-TO-MAIN CARVE-OUT SEAM (per-deployment; default = NO carve-out).
+# ============================================================
+# Some ships have exactly one repo where an autonomous push to main is legitimate
+# (e.g. a Mate-published docs/artifacts repo with no PR flow). The safe shape for
+# that exception — proven on a live ship — is an EXPLICIT-URL form: the push is
+# allowed ONLY when the remote is spelled out as the full URL of that one repo,
+# directly after `push`. No remote-NAME form (`origin` means different repos in
+# different cwds), no cwd inference — the command itself must name the repo, so
+# the allowed surface is exactly one string shape.
+#
+# Rules the seam preserves (do not weaken when populating):
+#   - FORCE-PUSH stays blocked UNCONDITIONALLY — the force checks run before the
+#     ref checks at every deny site, and this helper is only consulted for the
+#     push-to-main/master denies.
+#   - Set the regex to match `push <explicit-URL-of-YOUR-repo>` ONLY. Escape dots;
+#     anchor the tail (`(\.git)?([[:space:]]|$)`) so `your-repo-evil` can't ride.
+#   - The never-vary pre-pass consults the carve-out on WHOLE-command text, which
+#     is over-permissive across segments by construction. Safety comes from TWO
+#     properties together: (1) the anchored per-SEGMENT checks block a non-carve-out
+#     push in any directly-invoked sibling segment, and (2) the RAW scans
+#     (interpreter-sink whole-commands + opaque segments) never consult the
+#     carve-out at all — so a push smuggled as data into an interpreter is blocked
+#     even when a carved URL appears elsewhere in the command. Both are covered by
+#     the test suite (sibling-segment smuggle + interpreter-sink smuggle).
+#   - Add live-fire tests when you populate this (see test-mate-bash.sh, the
+#     carve-out section): the allowed exact form, the evil-suffix repo, the
+#     force-push forms, and the sibling-segment smuggle must all keep their verdicts.
+#
+# Example (commented — adapt org/repo):
+#   MATE_PUSH_MAIN_CARVEOUT='\bpush[[:space:]]+(git@github\.com:|https://github\.com/)YourOrg/your-publish-repo(\.git)?([[:space:]]|$)'
+MATE_PUSH_MAIN_CARVEOUT=''
+mate_push_main_carveout() {
+  [ -n "$MATE_PUSH_MAIN_CARVEOUT" ] || return 1
+  echo "$1" | grep -qE "$MATE_PUSH_MAIN_CARVEOUT"
+}
+
 # ------------------------------------------------------------------
 # RAW checks — the ORIGINAL substring patterns, applied to one segment.
 # Used for opaque segments (wrappers/interpreters/substitutions/unknowns) so no
@@ -236,7 +273,12 @@ mate_check_raw() {
     blk "no force-push."
   fi
   if echo "$seg" | grep -qiE '\bgit\s+push\b' && echo "$seg" | grep -qiE '(\bmain\b|\bmaster\b|HEAD:(main|master))'; then
-    blk "no push to main/master."
+    # NO carve-out consult on raw scans (gate finding, 2026-07-14): raw runs on
+    # interpreter-sink whole-commands and opaque segments -- a carve-out match
+    # anywhere in that text would bleed permission onto DATA flowing into an
+    # interpreter. Carve-out is honored ONLY on the anchored (direct-invocation)
+    # path and the pre-pass; legit carve-out pushes are direct invocations.
+    blk "no push to main/master (carve-out is direct-invocation only)."
   fi
   mate_check_deployment "$seg"
 }
@@ -289,7 +331,7 @@ mate_check_anchored() {
       blk "no force-push."
     fi
     if echo "$nq" | grep -qE '((^|[[:space:]]|:)(main|master)([[:space:]]|$)|refs/heads/(main|master)\b)'; then
-      blk "no push to main/master."
+      mate_push_main_carveout "$nq" || blk "no push to main/master."
     fi
   fi
   mate_check_deployment "$nq"
@@ -375,7 +417,11 @@ if echo "$PRE" | grep -qiE '\bgit\s+push\b'; then
   # every real to-main form still matches on quote-stripped text; Main.scala /
   # feature/main-menu do not — those W1 FP fixes survive the pre-pass.
   if echo "$PRE" | grep -qE '((^|[[:space:]]|:)(main|master)([[:space:]]|$)|refs/heads/(main|master)\b)'; then
-    blk "never-vary op anywhere in command: push touching main/master."
+    # The carve-out at the pre-pass is over-permissive across segments by
+    # construction (whole-command text); safe because the anchored per-segment
+    # checks block direct sibling pushes AND the raw scans (interpreter sinks,
+    # opaque segments) never consult the carve-out (see helper doc).
+    mate_push_main_carveout "$PRE" || blk "never-vary op anywhere in command: push touching main/master."
   fi
 fi
 if echo "$PRE" | grep -qiE '(\bserverless\s+deploy\b|\bterraform\s+(apply|destroy)\b|\bkubectl\s+(apply|delete|edit|scale|patch|replace|rollout)\b|\bhelm\s+(install|upgrade|uninstall)\b)'; then

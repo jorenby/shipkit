@@ -9,6 +9,10 @@
 #   ship-up.sh --rotate-mate   # launch a REPLACEMENT bg Mate, then release the outgoing
 #                              #   lock (set SHIP_OUTGOING_LOCK_ID=<id> so it can release it)
 #
+# MODEL: set SHIP_MATE_MODEL to pick the launched Mate's model (absent → the CLI default).
+# This is the seam the night-economy module's day/night rotation uses (economy model
+# overnight, day model on the morning rotation, self-escalation via a fresh rotation).
+#
 # The Mate boots EVENT-DRIVEN via /ship-watch-start (which itself bootstraps the Bosun via
 # launch-bosun.sh --ensure). It does NOT run /loop — the Bosun owns the heartbeat.
 #
@@ -110,18 +114,21 @@ PY
 }
 
 mcp_args() { [ -f "$MCP_CFG" ] && printf '%s' "--strict-mcp-config --mcp-config $MCP_CFG"; }
+model_args() { [ -n "${SHIP_MATE_MODEL:-}" ] && printf '%s' "--model $SHIP_MATE_MODEL"; }
 
 launch_cmd() {
   echo "printf '%s' \"$MATE_PROMPT\" | claude --bg --agent ship-mate \\"
-  echo "  --permission-mode bypassPermissions $(mcp_args)"
-  echo "(wrap 'claude' in your sandbox wrapper for defense-in-depth — see SHIP_SANDBOX_RUN.)"
+  echo "  --permission-mode bypassPermissions $(mcp_args) $(model_args)"
+  echo "(wrap 'claude' in your sandbox wrapper for defense-in-depth — see SHIP_SANDBOX_RUN;"
+  echo " set SHIP_MATE_MODEL to pick the model — the night-economy rotation seam.)"
 }
 
 do_launch_mate() {
   echo "── launching bg Mate ─────────────────────────────"
+  [ -n "${SHIP_MATE_MODEL:-}" ] && echo "  model: $SHIP_MATE_MODEL (SHIP_MATE_MODEL)"
   # shellcheck disable=SC2046
   printf '%s' "$MATE_PROMPT" | sbx --bg --agent ship-mate \
-    --permission-mode bypassPermissions $(mcp_args)
+    --permission-mode bypassPermissions $(mcp_args) $(model_args)
   echo "launched (stdin-piped prompt). Verify with: claude agents"
 }
 

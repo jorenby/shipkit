@@ -48,6 +48,16 @@ class TestBosunEmit(unittest.TestCase):
         r = run(SCRIPT, ["cursor", "not json"], self.root)
         self.assertEqual(r.returncode, 2)
 
+    def test_cursor_rejects_non_dict_json(self):
+        # Valid JSON, wrong shape — used to traceback (TypeError on the _updated
+        # stamp); must be a clean exit-2 with a message, and write nothing.
+        for payload in ('[1,2]', '"a string"', '3', 'null', 'true'):
+            r = run(SCRIPT, ["cursor", payload], self.root)
+            self.assertEqual(r.returncode, 2, payload)
+            self.assertNotIn("Traceback", r.stderr, payload)
+            self.assertIn("must be an object", r.stderr, payload)
+        self.assertFalse((self.root / "state" / "bosun-last-sweep.json").exists())
+
     def test_drop_is_wake_class(self):
         run(SCRIPT, ["drop", "CI red", "PR #5 CI failed", "fix it"], self.root)
         drops = list((self.root / "inbox" / "drops").glob("bosun-*.md"))

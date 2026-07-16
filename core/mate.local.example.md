@@ -49,6 +49,16 @@ model_speed:      sonnet    # speed premium (many parallel lightweight watches)
 # Corollary: if a faster model IS the implementer, pair it with a stronger-model reviewer gate.
 ```
 
+## Night economy (if you run the night-economy module)
+
+```
+model_day:        opus      # the fresh daily-rotation Mate
+model_night:      <name>    # the economy overnight Mate (cheaper tier)
+model_night_min:  <name>    # optional floor for pure-quiet coverage
+# Self-escalation license is standing doctrine (modules/night-economy/night-economy.md);
+# record any ship-specific terms + your known-noise list under House notes.
+```
+
 ## Review policy (if you run the review-cycle module)
 
 ```
@@ -89,6 +99,12 @@ pr_review_cmd:    <cmd>           # your PR-review entry point (if any) — the 
 github_org:       YourOrg         # for PR links: https://github.com/YourOrg/{repo}/pull/{number}
 pr_template:      TL;DR / Background / Modification / Result / How to verify / Checklist
 ```
+
+Push-to-main is hook-blocked for the Mate by default. If your ship needs a narrow
+exception (e.g. a designated publish repo), the seam is `MATE_PUSH_MAIN_CARVEOUT` —
+it ships **empty**; the contract, safety properties, and how to extend the tests live
+in the `validate-mate-bash.sh` header (autonomous module). Not a value you set here —
+deliberately in-code so enabling it forces you past the tests.
 
 ---
 
