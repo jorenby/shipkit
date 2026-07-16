@@ -100,6 +100,12 @@ github_org:       YourOrg         # for PR links: https://github.com/YourOrg/{re
 pr_template:      TL;DR / Background / Modification / Result / How to verify / Checklist
 ```
 
+Push-to-main is hook-blocked for the Mate by default. If your ship needs a narrow
+exception (e.g. a designated publish repo), the seam is `MATE_PUSH_MAIN_CARVEOUT` —
+it ships **empty**; the contract, safety properties, and how to extend the tests live
+in the `validate-mate-bash.sh` header (autonomous module). Not a value you set here —
+deliberately in-code so enabling it forces you past the tests.
+
 ---
 
 ## House notes (free-form)

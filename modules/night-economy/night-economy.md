@@ -14,6 +14,11 @@ cost. The rhythm below is what replaced it.
 Model names and the license's exact terms are **values** — they live in your
 `mate.local.md` (see the seams at the end), not here.
 
+**Optional doctrine.** This module is inert unless you actually run a day/night rotation:
+nothing activates until you set the night-economy values (e.g. `model_night`) in
+`mate.local.md`. If you run one continuous Mate, omit it from `--modules` — or simply
+ignore it; installed-but-unconfigured has no effect.
+
 ---
 
 ## The cadence
