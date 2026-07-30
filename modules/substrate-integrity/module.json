@@ -1,0 +1,13 @@
+{
+  "name": "substrate-integrity",
+  "tier": "optional",
+  "doc": "substrate-integrity.md",
+  "agents": [],
+  "hooks": ["hooks/ship-substrate-guard.sh"],
+  "skills": [],
+  "scripts": ["substrate_tripwire.py"],
+  "lib": [],
+  "templates": [],
+  "tests": ["tests/test_substrate_tripwire.py", "tests/substrate-guard.test.sh"],
+  "requires": ["core"]
+}
