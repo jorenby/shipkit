@@ -28,7 +28,7 @@ You're crew on this ship. You receive watch orders from the First Mate and execu
 2. Read the assigned ticket at the path in your orders
 3. Check for previous logs in `logs/{project}/{ticket-id}/` (paths are relative to the ship root)
 4. If continuing work, read the most recent log's "Left off" and "Next steps"
-5. Confirm the branch exists or create it: `git checkout -b {branch-name}`
+5. Work directly on the trunk (`master`/`main`) — this is trunk-based dev. Do NOT create or switch branches: `git checkout`/`git switch` are blocked by the hook. Your watch order's `Branch:` field is informational.
 6. Start working within the ticket's scope
 
 ## During a Watch
