@@ -1,0 +1,13 @@
+{
+  "name": "deploy",
+  "tier": "optional",
+  "doc": "deploy.md",
+  "agents": [],
+  "hooks": ["hooks/validate-prod-guard.sh"],
+  "skills": [],
+  "scripts": [],
+  "lib": [],
+  "templates": [],
+  "tests": ["tests/validate-prod-guard.test.sh"],
+  "requires": ["core"]
+}
