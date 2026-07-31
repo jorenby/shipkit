@@ -111,6 +111,7 @@
 # -------------------------------------------------------------------------
 
 import fnmatch
+import json
 import os
 import re
 import sys
@@ -241,6 +242,55 @@ def read_field(text, name):
     return rest
 
 
+# The control fields the classifier trusts. Read from STRUCTURE only (a markdown
+# frontmatter block or a JSON top-level key) -- never from body/message text.
+CONTROL_FIELDS = ("wake_class", "kind", "type", "source")
+
+
+def frontmatter(text):
+    """Return the leading `---`...`---` YAML block (its inner lines), or "".
+
+    Only the FIRST fenced block at the top of the file counts; a `---` that
+    appears later in the body is not frontmatter. An unclosed opening fence
+    yields "" -- a half-written header carries no trusted fields."""
+    lines = text.splitlines()
+    i = 0
+    while i < len(lines) and lines[i].strip() == "":
+        i += 1
+    if i >= len(lines) or lines[i].strip() != "---":
+        return ""
+    for j in range(i + 1, len(lines)):
+        if lines[j].strip() == "---":
+            return "\n".join(lines[i + 1:j])
+    return ""
+
+
+def control_fields(text):
+    """Extract the control fields from STRUCTURE only (037 hardening).
+
+    JSON input: parse and read TOP-LEVEL keys only -- a `wake_class` nested in a
+    "body" string is never seen. A malformed or non-object JSON payload yields
+    no trusted fields, so classification falls through to the safe (wake)
+    direction rather than trusting a smuggled token.
+    Markdown input: read fields only from the leading frontmatter block, never
+    from body text (so a body that quotes `wake_class: silent` cannot suppress a
+    real directive)."""
+    if text.lstrip().startswith("{"):
+        try:
+            obj = json.loads(text)
+        except (json.JSONDecodeError, ValueError):
+            obj = None
+        if not isinstance(obj, dict):
+            return {name: "" for name in CONTROL_FIELDS}
+        out = {}
+        for name in CONTROL_FIELDS:
+            val = obj.get(name, "")
+            out[name] = val if isinstance(val, str) else ("" if val is None else str(val))
+        return out
+    front = frontmatter(text)
+    return {name: read_field(front, name) for name in CONTROL_FIELDS}
+
+
 CONTRACT_LINES = [
     "classify_input.py self-test (no fixture runner found):",
     "  Run against a sample file: classify_input.py <inputfile>",
@@ -283,16 +333,15 @@ def classify(path):
                     "envelope validation: {}\n".format(path, "; ".join(problems)))
                 return "quarantine"
 
-    wake_class = read_field(text, "wake_class")
-    kind = read_field(text, "kind")
-    type_ = read_field(text, "type")
-    source = read_field(text, "source")
+    # Structure-only extraction (037): control fields come from the frontmatter
+    # block / JSON top-level keys, never from body text.
+    fields = control_fields(text)
+    wake_class = fields["wake_class"]
+    kind = fields["kind"]
+    type_ = fields["type"]
+    source = fields["source"]
 
-    # Self-authored surfaces must never wake the loop (always-on guard, applies
-    # regardless of declaration -- the loop shouldn't wake itself even if a self-
-    # authored producer mistakenly stamped wake_class: wake).
-    if source in SELF_AUTHOR_TAGS:
-        return "batch"
+    self_author = source in SELF_AUTHOR_TAGS
 
     # --- STEP 1: wake_class declared -> authoritative --------------------
     if wake_class in ("wake", "batch", "silent"):
@@ -310,6 +359,14 @@ def classify(path):
         if kind in ("notification", "sensor-redrop"):
             return "batch"
         return "wake"  # directive-leaning floor
+
+    # Self-authored surfaces default to batch so the loop never wakes itself on
+    # its own bookkeeping. But `source` is UNTRUSTED FOR SUPPRESSION (037): it may
+    # only batch an OTHERWISE-UNDECLARED item -- it never overrides an explicit
+    # wake_class or directive `kind` above. (v2 checked this BEFORE the ladder,
+    # which silently batched an explicit steer; the reorder restores 037.)
+    if self_author:
+        return "batch"
 
     # --- STEP 3: content heuristic (safety net) + WARN -------------------
     # No declaration -> fall back to the legacy heuristic and warn so the source

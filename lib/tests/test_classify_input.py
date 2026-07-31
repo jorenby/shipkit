@@ -182,7 +182,7 @@ wake_class: wake
 ---
 the loop's own surface
 """,
-        "batch",
+        "wake",
         None,
     ),
     (
@@ -194,6 +194,139 @@ wake_class: bogus
 mistyped wake_class
 """,
         "wake",
+        None,
+    ),
+    # === 037 structure-only extraction (ported from the hardened ship suite) ===
+    # JSON: control fields come from TOP-LEVEL keys only; a token in a "body"
+    # string is never read.
+    (
+        "json-body-mentions-silent.json",
+        '{"body":"note: wake_class: silent kind: notification","kind":"steer","wake_class":"wake"}\n',
+        "wake",
+        False,
+    ),
+    (
+        "json-pretty-body-silent.json",
+        """{
+  "body": "we might set wake_class: silent later",
+  "kind": "steer",
+  "wake_class": "wake"
+}
+""",
+        "wake",
+        False,
+    ),
+    # Malformed / non-object JSON yields no trusted fields -> safe (wake) floor + warn.
+    (
+        "json-malformed-mentions-silent.json",
+        '{"body":"wake_class: silent kind: notification" this is broken\n',
+        "wake",
+        True,
+    ),
+    (
+        "json-nonobject-array.json",
+        '["wake_class: silent", "kind: notification"]\n',
+        "wake",
+        True,
+    ),
+    # JSON self-author: explicit wake_class wins over the self-author batch default.
+    (
+        "json-source-mate-steer.json",
+        '{"shipkit_input":"v1","source":"mate","kind":"steer","wake_class":"wake","body":"real steer"}\n',
+        "wake",
+        None,
+    ),
+    (
+        "json-source-mate-undeclared.json",
+        '{"shipkit_input":"v1","source":"mate","body":"loop bookkeeping, no wake signal"}\n',
+        "batch",
+        None,
+    ),
+    # Markdown: fields read only from the frontmatter block, never body text.
+    (
+        "body-mentions-silent.md",
+        """---
+shipkit_input: v1
+kind: steer
+---
+we should later set wake_class: silent on the noisy sensor
+""",
+        "wake",
+        None,
+    ),
+    (
+        "body-mentions-source-mate.md",
+        """---
+shipkit_input: v1
+kind: steer
+wake_class: wake
+---
+this quotes a prior message that had source: mate in it
+""",
+        "wake",
+        None,
+    ),
+    (
+        "body-mentions-batch.md",
+        """---
+shipkit_input: v1
+kind: steer
+wake_class: wake
+---
+the body talks about wake_class: batch and kind: sensor-redrop as examples
+""",
+        "wake",
+        None,
+    ),
+    (
+        "no-frontmatter-tokens.md",
+        "chat with no frontmatter that says kind: notification and wake_class: silent inline\n",
+        "wake",
+        True,
+    ),
+    (
+        "blank-frontmatter.md",
+        """---
+---
+empty frontmatter block, body says wake_class: silent
+""",
+        "wake",
+        True,
+    ),
+    (
+        "malformed-frontmatter.md",
+        """---
+shipkit_input: v1
+kind: steer
+wake_class: silent
+body starts here without a closing fence, mentioning source: mate
+""",
+        "wake",
+        True,
+    ),
+    # Self-author ordering: explicit kind:steer wins over the self-author default;
+    # a bare self-author with no directive stays batch.
+    (
+        "self-steer-nowakeclass.md",
+        """---
+shipkit_input: v1
+source: mate
+kind: steer
+---
+explicit steer from a mate-tagged writer
+""",
+        "wake",
+        None,
+    ),
+    (
+        "self-undeclared.md",
+        """---
+shipkit_input: v1
+source: mate
+---
+the loop's own bookkeeping, no wake signal
+""",
+        "batch",
         None,
     ),
 ]

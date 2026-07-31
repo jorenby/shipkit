@@ -77,20 +77,31 @@ def _enumerate_drops():
     return found
 
 
+class CorruptState(Exception):
+    pass
+
+
 def _load_state():
     try:
-        raw = json.loads(STATE_PATH.read_text(encoding="utf-8"))
-        return set(raw.get("drops", [])), set(raw.get("captain_lines", []))
-    except (FileNotFoundError, json.JSONDecodeError):
+        text = STATE_PATH.read_text(encoding="utf-8")
+    except FileNotFoundError:
         return None, None  # None => uninitialized => baseline silently
+    try:
+        raw = json.loads(text)
+    except json.JSONDecodeError as exc:
+        # Fail loud: a torn/corrupt state must not silently re-baseline and swallow pending wakes.
+        raise CorruptState(f"corrupt wake-monitor state at {STATE_PATH}: {exc}") from exc
+    return set(raw.get("drops", [])), set(raw.get("captain_lines", []))
 
 
 def _save_state(seen_drops, seen_lines):
+    # Atomic write: tmp + os.replace so a kill/crash mid-write can never leave a
+    # torn state file (which _load_state would then fail loud on).
     STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
-    STATE_PATH.write_text(
-        json.dumps({"drops": sorted(seen_drops), "captain_lines": sorted(seen_lines)}),
-        encoding="utf-8",
-    )
+    payload = json.dumps({"drops": sorted(seen_drops), "captain_lines": sorted(seen_lines)})
+    tmp = STATE_PATH.with_name(STATE_PATH.name + ".tmp")
+    tmp.write_text(payload, encoding="utf-8")
+    os.replace(str(tmp), str(STATE_PATH))
 
 
 def _emit(reason):
@@ -119,12 +130,15 @@ def poll(seen_drops, seen_lines):
     # --- captain.md: wake on ADDED directive lines only ---
     if CAPTAIN_INBOX.is_file():
         text = CAPTAIN_INBOX.read_text(encoding="utf-8", errors="replace")
-        for h in _content_line_hashes(text):
-            if h not in seen_lines:
-                seen_lines.add(h)
-                if not woke:  # one wake per pass is enough to start a tick
-                    _emit("captain-inbox edited")
-                woke = True
+        current_lines = _content_line_hashes(text)
+        added = current_lines - seen_lines
+        if added and not woke:  # one wake per pass is enough to start a tick
+            _emit("captain-inbox edited")
+        if added:
+            woke = True
+        # Snapshot, not accumulator: a removed line drops out of the seen-set so an
+        # identical re-add re-wakes. A clear only shrinks the set -> cannot self-wake.
+        seen_lines = current_lines
 
     return seen_drops, seen_lines, woke
 
