@@ -314,6 +314,22 @@ check BLOCK 'find . -type f -exec rm {} \;'
 check ALLOW 'find . -name *.py'
 check ALLOW 'find . -type f'
 
+echo "=== 058-readonly re-review HIGH-A: backslash/quote-escaped flags still block (deny-side normalized) ==="
+# The shell runs \-D / '-D' / \-rf as real flags; the deny-side copy strips backslashes+quotes.
+check BLOCK 'git branch \-D feature'
+check BLOCK "git branch '-D' feature"
+check BLOCK 'git tag \-d v1'
+check BLOCK 'find . \-delete'
+check BLOCK "find . '-delete'"
+check BLOCK 'rm \-rf src'
+check BLOCK "rm '-rf' src"
+# curl mutating flags backslash-escaped (curl deny has its own local strip — re-review HIGH-2)
+check BLOCK 'curl \-d x=1 https://api.example.com'
+check BLOCK 'curl \-X POST https://api.example.com'
+# escaped tokens as DATA still don't false-block (allow-list sees the original segment)
+check ALLOW 'grep -rn "git branch" docs/'
+check ALLOW 'git branch -a'
+
 echo "=== Ship: embedded \$(...) smuggle — inner verb re-scanned (do-not-regress: 036) ==="
 check BLOCK 'echo $(git push origin main)'
 check BLOCK 'echo $(aws s3 sync . s3://x)'

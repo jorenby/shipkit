@@ -256,9 +256,10 @@ fi
 # demonstrated false-block; the airtight wall is the OS-level control (043/parked).
 #
 # SHIP-SUBSTRATE-PROTECTED: this basename set MUST stay in sync with the `case "$BASE"` list
-# in modules/substrate-integrity/hooks/ship-substrate-guard.sh. Self-contained hooks can't
-# share a sourced list (a missing sibling fails OPEN, per SHIP-MATCH-LIB), so it is
-# duplicated with this grep marker — grep SHIP-SUBSTRATE-PROTECTED to update BOTH.
+# in modules/substrate-integrity/hooks/ship-substrate-guard.sh AND the same list in
+# validate-readonly-bash.sh. Self-contained hooks can't share a sourced list (a missing
+# sibling fails OPEN, per SHIP-MATCH-LIB), so it is duplicated with this grep marker —
+# grep SHIP-SUBSTRATE-PROTECTED to update ALL.
 _SHIP_SUBSTRATE_BN='(validate-crew-bash\.sh|validate-readonly-bash\.sh|validate-janitor-bash\.sh|validate-prod-guard\.sh|validate-mate-mcp-bash\.sh|crew-allow-local\.sh|ship-substrate-guard\.sh|substrate_tripwire\.py|substrate_tripwire_state\.json|ship-crew\.md|ship-lookout\.md|ship-janitor-tick\.sh|janitor-terminal-check\.sh|janitor-goal\.txt|janitor-settings\.json|com\.ship\.janitor-tick\.plist)'
 # Guard DIRECTORIES — the dir/glob forms a basename match alone misses (r3 MED-4:
 # `rm core/hooks/*.sh`, `mv core/hooks core/hooks-old`). Includes the DEPLOYED guard
@@ -593,7 +594,10 @@ check_allowed() {
     # case-sensitive, so -d/-F/-T/-K/-X must NOT be confused with -D/-f/-t/-k/-x. Stripping
     # quotes only ADDS matches (fail-closed direction).
     local _curlnq
-    _curlnq=$(printf '%s\n' "$cmd" | tr -d "'\"")
+    # Strip backslashes too, not just quotes (Fable 058-readonly re-review HIGH-2): the curl
+    # deny lives in check_allowed with its own local strip, so the main-loop deny-normalization
+    # doesn't reach it — a `curl \-d`/`curl \-X POST` escaped the mutating-flag match. Monotonic.
+    _curlnq=$(printf '%s\n' "$cmd" | tr -d '\\' | tr -d "'\"")
     if echo "$_curlnq" | grep -qE '(^|[[:space:]])-[a-zA-Z0-9#]*[dFTK]|(^|[[:space:]])-[a-zA-Z0-9#]*X[[:space:]=]*([Pp][Oo][Ss][Tt]|[Pp][Uu][Tt]|[Dd][Ee][Ll][Ee][Tt][Ee]|[Pp][Aa][Tt][Cc][Hh])|--data\b|--form\b|--upload-file\b|--json\b|--config\b|--request[[:space:]=]*([Pp][Oo][Ss][Tt]|[Pp][Uu][Tt]|[Dd][Ee][Ll][Ee][Tt][Ee]|[Pp][Aa][Tt][Cc][Hh])'; then
       echo "Blocked: Crew cannot make mutating HTTP requests." >&2
       return 1
@@ -757,16 +761,24 @@ fi
 while IFS= read -r segment; do
   segment=$(echo "$segment" | sed 's/^[[:space:]]*//')
   [ -z "$segment" ] && continue
+  # DENY-SIDE NORMALIZATION (Fable 058-readonly re-review HIGH-A — the identical hole here):
+  # the deny funcs match flags like `[[:space:]]-D` which a `\-D` escape or a `'-D'` quote
+  # defeats even though the shell runs them as a real flag — the anchored path stripped only
+  # quotes, the raw path stripped nothing, so `git branch \-D`, `find . \-delete`, `git \add .`
+  # dodged the deny while the allow-list still matched. Strip backslashes AND quotes for the
+  # deny-side copy (the same normalization the substrate arming does), for BOTH paths + the
+  # bare-interpreter whole scan. Monotonic; the ALLOW-list still sees the ORIGINAL segment.
+  _seg_deny=$(printf '%s\n' "$segment" | tr -d '\\' | tr -d "'\"")
   # W2 fix B1: a bare interpreter executes whatever the OTHER segments pipe to
   # it (`echo 'git push origin main' | sh`) — the payload rides as DATA in the
   # producing segments, so raw-scan the FULL command too.
   if ship_seg_bare_interpreter "$segment"; then
-    crew_check_raw "$COMMAND"
+    crew_check_raw "$(printf '%s\n' "$COMMAND" | tr -d '\\' | tr -d "'\"")"
   fi
   if ship_seg_transparent "$segment" "$CREW_SAFE_ARGV"; then
-    crew_check_anchored "$(ship_strip_quote_chars "$segment")"
+    crew_check_anchored "$_seg_deny"
   else
-    crew_check_raw "$segment"
+    crew_check_raw "$_seg_deny"
   fi
   # SUBSTRATE redirect deny, PER SEGMENT. Two normalized forms of THIS segment: _seg_norm keeps
   # substitution/param spans (to SEE an obscured $/`/glob target); _seg_del DELETES them so a
