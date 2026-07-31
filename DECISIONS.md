@@ -162,3 +162,19 @@ hooks, and scripts (see `modules/README.md` § Adding a module). One mechanism, 
 manifest, one installer path. The ruby `mate-lock.rb` parity was dropped at the same time
 (python3 is already a hard prerequisite; two lock implementations was one to maintain and
 one to drift).
+
+## Read-only agents execute nothing — the reviewer test-runner is declined (2026-07)
+
+**Decision:** the upstream v2 read-only bash guard shipped a bounded reviewer test-runner
+allowance (`ro_test_runner_allowed` — let a reviewer run `python3 tests/*.py` / `bash
+test-*.sh`). The ship fork **declines it**: a read-only agent (`ship-lookout` / reviewer)
+executes *nothing*. Verifying a test is a read; when a review genuinely needs to *run*
+code, the guarded crew reviewer (maker≠checker, tier-1) is the path — a separate agent
+type with its own execution surface — not a lookout given a foothold to execute. Allowing
+any interpreter-with-a-script form on the read-only guard trades the one bright line that
+makes "read-only" mean read-only for a convenience the crew reviewer already covers.
+
+**Rule:** `validate-readonly-bash.sh` has **no** interpreter/test-runner allowance;
+interpreters default-deny. An upstream sync must not silently re-adopt `ro_test_runner_allowed`.
+**Lives in:** `core/hooks/validate-readonly-bash.sh` (no test-runner; the allow-list ends
+at archive-inspection), its test suite (interpreter forms assert BLOCK).
