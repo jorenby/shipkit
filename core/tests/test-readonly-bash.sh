@@ -527,7 +527,7 @@ HOOKDIR="$(cd "$(dirname "$HOOK")" && pwd)"
 check_cwd BLOCK "$HOOKDIR" 'cat /dev/null > *.sh'      # reader + bare glob redirect target, cwd IS the guard dir -> deny (c)
 check_cwd BLOCK "$HOOKDIR" 'echo pwned > out'         # non-reader verb from inside the guard dir -> reader-inversion
 check_cwd ALLOW "$HOOKDIR" 'cat foo.sh'               # reader from inside guard dir -> armed but allowed
-check_cwd ALLOW "$HOME/code/drip" 'cat /dev/null > *.o'   # normal repo cwd -> NOT armed (glob redirect fine)
+check_cwd ALLOW "$HOME/code/myrepo" 'cat /dev/null > *.o'   # normal repo cwd -> NOT armed (glob redirect fine)
 check_cwd ALLOW "$HOOKDIR-other" 'cat /dev/null > *.sh'   # sibling cwd sharing the prefix -> NOT contained
 
 echo

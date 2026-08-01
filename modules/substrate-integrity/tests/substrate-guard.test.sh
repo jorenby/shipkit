@@ -57,7 +57,7 @@ assert "uppercase plist"         2 "/Users/x/Library/LaunchAgents/COM.SHIP.JANIT
 
 echo ""
 echo "=== ALLOW: ordinary paths + edge inputs ==="
-assert "ordinary dag file"     0 "/Users/x/code/drip-di/dags/foo.py"
+assert "ordinary dag file"     0 "/Users/x/code/myrepo/dags/foo.py"
 assert "a ticket"              0 "/Users/x/code/ship/projects/ship/tickets/041-x.md"
 assert "backup of guard"       0 "/Users/x/code/ship/scripts/validate-crew-bash.sh.bak"
 assert "queue.md"              0 "/Users/x/code/ship/projects/ship/queue.md"

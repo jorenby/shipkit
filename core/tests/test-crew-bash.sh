@@ -787,7 +787,7 @@ HOOKDIR="$(cd "$(dirname "$HOOK")" && pwd)"
 check_cwd BLOCK "$HOOKDIR" 'rm *.sh'                 # bare glob, no substrate text, but cwd IS the guard dir
 check_cwd BLOCK "$HOOKDIR" 'mv * /tmp/'              # bare wildcard writer from inside the guard dir
 check_cwd ALLOW "$HOOKDIR" 'cat foo.sh'              # reader from inside guard dir -> armed but allowed
-check_cwd ALLOW "$HOME/code/drip" 'rm build/*.o'    # normal repo cwd -> NOT armed
+check_cwd ALLOW "$HOME/code/myrepo" 'rm build/*.o'    # normal repo cwd -> NOT armed
 check_cwd ALLOW "$HOOKDIR-other" 'rm *.sh'          # sibling cwd sharing the prefix -> NOT contained, NOT armed
 
 echo ""

@@ -89,7 +89,7 @@ sweep rather than chasing it now.
 ### 7. Report
 ```
 ✓ Compound complete — N learnings (<c> created, <u> updated, <d> dropped at gate)
-  - docs/knowledge/<slug>.md (bug, created)  ← logs/drip/<ticket>/<log>.md
+  - docs/knowledge/<slug>.md (bug, created)  ← logs/myproject/<ticket>/<log>.md
   - docs/knowledge/<slug>.md (knowledge, updated — high overlap)
   Superseded: <path> → <replacement>   (omit if none)
   Reindex: (done | skipped: <why>)

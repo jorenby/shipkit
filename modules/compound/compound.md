@@ -108,7 +108,7 @@ kind: learning              # learning | runbook | reference | decision
 track: bug                  # bug | knowledge
 tags: [shopify, webhooks]   # modules + tech + error class; freeform
 solved: 2026-06-26          # date the lesson was earned
-source: logs/drip/SHOPIFY-CART-ITEMS-TYPE/2026-06-26-1430.md   # the watch that earned it
+source: logs/myproject/SHOPIFY-CART-ITEMS-TYPE/2026-06-26-1430.md   # the watch that earned it
 status: active              # active | draft | superseded
 ---
 ```
