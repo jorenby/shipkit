@@ -1,0 +1,13 @@
+{
+  "name": "navigator",
+  "tier": "optional",
+  "doc": "skills/navigator/SKILL.md",
+  "agents": [],
+  "hooks": [],
+  "skills": ["skills/navigator"],
+  "scripts": [],
+  "lib": [],
+  "templates": [],
+  "tests": [],
+  "requires": ["core"]
+}
