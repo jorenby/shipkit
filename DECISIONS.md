@@ -178,3 +178,16 @@ makes "read-only" mean read-only for a convenience the crew reviewer already cov
 interpreters default-deny. An upstream sync must not silently re-adopt `ro_test_runner_allowed`.
 **Lives in:** `core/hooks/validate-readonly-bash.sh` (no test-runner; the allow-list ends
 at archive-inspection), its test suite (interpreter forms assert BLOCK).
+
+## Unreconciled drift is a fork's default outcome — watch it, don't heroics it
+
+**Decision:** a re-fork of upstream shipkit stays reconciled via a light, read-only weekly
+tick, not periodic heroic catch-up merges (the pattern that let an earlier fork go dead).
+Three drift metrics are tracked — commits-behind-upstream, contribute-back candidates
+outstanding, overlay-% of tree — and any one trending up over time is the early
+"becoming a dead fork" signal.
+**Rule:** the tripwire script only fetches and reports; it never merges, rebases, resets, or
+pushes. Only a crew in an isolated worktree (small clean pulls) or Nav/Captain (conflicts, PR
+bundles) act on what it surfaces.
+**Lives in:** `scripts/upstream-sync-report.sh`, `notes/upstream-candidates.md`, `core/mate.md`
+§ Upstream Sync, `core/crew.md` § Ending a Watch.

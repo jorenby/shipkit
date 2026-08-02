@@ -69,7 +69,14 @@ When the Captain says "checkpoint" or "end watch", OR when you've made progress 
    into `docs/knowledge/` at wind-down. Skip it for routine work — capture only what trips the
    gate. (Only applies if the `compound` module is installed.)
 
-6. **Say "Watch complete"** so the Captain/Mate knows you're done
+6. **Tag an upstream candidate (if what you built is general).** If something from this watch
+   is general-purpose (not local/private-specific) and might be worth sending back to
+   `wstrinz/shipkit`, append one line to `notes/upstream-candidates.md`:
+   `- [ ] <one-line description> (source: <this log's path>)`. `scripts/upstream-sync-report.sh`
+   counts these as the outstanding contribute-back backlog. Skip it for anything private/specific
+   to this ship.
+
+7. **Say "Watch complete"** so the Captain/Mate knows you're done
 
 ## Git Access
 

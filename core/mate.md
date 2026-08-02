@@ -306,6 +306,29 @@ can leave the PR `CONFLICTING` against a base that advanced. The full PR mechani
 (mergeability re-checks, stacked-PR propagation, the `pr:` frontmatter convention) are in
 [modules/pull-requests/pull-requests.md](modules/pull-requests/pull-requests.md).
 
+## Upstream Sync
+
+If this ship is a fork of upstream shipkit (an `upstream` remote pointing at
+`wstrinz/shipkit`), unreconciled drift is the default outcome — staying reconciled takes a
+light, deliberate habit, not a heroic catch-up.
+
+- **Weekly drift check:** `scripts/upstream-sync-report.sh` fetches `upstream` read-only
+  (never merges/rebases/resets/pushes) and reports three numbers: commits-behind-upstream,
+  contribute-back candidates outstanding (unchecked lines in `notes/upstream-candidates.md`),
+  and overlay-% of tree (files differing from `upstream/main`). Most weeks it's "nothing to
+  do." Any of the three trending up over time is the early "becoming a dead fork" signal —
+  surface it rather than letting it ride.
+- **Small clean pulls are routine builder-loop work:** a few small, non-conflicting upstream
+  commits merge in an isolated worktree with tests passing — dispatch a crew, no escalation
+  needed. Real conflicts escalate to you/the Captain.
+- **Tagging:** crew tag general-purpose work with a one-line entry in
+  `notes/upstream-candidates.md` (see `crew.md` → "Ending a Watch") — the lazy-path habit that
+  keeps the candidate list current without a blocking process.
+- **Monthly PR bundle:** review `notes/upstream-candidates.md`, pick the best few outstanding
+  candidates, and draft a small thank-you PR against `wstrinz/shipkit`. Sending it is the
+  Captain's call (an external edge, same tier as any other outbound PR) — you prep, the
+  Captain triggers the push/PR.
+
 ## External Communications
 
 **Never post GitHub comments, PR reviews, or tracker/chat comments without explicit Captain
