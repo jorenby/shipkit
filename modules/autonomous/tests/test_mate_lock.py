@@ -9,6 +9,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -118,6 +119,41 @@ class TestMateLock(unittest.TestCase):
         self.assertEqual(r.returncode, 0)
         data = json.loads(run(["status", "--json"], self.lock, stale_minutes=0).stdout)
         self.assertFalse(data["fresh"])
+
+    def test_concurrent_acquire_free_single_winner(self):
+        # Regression for the acquire-time race: read-then-write acquire lets many
+        # racers all "win" a free lock. With O_EXCL, exactly one wins per round and
+        # every loser exits 1 (never a false ACQUIRED).
+        n = 32
+        rounds = 40
+
+        def acquire(sid):
+            return sid, run(["acquire", sid], self.lock)
+
+        for r in range(rounds):
+            if self.lock.exists():
+                self.lock.unlink()
+            sessions = [f"cccc{r:04d}-0000-0000-0000-{i:012d}" for i in range(n)]
+            with ThreadPoolExecutor(max_workers=n) as ex:
+                results = list(ex.map(acquire, sessions))
+
+            fresh_wins = [
+                sid for sid, res in results
+                if res.returncode == 0 and "ACQUIRED" in res.stdout
+                and "re-entrant" not in res.stdout and "TAKEOVER" not in res.stdout
+            ]
+            holder = json.loads(self.lock.read_text(encoding="utf-8"))["session_id"]
+            self.assertEqual(len(fresh_wins), 1,
+                             f"round {r}: expected exactly one fresh winner, got {len(fresh_wins)}: {fresh_wins}")
+            self.assertEqual(fresh_wins[0], holder,
+                             f"round {r}: the sole fresh winner must be the recorded holder")
+            for sid, res in results:
+                if sid in fresh_wins:
+                    continue
+                self.assertEqual(res.returncode, 1,
+                                 f"round {r}: loser should exit 1, got {res.returncode}: {res.stdout}{res.stderr}")
+                self.assertNotIn("ACQUIRED", res.stdout.upper(),
+                                 f"round {r}: loser must not report ACQUIRED: {res.stdout}")
 
 
 if __name__ == "__main__":

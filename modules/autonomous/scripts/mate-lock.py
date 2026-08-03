@@ -8,6 +8,9 @@ event-driven Mate's prior session didn't beat the heartbeat before rotating.
 
 Lock file: state/mate-lock.json  {session_id, acquired_at, heartbeat_at}
 Atomic writes: tmp file + os.replace (atomic on the same filesystem).
+Free-lock acquire is atomic (O_EXCL create), so two sessions racing on a free
+lock cannot both win. The stale-takeover path re-reads and confirms, leaving only
+a narrow residual race (two racers reading the same stale lock).
 
 Subcommands:
   acquire   SESSION_ID            take the lock; fails if held fresh by another.
@@ -61,6 +64,16 @@ def write_lock(data):
     os.replace(tmp, LOCK_FILE)
 
 
+def create_lock_exclusive(data):
+    # O_EXCL create-if-absent: the atomic winner of a free-lock race; the loser raises FileExistsError.
+    LOCK_FILE.parent.mkdir(parents=True, exist_ok=True)
+    fd = os.open(str(LOCK_FILE), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
+    try:
+        os.write(fd, json.dumps(data).encode("utf-8"))
+    finally:
+        os.close(fd)
+
+
 def delete_lock():
     try:
         LOCK_FILE.unlink()
@@ -97,9 +110,17 @@ def cmd_acquire(session_id):
     lock = read_lock()
 
     if lock is None:
-        write_lock({"session_id": session_id, "acquired_at": now_iso(), "heartbeat_at": now_iso()})
-        print(f"ACQUIRED {session_id}")
-        return 0
+        try:
+            create_lock_exclusive({"session_id": session_id, "acquired_at": now_iso(), "heartbeat_at": now_iso()})
+            print(f"ACQUIRED {session_id}")
+            return 0
+        except FileExistsError:
+            # Lost the free-lock race — another session created the file first. Re-read and fall through.
+            lock = read_lock()
+
+    if lock is None:
+        sys.stderr.write("ERROR: lock vanished mid-acquire — retry\n")
+        return 1
 
     if lock.get("session_id") == session_id:
         lock["heartbeat_at"] = now_iso()
@@ -110,6 +131,10 @@ def cmd_acquire(session_id):
     if is_stale(lock):
         old_id = lock.get("session_id")
         hb = lock.get("heartbeat_at") or lock.get("acquired_at")
+        # Re-read-confirm narrows the takeover race; if the lock changed under us, restart the acquire.
+        confirm = read_lock()
+        if confirm is None or confirm.get("session_id") != old_id or (confirm.get("heartbeat_at") or confirm.get("acquired_at")) != hb:
+            return cmd_acquire(session_id)
         write_lock({"session_id": session_id, "acquired_at": now_iso(), "heartbeat_at": now_iso()})
         print(f"TAKEOVER — prior session {old_id} last heartbeat {age_string(hb)} ago (>{STALE_MINUTES}m stale)")
         print(f"ACQUIRED {session_id}")
