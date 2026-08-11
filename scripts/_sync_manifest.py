@@ -28,6 +28,8 @@ ROOT_FILES = [
     "shipkit_init.py", "presets.json",
     "loop.config.example.json", "mate.local.example.md",
     "scripts/pull-upstream.sh", "scripts/_sync_manifest.py",
+    "scripts/upstream-sync-report.sh", "scripts/upstream-sync-tick.sh",
+    "scripts/com.ship.upstream-sync.plist",
 ]
 
 # Per-module manifest keys whose values are folder-relative file paths to sync.

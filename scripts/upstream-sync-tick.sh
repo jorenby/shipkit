@@ -8,7 +8,11 @@
 # result. Pair it with com.ship.upstream-sync.plist (launchd) or any cron equivalent.
 set -euo pipefail
 
-SHIP_ROOT="${SHIP_ROOT:-$HOME/code/ship}"
+# Derive the ship root from this script's own location, like every sibling here does —
+# never hardcode a default path. `SHIP_ROOT` may override it, but the unset case must work
+# for a checkout at any path, and must never resolve to some *other* checkout.
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+SHIP_ROOT="${SHIP_ROOT:-$(cd "$SCRIPT_DIR/.." && pwd)}"
 REPORT="${UPSTREAM_SYNC_REPORT:-$SHIP_ROOT/scripts/upstream-sync-report.sh}"
 LOG_DIR="${SHIP_SENSOR_LOG_DIR:-$HOME/.ship-sensors}"
 DROPS_DIR="$SHIP_ROOT/inbox/drops"
