@@ -7,14 +7,16 @@
   never touches queue.md. A missed run (machine asleep at the scheduled time) coalesces to one
   run on next wake.
 
-  ⚠ THIS IS A TEMPLATE. Copy it to com.ship.upstream-sync.plist first — `pull-upstream` syncs
-  the .example and would revert your edits otherwise — then in the copy:
+  ⚠ THIS IS A TEMPLATE. Copy it to com.ship.upstream-sync.<your-id>.plist first — pick the
+  same <your-id> you use for the Label below; `pull-upstream` syncs the .example and would
+  revert your edits otherwise — then in the copy:
     - replace every __HOME__ with your absolute home directory (launchd expands neither ~ nor $HOME)
     - replace __SHIP_ROOT__ with your ship checkout
     - replace __SHIP_ID__ in the Label with something unique to THIS checkout.
-  The Label and the installed filename are the unit's identity: if two checkouts both install
-  a unit called `com.ship.upstream-sync`, the second `cp` overwrites the first's plist and the
-  first checkout's tick silently stops running after the next login.
+  The Label AND the installed filename are both the unit's identity, so <your-id> must appear
+  in both. If two checkouts install a unit sharing either one, the second `cp` overwrites the
+  first's plist and that checkout's tick silently stops running after the next login — and
+  with distinct Labels `launchctl bootstrap` no longer errors, so nothing warns you.
 
   Prerequisite: mkdir -p __HOME__/.ship-sensors
 

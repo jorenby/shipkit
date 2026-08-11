@@ -38,3 +38,7 @@ state/bosun-last-sweep.json
 state/mate-lock.json
 state/mate-mcp-writes.jsonl
 inbox/drops/bosun-*.md
+
+# Working copy of the upstream-sync launchd unit, created from the .example and
+# filled in with your absolute paths + per-checkout Label. Yours, never synced.
+scripts/com.ship.upstream-sync.plist
