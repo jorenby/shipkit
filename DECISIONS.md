@@ -234,3 +234,32 @@ been tested at all.
 **Lives in:** `core/mate.md` § Maker ≠ Checker (execution + review bar), the `navigator`
 module (shaping + review ownership), `modules/substrate-integrity/` (detection — and the
 enforcement that core alone does not provide).
+
+## Drops propose; promotion to Ready is a live human act (2026-08)
+
+**Decision:** a drop may file a ticket to Backlog, re-summarize a line, or re-order *within*
+Backlog. It must **never** move a ticket into **Ready**. Entry into Ready happens on a live
+human (or human-directed Navigator) pass, and on nothing else.
+
+**Why:** Ready is the dispatch surface. On an install that dispatches from Ready — the
+`autonomous` preset, or any loop that pops the top of the queue — the moment a ticket enters
+Ready is the **last point a human sees the work** before an executor acts on it. So a Ready
+promotion isn't a status edit, it's agenda-setting: it decides what the ship does next. That
+is the one thing an automated writer must not be able to do on its own.
+
+The gap this closes is unauthenticated authorship: a drop's `source:` field is free text that
+any process can write. `source: nav` is not evidence that a human passed on the work, so a
+Mate that trusts it has no gate at all — it just has a gate that is trivially spoofed by the
+next sensor someone wires up.
+
+**Rule:** a drop requesting Ready entry is a **recommendation**. Leave the ticket in Backlog,
+surface it, and let a human promote it. This is a discipline gate today, not a structural one
+— a typed non-Ready lane plus authenticated drop authorship would make it mechanical, and
+until that exists the rule lives in the role docs.
+
+**Corollary — the shovel-ready bar becomes a safety mechanism, not tidiness.** If Ready is
+auto-dispatched, an under-specified Ready ticket is an unreviewed instruction to an executor.
+Whoever promotes owns that: clear scope, explicit acceptance, and a cold-start fork-point.
+
+**Lives in:** `core/mate.md` § Processing Inbox → Drops (the Mate is the only writer who could
+apply such a drop), the `navigator` module (the seat that most often wants to).
