@@ -1,7 +1,8 @@
 {
   "name": "navigator",
   "tier": "optional",
-  "doc": "skills/navigator/SKILL.md",
+  "description": "Adds the Navigator: a strategy seat that researches, shapes tickets, reviews architecture, and owns queue strategy, but never writes the queue, dispatches, or commits. Queue changes leave as drops for the Mate, who stays the sole queue writer. Deliberately in no preset — install with --modules navigator. Core is a fully working ship without it.",
+  "doc": "navigator.md",
   "agents": [],
   "hooks": [],
   "skills": ["skills/navigator"],

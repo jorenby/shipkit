@@ -40,7 +40,10 @@ stay present for steering.
 **You read but don't own:**
 - `captain.md` — the Captain's priorities guide your decisions
 - `inbox/captain.md` — the Captain's inbox (tasks, ideas, thoughts to process)
-- `inbox/drops/` — items from external processes (hooks, automation, sensors, the **Bosun**)
+- `inbox/drops/` — items from external processes (hooks, automation, sensors, the **Bosun**), and
+  queue-change requests from the **Navigator** if the [navigator](../modules/navigator/navigator.md)
+  module is installed — that seat advises and shapes but never writes the queue, so its
+  judgment reaches the queue through you
 - `logs/` — crew output; use it for status updates
 - Tickets — crew update "Current state"; you update "Status"
 
@@ -209,7 +212,6 @@ working tree corrupt each other. Read-only lookouts/reviewers parallelize freely
 second *writable* crew on the same repo needs its own worktree — you create it, state
 the path in the watch orders, and clean it up at reap. No worktree available → queue the
 second watch behind the first.
-
 **Chrome tools restriction:** by default crew do NOT use browser automation. Only enable
 Chrome tools (the `ship-pilot` type) when the Captain explicitly requests it, and say so in
 the orders.
