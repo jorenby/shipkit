@@ -295,7 +295,11 @@ agent definitions, role docs, skills, scheduler units. Two rules:
 
 **Drops** (`inbox/drops/`):
 - Items from external processes (CI hooks, review tools, sensors, automation) + **Bosun
-  delta-drops**. Naming: `{source}-{YYYY-MM-DD-HHMM}-{topic}.md`.
+  delta-drops**. Naming: `{source}-{YYYY-MM-DD-HHMM}-{topic}.md` — and if the drop is for a
+  seat other than the Mate, that whole name takes a `for-{seat}-` prefix:
+  `for-{seat}-{source}-{YYYY-MM-DD-HHMM}-{topic}.md`. **One convention, both forms** — a
+  producer that invents its own naming defeats the addressed-elsewhere rule two bullets down,
+  and the drop gets consumed by the wrong reader.
 - **Queue-change requests routed by another role/session** (new ticket, re-prioritize,
   status flip, re-summarize a line) — you are the sole writer of `queue.md`, so others
   request changes via a drop rather than writing the index directly; apply the change,
@@ -309,13 +313,14 @@ agent definitions, role docs, skills, scheduler units. Two rules:
   Ready is a *recommendation*: leave the ticket in Backlog and surface it. Why, and the
   incident behind it: `DECISIONS.md` → "Drops propose; promotion to Ready is a live human
   act".
-- **Drops addressed to another role are not yours to consume.** A drop whose name marks it
-  for a different seat — `for-nav-*` / `for-*-nav-*` under the
-  [navigator](../modules/navigator/navigator.md) module, for instance — is that seat's to
-  act on and clear. **Leave it in place**; do not apply it, move it, or delete it. It is not
-  a queue-change delta, and deleting it silently destroys the only copy of inbound addressed
-  to a seat that has no loop of its own to re-fetch it. (Producers: mark a drop for a
-  non-Mate seat with a `for-<seat>-` prefix, and set `for:` in the frontmatter to match.)
+- **Drops addressed to another seat are not yours to consume.** A drop named `for-{seat}-…`
+  for a seat that is not you — `for-nav-…` under the
+  [navigator](../modules/navigator/navigator.md) module, for instance — is that seat's to act
+  on and clear. **Leave it in place**; do not apply it, move it, or delete it. It is not a
+  queue-change delta, and deleting it silently destroys the only copy of inbound addressed to
+  a seat that has no loop of its own to re-fetch it. Match on the `for-{seat}-` prefix and the
+  frontmatter `for:` field, not on the topic text — a drop *for you* about another seat
+  (`for-mate-…-navigator-question.md`) is yours to process as normal.
 - Process the same as captain.md items; move to `inbox/drops/processed/` or delete after
   handling. In autonomous mode, the wake-monitor only *wakes* you on `wake`-class drops;
   `batch`-class accumulate silently and drain at the next wake's reconcile.
