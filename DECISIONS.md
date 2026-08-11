@@ -198,23 +198,39 @@ bundles) act on what it surfaces.
 units — happen in a session that is **not** carrying product work, and they are reviewed by
 someone other than whoever made them.
 
-**Why, concretely:** guards are live `PreToolUse` hooks, so they apply to the very session
-editing them; skills only reload on a fresh session, so a mid-session skill edit changes
-nothing you can observe and everything the next session inherits. "Don't change the airplane
-while flying." A substrate itch discovered mid-flight is a ticket for the next pre-flight
-pass, not a now-edit. Recovery, if an edit bricks its own session: revert with `git` from a
-plain shell or a fresh session.
+**Why, concretely — three different latencies, and that's the whole point.** "Substrate" is
+not one kind of file:
+
+| What | When your edit takes effect | Consequence of editing mid-flight |
+|---|---|---|
+| Hooks / guards (`core/hooks/`, a module's `hooks/`) | **Immediately**, for any agent whose definition renders that hook | You change the rules a *currently running* crew is being judged by, mid-watch |
+| Skills, role docs (`core/mate.md`, a module's skill) | **Next session** — these are read at start | The edit is invisible in the session that makes it and inherited whole by the next one, so it cannot be observed or tested by its own author |
+| Scheduler units (launchd/cron) | On next load, and they run **unattended** | A bad edit fails where nobody is watching |
+| Tickets, `queue.md`, notes, `DECISIONS.md` | Immediately, and harmlessly | None — these are **not** substrate; apply them mid-flight freely |
+
+"Don't change the airplane while flying." A substrate itch discovered mid-flight is a ticket
+for the next pre-flight pass, not a now-edit. Recovery, if an edit bricks a running session:
+revert with `git` from a plain shell or a fresh session.
+
+Note the trap in row 2, since it is the one that bites: a role-doc or skill edit *looks*
+inert — nothing changes, no error — which reads as "that went fine" when in fact nothing has
+been tested at all.
 
 **Rule:**
 - **Who shapes ≠ who builds ≠ who checks.** One seat shapes the change and sets the review
   bar, another executes it in a cleared hands-on pass, and an **independent** reviewer (a
   fresh model/session that did not write it) gates it. The load-bearing safety is
-  maker ≠ **checker**, and it holds regardless of which seat is the maker.
-- **Not a crew subagent.** Crew are hook-blocked from trust-root files by design; handing
-  substrate to crew either fails or means the guard has a hole.
+  maker ≠ **checker**, and it holds regardless of which seat is the maker. See `core/mate.md`
+  § Maker ≠ Checker.
+- **Don't hand substrate to a crew subagent — but know that "the guard stops it" depends on
+  what you installed.** Core's write guard (`core/hooks/validate-crew-write.sh`) protects
+  `queue.md`, `captain.md`, and `inbox/**` — **not** the hook scripts themselves. Blocking a
+  crew from editing guards is what the optional `substrate-integrity` module adds, and it is
+  in no preset. So on a core-only install a crew `Edit` of `core/hooks/validate-crew-bash.sh`
+  lands silently. Treat this rule as doctrine you enforce, not a mechanism you inherit.
 - **Not the long-lived coordination session either** — keep the heavy build out of the one
   context that is expensive to rebuild.
-- Docs, tickets, and queue edits are **not** substrate; they are safe to apply mid-flight.
 
-**Lives in:** `core/mate.md` (execution), the `navigator` module (shaping + review),
-`modules/substrate-integrity/` (detection).
+**Lives in:** `core/mate.md` § Maker ≠ Checker (execution + review bar), the `navigator`
+module (shaping + review ownership), `modules/substrate-integrity/` (detection — and the
+enforcement that core alone does not provide).
