@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Ship upstream-sync tick — launchd unit (per-invocation, weekly).
+  Runs scripts/upstream-sync-tick.sh, which invokes the READ-ONLY drift report and, only when
+  there is drift to review, drops a candidate into inbox/drops/. Never merges, never pushes,
+  never touches queue.md. A missed run (machine asleep at the scheduled time) coalesces to one
+  run on next wake.
+
+  ⚠ PATHS: launchd does not expand ~ or $HOME. Replace every __HOME__ below with your absolute
+  home directory and __SHIP_ROOT__ with your ship checkout before installing.
+
+  Prerequisite: mkdir -p __HOME__/.ship-sensors
+
+  Install (enable):
+    cp com.ship.upstream-sync.plist ~/Library/LaunchAgents/
+    launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.ship.upstream-sync.plist
+  Disable:
+    launchctl bootout gui/$(id -u)/com.ship.upstream-sync
+  Idempotent: safe to bootout then re-bootstrap after editing this file.
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.ship.upstream-sync</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>__SHIP_ROOT__/scripts/upstream-sync-tick.sh</string>
+    </array>
+
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Weekday</key>
+        <integer>1</integer>
+        <key>Hour</key>
+        <integer>9</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+
+    <!-- Fire once at load so the go-live is immediately observable. -->
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>__HOME__/.local/bin:/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+        <key>SHIP_ROOT</key>
+        <string>__SHIP_ROOT__</string>
+    </dict>
+
+    <key>StandardOutPath</key>
+    <string>__HOME__/.ship-sensors/upstream-sync.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>__HOME__/.ship-sensors/upstream-sync.err.log</string>
+</dict>
+</plist>
