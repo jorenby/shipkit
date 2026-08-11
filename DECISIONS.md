@@ -191,3 +191,30 @@ pushes. Only a crew in an isolated worktree (small clean pulls) or Nav/Captain (
 bundles) act on what it surfaces.
 **Lives in:** `scripts/upstream-sync-report.sh`, `notes/upstream-candidates.md`, `core/mate.md`
 § Upstream Sync, `core/crew.md` § Ending a Watch.
+
+## Substrate changes are pre-flight, and the maker is never the checker (2026-08)
+
+**Decision:** edits to the ship's own substrate — guards, hooks, role docs, skills, scheduler
+units — happen in a session that is **not** carrying product work, and they are reviewed by
+someone other than whoever made them.
+
+**Why, concretely:** guards are live `PreToolUse` hooks, so they apply to the very session
+editing them; skills only reload on a fresh session, so a mid-session skill edit changes
+nothing you can observe and everything the next session inherits. "Don't change the airplane
+while flying." A substrate itch discovered mid-flight is a ticket for the next pre-flight
+pass, not a now-edit. Recovery, if an edit bricks its own session: revert with `git` from a
+plain shell or a fresh session.
+
+**Rule:**
+- **Who shapes ≠ who builds ≠ who checks.** One seat shapes the change and sets the review
+  bar, another executes it in a cleared hands-on pass, and an **independent** reviewer (a
+  fresh model/session that did not write it) gates it. The load-bearing safety is
+  maker ≠ **checker**, and it holds regardless of which seat is the maker.
+- **Not a crew subagent.** Crew are hook-blocked from trust-root files by design; handing
+  substrate to crew either fails or means the guard has a hole.
+- **Not the long-lived coordination session either** — keep the heavy build out of the one
+  context that is expensive to rebuild.
+- Docs, tickets, and queue edits are **not** substrate; they are safe to apply mid-flight.
+
+**Lives in:** `core/mate.md` (execution), the `navigator` module (shaping + review),
+`modules/substrate-integrity/` (detection).
