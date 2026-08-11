@@ -98,6 +98,20 @@ block, then update it after each major action:
    commit — consolidate any crew "Learning candidate" blocks into `docs/knowledge/`. The
    gate, dedup, and policy are in [../compound/compound.md](../compound/compound.md).
 
+**Before discarding a session's context** (`/clear`, or any hand-off that drops the window),
+run the **`/checkpoint`** skill this module ships (`skills/checkpoint/`). It is a **verify**
+pass, not a save pass: if the event-time durable writes the role docs mandate actually
+happened, almost everything is already in a durable home and the checkpoint saves nothing.
+Two properties are load-bearing and easy to lose if you reimplement it:
+
+- It confirms each item **by reading the durable home from disk**, never from session memory —
+  "I'm pretty sure I wrote that" shares a failure mode with the write it is meant to insure.
+- It appends one greppable line to `logs/checkpoint-ledger.md` **even when it saves nothing**,
+  because an empty result is the evidence that discipline held. After ~15–20 entries the
+  catch-rate and severity mix tell you whether checkpointing is insurance or ceremony —
+  a high catch-rate means event-time writes are leaking upstream, not that you should
+  checkpoint harder.
+
 **Additionally, if this is the day's last session (true end of day):**
 
 6. **Standup:** write/finalize the daily standup rollup aggregating across all sessions.
