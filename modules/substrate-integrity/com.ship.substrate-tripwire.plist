@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Ship substrate tamper tripwire — launchd unit (per-invocation, no daemon loop).
+  Fires a fresh poll() each interval via the once-mode CLI flag below; a crashed
+  invocation cannot kill future ticks (structurally sidesteps the fail-dead daemon class).
+  DETECTION ONLY — writes a CANDIDATE wake drop to inbox/drops/, never blocks, never
+  touches queue.md.
+
+  ⚠ PATHS: launchd does not expand ~ or $HOME. Replace every __HOME__ below with your absolute
+  home directory and __SHIP_ROOT__ with your ship checkout before installing.
+
+  Prerequisite: mkdir -p __HOME__/.ship-sensors
+
+  Install (enable):
+    cp com.ship.substrate-tripwire.plist ~/Library/LaunchAgents/
+    launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.ship.substrate-tripwire.plist
+  Disable:
+    launchctl bootout gui/$(id -u)/com.ship.substrate-tripwire
+  Idempotent: safe to bootout then re-bootstrap (e.g. after editing this file); the sensor's
+  own state file is untouched by install/uninstall, so re-enabling does not re-baseline or re-nag.
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.ship.substrate-tripwire</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>__SHIP_ROOT__/modules/substrate-integrity/substrate_tripwire.py</string>
+        <string>--once</string>
+    </array>
+
+    <key>StartInterval</key>
+    <integer>60</integer>
+
+    <!-- Fire once at load so the first supervised run is observable. -->
+    <key>RunAtLoad</key>
+    <true/>
+
+    <!-- launchd runs with a minimal env; SHIP_ROOT is set explicitly so watched_paths()
+         resolves deterministically rather than relying on the script's own-path inference. -->
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>__HOME__/.local/bin:/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+        <key>SHIP_ROOT</key>
+        <string>__SHIP_ROOT__</string>
+    </dict>
+
+    <key>StandardOutPath</key>
+    <string>__HOME__/.ship-sensors/tripwire.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>__HOME__/.ship-sensors/tripwire.err.log</string>
+</dict>
+</plist>

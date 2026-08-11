@@ -179,5 +179,14 @@ def main():
         time.sleep(POLL_SECS)
 
 
+def run_once():
+    result = poll()
+    if result is not None:
+        print(f"SENSOR {FEED_SOURCE} wake {result}", flush=True)
+
+
 if __name__ == "__main__":
-    main()
+    if "--once" in sys.argv:
+        run_once()
+    else:
+        main()

@@ -5,7 +5,7 @@
   "agents": [],
   "hooks": ["hooks/ship-substrate-guard.sh"],
   "skills": [],
-  "scripts": ["substrate_tripwire.py"],
+  "scripts": ["substrate_tripwire.py", "com.ship.substrate-tripwire.plist"],
   "lib": [],
   "templates": [],
   "tests": ["tests/test_substrate_tripwire.py", "tests/substrate-guard.test.sh"],
