@@ -25,13 +25,25 @@ raising the bar, not as a control you can trust.
    the live copy to sit at `~/.claude/hooks/`, which implies a user-level PreToolUse
    registration you write by hand. **Arming it is a manual step, and it is not yet
    documented.** So a green install line for this module does not mean crew are blocked.
-2. **The deny list omits `validate-crew-write.sh`.** The basename set below covers the bash
-   guards but not core's *write* guard — so a crew edit of the file that protects `queue.md`,
-   `captain.md`, and `inbox/**` is not denied by this module. Basename lists are enumerated by
-   hand; check yours rather than assuming a file is covered because it's a guard.
+2. **The deny list covers 6 of this repo's 14 substrate files.** Measured, not estimated —
+   **denied:** `validate-crew-bash.sh`, `validate-readonly-bash.sh`, `validate-prod-guard.sh`,
+   `ship-substrate-guard.sh`, `ship-crew.md`, `ship-lookout.md`. **Not denied:**
+   `core/hooks/validate-crew-write.sh` (the guard protecting `queue.md`, `captain.md`,
+   `inbox/**` — itself unprotected), the autonomous tier's `validate-mate-bash.sh`,
+   `validate-bosun-bash.sh`, and `validate-mate-mcp.sh`, and **four of six agent defs**
+   (`ship-mate.md`, `ship-bosun.md`, `ship-reviewer.md`, `ship-pilot.md`). That last set
+   matters most on the `autonomous` preset, where `core/mate.md` describes the Mate's bright
+   lines as structurally enforced by two of the guards in that undenied list.
+   Seven further entries name files that don't exist here at all — including
+   `validate-mate-mcp-bash.sh`, one character-class away from the real
+   `validate-mate-mcp.sh`. That near-miss *is* the argument: hand-enumerated basename lists
+   drift silently against the tree they're meant to protect, and nothing tests them against
+   it. Check yours file by file; never infer coverage from "it's a guard."
 3. **The tripwire's watch list targets a different layout.** `watched_paths()` looks for
-   `$SHIP_ROOT/scripts/validate-*.sh` and `$SHIP_ROOT/agents/*.md`; in this repo those live at
-   `core/hooks/` and `core/agents/`. A missing path hashes stably to `None`, so the sensor
+   `$SHIP_ROOT/scripts/validate-*.sh`, `$SHIP_ROOT/scripts/crew-allow-local.sh`,
+   `$SHIP_ROOT/scripts/hooks/ship-substrate-guard.sh`, and `$SHIP_ROOT/agents/*.md`; here
+   those live at `core/hooks/`, `core/templates/`, `modules/substrate-integrity/hooks/`, and
+   `core/agents/` respectively. A missing path hashes stably to `None`, so the sensor
    **runs clean and detects nothing** on six of its nine paths. It will log healthy ticks and
    populate a baseline while watching almost nothing that exists. Do not schedule it until the
    watch list is derived from the installed layout — and make an all-absent watch set a loud
@@ -45,11 +57,16 @@ raising the bar, not as a control you can trust.
 ## The two layers
 
 **`hooks/ship-substrate-guard.sh`** — a PreToolUse `Edit|Write|MultiEdit` hook that
-**denies** edits to security-substrate basenames (guards, hooks, agent defs),
-matching on basename case-insensitively. This is the bar-raising half.
+**denies** edits to a **hand-enumerated subset** of security-substrate basenames,
+matching on basename case-insensitively. It is not "guards, hooks and agent defs" —
+read the `case` list and compare it against your own tree (**Known gaps** #2 above),
+because the omissions are not obvious. This is the bar-raising half, and it is not
+armed by installing the module (**Known gaps** #1).
 
 **`substrate_tripwire.py`** — an out-of-session tamper tripwire. It hashes the
-watched substrate files and fires a wake drop when a hash changes unexpectedly.
+watched substrate files and fires a wake drop when a hash changes unexpectedly —
+but see **Known gaps** #3: in this repo's layout most of those paths do not exist,
+so it currently detects almost nothing.
 This is best-effort **detection**, not prevention — it catches a change the
 deny-hook didn't. Its baseline state lives **outside the ship tree** (default
 `~/.claude/ship/substrate_tripwire_state.json`) by design, so an agent writing

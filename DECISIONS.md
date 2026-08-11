@@ -194,9 +194,9 @@ bundles) act on what it surfaces.
 
 ## Substrate changes are pre-flight, and the maker is never the checker (2026-08)
 
-**Decision:** edits to the ship's own substrate — guards, hooks, role docs, skills, scheduler
-units — happen in a session that is **not** carrying product work, and they are reviewed by
-someone other than whoever made them.
+**Decision:** edits to the ship's own substrate — guards, hooks, **agent definitions**, role
+docs, skills, scheduler units — happen in a session that is **not** carrying product work, and
+they are reviewed by someone other than whoever made them.
 
 **Why, concretely — "substrate" is not one kind of file, and the kinds have different
 latencies.** Several take effect *never* until you do something else:
@@ -207,7 +207,8 @@ latencies.** Several take effect *never* until you do something else:
 | A hook installed **by copy** outside the repo (e.g. `modules/substrate-integrity/hooks/`, whose header says the live copy belongs at `~/.claude/hooks/`) | **Never** — until you copy it again | You edit the version-controlled source, verify nothing, and the live copy is still the old one |
 | **Agent definitions** (`core/agents/*.md`) | **Never** — the installer leaves an existing def untouched unless you pass `--refresh-agents` | You *tighten* crew permissions in a proper pre-flight pass and it takes effect in no session, while you believe crew are more restricted than they are |
 | Role docs (`core/mate.md`, `core/crew.md`) | **Next session** — read at start | The edit is invisible in the session making it and inherited whole by the next one |
-| Skills | Not reliably in the session that edits them | Don't rely on either answer: an author's own session is not a valid test of a skill edit |
+| Skills, symlink install | Not reliably in the session that edits them | Don't rely on either answer: an author's own session is not a valid test of a skill edit |
+| Skills, **copy** install (`--install-mode copy`; the default on Windows) | **Never** — re-running the installer reports "already exists (a COPY, not a symlink) — left untouched" | You edit the repo skill, re-install to be safe, and the live copy is still the old one; the installer's staleness reporter only inspects skill dirs whose names begin `ship`, so a `navigator` or `checkpoint` copy is never flagged |
 | Scheduler units (launchd/cron) | On next load, and they run **unattended** | A bad edit fails where nobody is watching |
 | Tickets, `queue.md`, notes, `DECISIONS.md` | Immediately, and harmlessly | None — these are **not** substrate; apply them mid-flight freely |
 
@@ -230,9 +231,11 @@ second pair of eyes rather than a confident author.
   Core's write guard (`core/hooks/validate-crew-write.sh`) protects `queue.md`, `captain.md`,
   and `inbox/**` — **not** the hook scripts themselves, so on a core install a crew `Edit` of
   `core/hooks/validate-crew-bash.sh` lands silently. **Before relying on any protection here,
-  read your own install's deny list and confirm the file you care about is in it** — these
-  lists are basename-matched and enumerated by hand, so "it's a guard, surely it's covered"
-  is exactly the assumption that fails. This rule is doctrine you enforce, not a mechanism
+  read your own install's deny list and confirm the file you care about is in it** — each
+  guard matches its own way (core's write guard on full paths anchored at the ship root; the
+  `substrate-integrity` hook on hand-enumerated basenames), so "it's a guard, surely it's
+  covered" is exactly the assumption that fails. Measured example, in this repo: that
+  module's list covers 6 of 14 substrate files and names 7 that don't exist. This rule is doctrine you enforce, not a mechanism
   you inherit.
 - **Not the long-lived coordination session either** — keep the heavy build out of the one
   context that is expensive to rebuild.
