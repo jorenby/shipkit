@@ -297,9 +297,11 @@ agent definitions, role docs, skills, scheduler units. Two rules:
 - Items from external processes (CI hooks, review tools, sensors, automation) + **Bosun
   delta-drops**. Naming: `{source}-{YYYY-MM-DD-HHMM}-{topic}.md` — and if the drop is for a
   seat other than the Mate, that whole name takes a `for-{seat}-` prefix:
-  `for-{seat}-{source}-{YYYY-MM-DD-HHMM}-{topic}.md`. **One convention, both forms** — a
-  producer that invents its own naming defeats the addressed-elsewhere rule two bullets down,
-  and the drop gets consumed by the wrong reader.
+  `for-{seat}-{source}-{YYYY-MM-DD-HHMM}-{topic}.md`. **The `for-{seat}-` prefix is the
+  load-bearing part** — it is what the addressed-elsewhere rule below matches on, so a
+  producer that omits it gets its drop consumed by the wrong reader. The ordering of the
+  remaining fields is a convention, not a contract (the sensors shipped here emit
+  `{date}-{source}-{topic}`, which is fine: they are Mate-addressed).
 - **Queue-change requests routed by another role/session** (new ticket, re-prioritize,
   status flip, re-summarize a line) — you are the sole writer of `queue.md`, so others
   request changes via a drop rather than writing the index directly; apply the change,
@@ -449,6 +451,10 @@ attention.
 
 **Confirm first:**
 
+- **Substrate edits — hooks, agent definitions, role docs, skills, scheduler units.** These
+  are **pre-flight work**, not "ship-internal state corrections you make inline": see
+  § Maker ≠ Checker. Noticing a too-loose guard pattern or a stale line in a role doc
+  mid-watch produces a *ticket for the next pre-flight pass*, not an edit now.
 - Anything visible to other teams (shared docs/pages where ownership isn't clear).
 - Anything hard to reverse (force-push, destructive git ops outside the ship directory,
   removing packages/deps).
