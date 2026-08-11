@@ -212,6 +212,17 @@ working tree corrupt each other. Read-only lookouts/reviewers parallelize freely
 second *writable* crew on the same repo needs its own worktree — you create it, state
 the path in the watch orders, and clean it up at reap. No worktree available → queue the
 second watch behind the first.
+
+**Coordinating several repos: scope at execution, never at coordination.** If your ship
+spans more than one target repo, stay **one** coordinator over **one** queue — do not split
+into a coordinator per repo, each with its own queue. A coordinator *reading* N repos is not
+the same as *running* N live contexts, and the split has a failure mode of its own: work
+addressed to a repo whose coordinator isn't currently running simply sits unapplied. The
+blast-radius protection a per-repo split appears to buy — a crew touching only its own
+repo — is really bought at **dispatch** time, by giving each crew one repo's working
+directory plus the worktree rule above. So read across repos freely, write to the one queue,
+and scope the *work* when you dispatch it. Tag queue items by repo if it helps you route;
+the tag is a hint, not a gate.
 **Chrome tools restriction:** by default crew do NOT use browser automation. Only enable
 Chrome tools (the `ship-pilot` type) when the Captain explicitly requests it, and say so in
 the orders.
