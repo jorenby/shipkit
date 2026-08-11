@@ -198,13 +198,16 @@ bundles) act on what it surfaces.
 units — happen in a session that is **not** carrying product work, and they are reviewed by
 someone other than whoever made them.
 
-**Why, concretely — three different latencies, and that's the whole point.** "Substrate" is
-not one kind of file:
+**Why, concretely — "substrate" is not one kind of file, and the kinds have different
+latencies.** Several take effect *never* until you do something else:
 
-| What | When your edit takes effect | Consequence of editing mid-flight |
+| What | When your edit takes effect | The trap |
 |---|---|---|
-| Hooks / guards (`core/hooks/`, a module's `hooks/`) | **Immediately**, for any agent whose definition renders that hook | You change the rules a *currently running* crew is being judged by, mid-watch |
-| Skills, role docs (`core/mate.md`, a module's skill) | **Next session** — these are read at start | The edit is invisible in the session that makes it and inherited whole by the next one, so it cannot be observed or tested by its own author |
+| Hooks rendered into an agent def (`core/hooks/validate-*`) | **Immediately**, for any agent whose definition names that hook | You change the rules a *currently running* crew is judged by, mid-watch |
+| A hook installed **by copy** outside the repo (e.g. `modules/substrate-integrity/hooks/`, whose header says the live copy belongs at `~/.claude/hooks/`) | **Never** — until you copy it again | You edit the version-controlled source, verify nothing, and the live copy is still the old one |
+| **Agent definitions** (`core/agents/*.md`) | **Never** — the installer leaves an existing def untouched unless you pass `--refresh-agents` | You *tighten* crew permissions in a proper pre-flight pass and it takes effect in no session, while you believe crew are more restricted than they are |
+| Role docs (`core/mate.md`, `core/crew.md`) | **Next session** — read at start | The edit is invisible in the session making it and inherited whole by the next one |
+| Skills | Not reliably in the session that edits them | Don't rely on either answer: an author's own session is not a valid test of a skill edit |
 | Scheduler units (launchd/cron) | On next load, and they run **unattended** | A bad edit fails where nobody is watching |
 | Tickets, `queue.md`, notes, `DECISIONS.md` | Immediately, and harmlessly | None — these are **not** substrate; apply them mid-flight freely |
 
@@ -212,9 +215,10 @@ not one kind of file:
 for the next pre-flight pass, not a now-edit. Recovery, if an edit bricks a running session:
 revert with `git` from a plain shell or a fresh session.
 
-Note the trap in row 2, since it is the one that bites: a role-doc or skill edit *looks*
-inert — nothing changes, no error — which reads as "that went fine" when in fact nothing has
-been tested at all.
+The rows that bite are the ones where the latency is **never**: the edit looks like it
+landed, nothing errors, and nothing is actually in force. An edit you cannot observe is an
+edit you have not tested — which is the whole reason this work wants a dedicated pass and a
+second pair of eyes rather than a confident author.
 
 **Rule:**
 - **Who shapes ≠ who builds ≠ who checks.** One seat shapes the change and sets the review
@@ -222,18 +226,21 @@ been tested at all.
   fresh model/session that did not write it) gates it. The load-bearing safety is
   maker ≠ **checker**, and it holds regardless of which seat is the maker. See `core/mate.md`
   § Maker ≠ Checker.
-- **Don't hand substrate to a crew subagent — but know that "the guard stops it" depends on
-  what you installed.** Core's write guard (`core/hooks/validate-crew-write.sh`) protects
-  `queue.md`, `captain.md`, and `inbox/**` — **not** the hook scripts themselves. Blocking a
-  crew from editing guards is what the optional `substrate-integrity` module adds, and it is
-  in no preset. So on a core-only install a crew `Edit` of `core/hooks/validate-crew-bash.sh`
-  lands silently. Treat this rule as doctrine you enforce, not a mechanism you inherit.
+- **Don't hand substrate to a crew subagent — and don't assume a guard is stopping them.**
+  Core's write guard (`core/hooks/validate-crew-write.sh`) protects `queue.md`, `captain.md`,
+  and `inbox/**` — **not** the hook scripts themselves, so on a core install a crew `Edit` of
+  `core/hooks/validate-crew-bash.sh` lands silently. **Before relying on any protection here,
+  read your own install's deny list and confirm the file you care about is in it** — these
+  lists are basename-matched and enumerated by hand, so "it's a guard, surely it's covered"
+  is exactly the assumption that fails. This rule is doctrine you enforce, not a mechanism
+  you inherit.
 - **Not the long-lived coordination session either** — keep the heavy build out of the one
   context that is expensive to rebuild.
 
-**Lives in:** `core/mate.md` § Maker ≠ Checker (execution + review bar), the `navigator`
-module (shaping + review ownership), `modules/substrate-integrity/` (detection — and the
-enforcement that core alone does not provide).
+**Lives in:** `core/mate.md` § Maker ≠ Checker — which states the pre-flight timing rule and
+the review bar — plus the `navigator` module (shaping + review ownership) and
+`modules/substrate-integrity/` (detection: it ships a tamper guard and a tripwire; arming
+either is a manual step, see that module's doc).
 
 ## Drops propose; promotion to Ready is a live human act (2026-08)
 

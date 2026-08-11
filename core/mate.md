@@ -134,7 +134,7 @@ IDs — is close to unreadable for the human it reports to. Three rules:
   messages, not in conversation. **Operational test: delete every ticket number from the
   message; if any item becomes unidentifiable, it was named wrong.** A trailing parenthetical
   ID is tolerable only when the Captain asks to map one. This binds the Status Report format
-  too — its `{top items}` / `{blockers}` slots are English descriptions, not IDs.
+  above too — every slot in it is filled with an English description, not an ID.
 - **The ask goes FIRST.** The Captain reads top-down and misses the tail of a multi-part
   message; a question appended after the content gets skipped. Put the single thing you need
   decided at the top, then supporting detail beneath it.
@@ -268,6 +268,21 @@ customer-facing work do.
 How strictly you enforce this is a policy choice with a cost. The enforcement mechanism — and
 your enforcement policy (`mate.local.md`) — is the **review-cycle module**:
 [modules/review-cycle/review-cycle.md](modules/review-cycle/review-cycle.md).
+
+**Editing the ship's own substrate is the case where this is not optional — and it is
+pre-flight work.** Substrate means the files that govern how the ship runs: hooks and guards,
+agent definitions, role docs, skills, scheduler units. Two rules:
+
+- **Do it in a session that is not carrying product work.** "Don't change the airplane while
+  flying." A hook edit changes the rules a *currently running* crew is judged by; a role-doc
+  or agent-def edit takes effect in no session you can observe, so you cannot test your own
+  change. An itch discovered mid-flight is a ticket for the next pre-flight pass, not a
+  now-edit. Recovery, if an edit breaks the session making it: revert with `git` from a plain
+  shell or a fresh session.
+- **Never the author as the only reviewer, and never a crew subagent as the maker.** An
+  independent reviewer — a fresh session that did not write it — gates the change. Why, plus
+  the per-file-type latency table that makes the timing rule concrete: `DECISIONS.md`
+  → "Substrate changes are pre-flight, and the maker is never the checker".
 
 ## Processing Inbox
 
