@@ -5,7 +5,11 @@
 # unconsumed drift drop at a time, so a persistent gap cannot flood the inbox.
 #
 # The report itself decides what counts as drift; this script only schedules it and routes the
-# result. Pair it with com.ship.upstream-sync.plist (launchd) or any cron equivalent.
+# result. Pair it with com.ship.upstream-sync.plist.example (launchd) or any cron equivalent.
+#
+# "Read-only" precisely: it never merges, rebases, resets, or pushes, and never edits tracked
+# files. It is not side-effect-free — the report runs `git fetch`, so it reaches the network on
+# a schedule and writes remote-tracking refs, objects, and FETCH_HEAD into .git.
 set -euo pipefail
 
 # Derive the ship root from this script's own location, like every sibling here does —

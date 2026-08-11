@@ -7,22 +7,28 @@
   never touches queue.md. A missed run (machine asleep at the scheduled time) coalesces to one
   run on next wake.
 
-  ⚠ PATHS: launchd does not expand ~ or $HOME. Replace every __HOME__ below with your absolute
-  home directory and __SHIP_ROOT__ with your ship checkout before installing.
+  ⚠ THIS IS A TEMPLATE. Copy it to com.ship.upstream-sync.plist first — `pull-upstream` syncs
+  the .example and would revert your edits otherwise — then in the copy:
+    - replace every __HOME__ with your absolute home directory (launchd expands neither ~ nor $HOME)
+    - replace __SHIP_ROOT__ with your ship checkout
+    - replace __SHIP_ID__ in the Label with something unique to THIS checkout.
+  The Label and the installed filename are the unit's identity: if two checkouts both install
+  a unit called `com.ship.upstream-sync`, the second `cp` overwrites the first's plist and the
+  first checkout's tick silently stops running after the next login.
 
   Prerequisite: mkdir -p __HOME__/.ship-sensors
 
   Install (enable):
-    cp com.ship.upstream-sync.plist ~/Library/LaunchAgents/
-    launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.ship.upstream-sync.plist
+    cp com.ship.upstream-sync.<your-id>.plist ~/Library/LaunchAgents/
+    launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.ship.upstream-sync.<your-id>.plist
   Disable:
-    launchctl bootout gui/$(id -u)/com.ship.upstream-sync
+    launchctl bootout gui/$(id -u)/com.ship.upstream-sync.<your-id>
   Idempotent: safe to bootout then re-bootstrap after editing this file.
 -->
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.ship.upstream-sync</string>
+    <string>com.ship.upstream-sync.__SHIP_ID__</string>
 
     <key>ProgramArguments</key>
     <array>
