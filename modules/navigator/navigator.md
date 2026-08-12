@@ -24,8 +24,11 @@ These are the whole point of the seat. A Navigator that crosses them is just a s
 - **It never writes `queue.md`.** The Mate is the sole writer. Every queue change the
   Navigator decides on — new ticket, re-prioritize, status flip, re-summarized line —
   leaves as a **drop** in `inbox/drops/` and is applied by the Mate. Two sessions writing
-  the index is the corruption this prevents; one writer is the reason it can't happen.
-- **A drop proposes; it cannot promote into Ready.** Filing to Backlog, re-summarizing, and
+  the index is the corruption this prevents. Note this is a **convention the seat keeps,
+  not a mechanism** — this module ships no hook, and core's write guards bind crew, not a
+  Navigator session. If you'd want it enforced rather than observed, that's a hook worth
+  adding.
+- **A drop proposes; it must not promote into Ready.** Filing to Backlog, re-summarizing, and
   re-ordering within Backlog are fine. Moving a ticket into Ready is agenda-setting, and on
   an install that dispatches from Ready it is the last point a human sees the work — so it
   takes a live human pass, never a drop. A drop asking for Ready is a recommendation the
