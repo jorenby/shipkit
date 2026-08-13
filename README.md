@@ -2,6 +2,8 @@
 
 Ship is a system for coordinating multiple Claude Code agent sessions around your engineering work. It structures handoffs between fresh sessions so context rot doesn't eat your progress.
 
+**New here?** Read the [Glossary](GLOSSARY.md) for Ship's vocabulary, browse [`examples/`](examples/) to see a fully worked (synthetic) ship, and keep [QUICKSTART.md](QUICKSTART.md) handy for prerequisites and troubleshooting. The step-by-step setup is under [Getting started](#getting-started) below.
+
 ## How it works
 
 You're the **Captain**. You set priorities, make decisions, and steer. Claude Code acts as your **First Mate** — it manages a work queue, dispatches background agents (**Crew**) for bounded tasks, and keeps you informed. Crew sessions write structured logs when they finish, so the next session can pick up cleanly without assuming any context persists.
