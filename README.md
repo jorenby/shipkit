@@ -213,3 +213,15 @@ The crew bash allow-list (`core/hooks/validate-crew-bash.sh`) is synced from ups
 ### Upgrading an existing / older install
 
 For standing a **new machine** up, a **tier bump**, or **upgrading an older (pre-v2) install** with operator divergence, follow [`UPGRADING.md`](UPGRADING.md) — the runnable-verbatim runbook a foreign Ship instance's Mate uses: clone/fetch, `/shipkit-setup`, the reason-about-divergence conversation, the post-install verification checklist, rollback, and the platform assumptions (macOS / Linux / Windows-with-Git-Bash).
+
+## Credits
+
+Ship is built on [Will Strinz's shipkit](https://github.com/wstrinz/shipkit) — that's
+upstream, it's the source of truth, and it's what you should clone. This repository is a
+personal working copy: same lineage (shared root commit `a5a256b`), carrying local
+enhancements that haven't gone upstream yet or never will, plus the newcomer docs.
+GitHub shows no "forked from" banner because this repo was published with `gh repo create`
+rather than `gh repo fork` — the shared history is real, only the fork pointer is missing.
+
+Improvements that generalize go back upstream. Bug reports and PRs about framework
+behavior belong on [wstrinz/shipkit](https://github.com/wstrinz/shipkit).
