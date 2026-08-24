@@ -1,5 +1,6 @@
 # Ship: Bounded-Context Orchestration for Claude Code
-
+> _This is a personal working copy of [Will Strinz's shipkit](https://github.com/wstrinz/shipkit) — upstream is the source of truth, and it's what you should clone. This repo carries local enhancements not yet upstreamed, plus newcomer docs. Improvements that generalize go back to Will._
+  
 Ship is a system for coordinating multiple Claude Code agent sessions around your engineering work. It structures handoffs between fresh sessions so context rot doesn't eat your progress.
 
 **New here?** Read the [Glossary](GLOSSARY.md) for Ship's vocabulary, browse [`examples/`](examples/) to see a fully worked (synthetic) ship, and keep [QUICKSTART.md](QUICKSTART.md) handy for prerequisites and troubleshooting. The step-by-step setup is under [Getting started](#getting-started) below.
