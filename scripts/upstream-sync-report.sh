@@ -35,11 +35,26 @@ UPSTREAM_REF="$REMOTE/$UPSTREAM_BRANCH"
 # Metric 1: commits-behind-upstream (upstream commits we haven't merged up).
 BEHIND=$(git log --oneline "$LOCAL_BRANCH..$UPSTREAM_REF" | wc -l | tr -d ' ')
 
-# Metric 2: outstanding contribute-back candidates — unchecked "- [ ]" lines in the candidates file.
-if [ -f "$CANDIDATES_FILE" ]; then
-  CANDIDATES=$(grep -c '^- \[ \]' "$CANDIDATES_FILE" || true)
-else
-  CANDIDATES=0
+# Metric 2: ahead-of-upstream commits not yet sent, derived from the repo.
+# Pool = commits ahead of upstream. A commit LEAVES the count when its short SHA is
+# recorded in the ledger as either sent ("- [x]") or local-only/won't-send ("- [~]"),
+# matched with word boundaries so a longer hex token cannot false-match. So the count
+# is "ahead of upstream, not yet sent and not marked local-only" — a real, convergeable
+# signal (intentional divergence can be excused with "- [~]"), NOT the old hollow TODO
+# count that read 0 on top of real work. It is a candidate POOL, not a vetted list — the
+# human curates which are worth a PR, which is why the label is not "candidates".
+AHEAD_SHAS=$(git log --format='%h' "$UPSTREAM_REF..$LOCAL_BRANCH")
+CANDIDATES=0
+OUTSTANDING=""
+if [ -n "$AHEAD_SHAS" ]; then
+  while IFS= read -r sha; do
+    [ -z "$sha" ] && continue
+    if [ -f "$CANDIDATES_FILE" ] && grep -qE "^- \[[x~]\].*\b$sha\b" "$CANDIDATES_FILE"; then
+      continue  # recorded as sent (- [x]) or local-only/won't-send (- [~])
+    fi
+    CANDIDATES=$((CANDIDATES + 1))
+    OUTSTANDING="$OUTSTANDING $sha"
+  done <<< "$AHEAD_SHAS"
 fi
 
 # Metric 3: overlay-% of tree, measured as files-changed-% (simplest; not line-level diff).
@@ -54,11 +69,19 @@ fi
 echo ""
 echo "Upstream sync report ($UPSTREAM_REF vs local $LOCAL_BRANCH)"
 echo "  commits-behind-upstream:              $BEHIND"
-echo "  contribute-back candidates outstanding: $CANDIDATES"
+echo "  ahead-of-upstream, unsent (pool):     $CANDIDATES"
 echo "  overlay-% of tree:                    $CHANGED_FILES/$TOTAL_FILES files differ ($OVERLAY_PCT%)"
 echo ""
+# Only upstream drift (behind > 0) triggers the weekly auto-drop — the tick keys on
+# a leading "Review:". The contribute-back backlog is a slow-draining pool curated
+# one PR at a time, so it is reported honestly every run but does not nag as a drop.
+if [ "$BEHIND" -gt 0 ]; then
+  echo "Review: pull small clean upstream changes in an isolated worktree."
+fi
+if [ "$CANDIDATES" -gt 0 ]; then
+  echo "Backlog: $CANDIDATES commit(s) ahead of upstream, unsent — curate the general ones into a PR, or excuse local-only ones with a '- [~] <desc> <sha>' line in $CANDIDATES_FILE."
+  echo "  outstanding:$OUTSTANDING"
+fi
 if [ "$BEHIND" -eq 0 ] && [ "$CANDIDATES" -eq 0 ]; then
   echo "Nothing to do this week."
-else
-  echo "Review: pull small clean upstream changes in an isolated worktree; bundle candidates into a PR when the list is worth sending."
 fi
