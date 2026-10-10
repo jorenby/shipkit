@@ -1,0 +1,14 @@
+{
+  "name": "pr-tools",
+  "tier": "optional",
+  "description": "Opt-in PR helper skills: git-town-stack (stacked PRs via git-town) and pr-sync (reconcile a PR's title and body with its branch, one confirm-gated gh pr edit). Install with --modules pr-tools.",
+  "doc": "pr-tools.md",
+  "agents": [],
+  "hooks": [],
+  "skills": ["skills/git-town-stack", "skills/pr-sync"],
+  "scripts": [],
+  "lib": [],
+  "templates": [],
+  "tests": [],
+  "requires": ["core"]
+}
