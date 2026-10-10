@@ -1,0 +1,14 @@
+{
+  "name": "memory-index",
+  "tier": "optional",
+  "description": "Opt-in PreToolUse[Write|Edit|MultiEdit] guard that denies a write pushing an auto-memory index (MEMORY.md) past its per-line or whole-file load budget. Fails open. Registering it in ~/.claude/settings.json is a manual step (see memory-index.md).",
+  "doc": "memory-index.md",
+  "agents": [],
+  "hooks": ["hooks/validate-memory-index.sh", "hooks/validate-memory-index.py"],
+  "skills": [],
+  "scripts": [],
+  "lib": [],
+  "templates": [],
+  "tests": ["tests/test_validate_memory_index.py"],
+  "requires": ["core"]
+}
