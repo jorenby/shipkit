@@ -1,0 +1,14 @@
+{
+  "name": "ship-tools",
+  "tier": "optional",
+  "description": "Opt-in Mate-side helpers: the /drops skill (flush Mate-addressed drops into queue.md and tickets, then commit the slice), initiative-index.py (read-only per-Epic progress report) and seed-conformance-check.py (read-only structure diff of control docs against core/templates/, reported as one batch drop).",
+  "doc": "ship-tools.md",
+  "agents": [],
+  "hooks": [],
+  "skills": ["skills/drops"],
+  "scripts": ["scripts/initiative-index.py", "scripts/seed-conformance-check.py"],
+  "lib": [],
+  "templates": [],
+  "tests": ["tests/test_ship_tools.py"],
+  "requires": ["core"]
+}
