@@ -1,0 +1,14 @@
+{
+  "name": "session-ux",
+  "tier": "optional",
+  "description": "Opt-in conveniences for the human-facing seats: a status line with model, context gauge, pending drops and ship role; a SessionStart[clear] hook that restores the Mate/Navigator role after /clear; a role-aware macOS notification hook. Installing makes the hooks executable; registering them in ~/.claude/settings.json is a manual step (see session-ux.md).",
+  "doc": "session-ux.md",
+  "agents": [],
+  "hooks": ["hooks/role-restore.sh", "hooks/claude-notify.sh"],
+  "skills": [],
+  "scripts": ["scripts/statusline.sh", "scripts/ship-role.sh"],
+  "lib": [],
+  "templates": ["templates/settings-hooks.example.json"],
+  "tests": [],
+  "requires": ["core"]
+}

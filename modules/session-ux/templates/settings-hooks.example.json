@@ -1,0 +1,25 @@
+{
+  "$comment": "Merge into ~/.claude/settings.json. Replace __SHIP_ROOT__ with the absolute path of this checkout.",
+  "statusLine": {
+    "type": "command",
+    "command": "sh __SHIP_ROOT__/modules/session-ux/scripts/statusline.sh"
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "clear",
+        "hooks": [
+          { "type": "command", "command": "__SHIP_ROOT__/modules/session-ux/hooks/role-restore.sh" }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "matcher": "permission_prompt|idle_prompt|agent_needs_input",
+        "hooks": [
+          { "type": "command", "command": "__SHIP_ROOT__/modules/session-ux/hooks/claude-notify.sh", "timeout": 5 }
+        ]
+      }
+    ]
+  }
+}
