@@ -107,6 +107,21 @@ Driving without the tour? The manual boot line is:
 The Mate reads ship state, reports status, and asks for steering; drop work into
 `inbox/captain.md` and it triages into tickets, dispatches crew, and reports back.
 
+### This fork's additions
+
+This working copy carries opt-in modules upstream doesn't have (listed in
+[modules/README.md](modules/README.md), marked *this fork*) plus skill evals in
+[`evals/`](evals/). To install the core tier with them, use the `personal` preset:
+
+```
+python3 shipkit_init.py --preset personal --ship-root .
+```
+
+Settings-level hooks (prod guard, memory-index guard, status line, role restore,
+notifications) are not registered by the installer; each module doc has the
+`~/.claude/settings.json` snippet. `deploy-freeze-feed` stays opt-in
+(`--modules deploy-freeze-feed`), since it needs a signal source before it does anything useful.
+
 ### Upgrading an existing install?
 
 Tier bumps and older (pre-v2) installs go through `/shipkit-setup` too — the upgrade judgment

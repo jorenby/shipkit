@@ -21,10 +21,26 @@
       "dispatch-bands",
       "sensors",
       "night-economy"
+    ],
+    "personal": [
+      "core",
+      "session-ceremony",
+      "subagent-roster",
+      "pull-requests",
+      "review-cycle",
+      "compound",
+      "navigator",
+      "deploy",
+      "substrate-integrity",
+      "session-ux",
+      "memory-index",
+      "pr-tools",
+      "ship-tools"
     ]
   },
   "blurbs": {
     "core": "TIER 1 \u2014 plain request/response Mate: core/mate.md + worker agents + crew-safety hooks + the tier-1 depth modules (session-ceremony, subagent-roster, pull-requests, review-cycle) + the compound learning loop. No loop, no Bosun, no UI.",
-    "autonomous": "TIER 2 \u2014 adds the bg-Mate/Bosun heartbeat kernel (2 role agents, bosun.md, event-driven + bosun-loop doctrine, hooks, mate-lock, bosun_emit, launchers, wake-monitor)."
+    "autonomous": "TIER 2 \u2014 adds the bg-Mate/Bosun heartbeat kernel (2 role agents, bosun.md, event-driven + bosun-loop doctrine, hooks, mate-lock, bosun_emit, launchers, wake-monitor).",
+    "personal": "This fork's working set — the core tier plus the Navigator seat, the deploy and substrate guards, and the fork's own modules (session-ux, memory-index, pr-tools, ship-tools). Settings-level hooks still need registering by hand; see each module doc. deploy-freeze-feed stays opt-in (--modules)."
   }
 }
