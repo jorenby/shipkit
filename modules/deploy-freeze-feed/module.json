@@ -1,0 +1,14 @@
+{
+  "name": "deploy-freeze-feed",
+  "tier": "optional",
+  "description": "Opt-in out-of-session sensor: turns an unattended critical deploy alert (read from a signal snapshot file you produce) into one classified candidate drop per open incident, wake on first sight and batch on re-observation. Install with --modules deploy-freeze-feed.",
+  "doc": "deploy-freeze-feed.md",
+  "agents": [],
+  "hooks": [],
+  "skills": [],
+  "scripts": ["deploy_freeze_feed.py"],
+  "lib": ["classify_input.py"],
+  "templates": [],
+  "tests": ["tests/test_deploy_freeze_feed.py"],
+  "requires": ["core"]
+}
