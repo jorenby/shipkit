@@ -24,8 +24,9 @@ ignore it; installed-but-unconfigured has no effect.
 ## The cadence
 
 - **Each day opens on a FRESH rotation** — a new bg-Mate, fresh context, your configured
-  day model. Mechanics: `modules/autonomous/scripts/ship-up.sh --rotate-mate` (set
-  `SHIP_MATE_MODEL` to pick the model). The morning boot writes the day's standup.
+  day model. Procedure: the `ship-watch-rotate` skill; mechanics underneath it:
+  `modules/autonomous/scripts/ship-up.sh --rotate-mate` (set `SHIP_MATE_MODEL` to pick the
+  model). The morning boot writes the day's standup.
 - **Overnight / operator-away: rotate DOWN to an economy Mate** — a cheaper model running
   the night posture below. Economy at night holds **even during a capacity-abundance
   window**: quiet coverage doesn't need the big model, and the spend is better banked

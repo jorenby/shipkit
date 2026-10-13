@@ -147,9 +147,9 @@ class TestWakeMonitor(unittest.TestCase):
         _sd, _sl, emitted2 = self._poll(sd2, sl2)
         self.assertEqual(emitted2, [], emitted2)
 
-    # --- hardening (037/038) ---------------------------------------------
+    # --- state-safety hardening ------------------------------------------
     def test_captain_identical_readd_rewakes(self):
-        # 038 snapshot semantics: a line removed then re-added identically must
+        # Snapshot semantics: a line removed then re-added identically must
         # wake again (no grow-only accumulator suppression).
         self._captain("# Inbox\nplease look at the deploy\n")
         sd, sl, emitted = self._poll(set(), set())
@@ -162,7 +162,7 @@ class TestWakeMonitor(unittest.TestCase):
         self.assertEqual(len(emitted3), 1, emitted3)
 
     def test_corrupt_state_fails_loud(self):
-        # 038: a torn/corrupt state file must raise, never silently re-baseline
+        # A torn/corrupt state file must raise, never silently re-baseline
         # (which would swallow every pending wake).
         state_path = self.root / "state" / ".wake_monitor_state.json"
         state_path.parent.mkdir(parents=True, exist_ok=True)
@@ -177,7 +177,7 @@ class TestWakeMonitor(unittest.TestCase):
         self.assertIsNone(sl)
 
     def test_atomic_state_write_leaves_no_tmp(self):
-        # 038: tmp + os.replace leaves no partial .tmp behind and round-trips.
+        # tmp + os.replace leaves no partial .tmp behind and round-trips.
         self.wm._save_state({"a.md"}, {"deadbeef"})
         state_dir = self.root / "state"
         leftovers = list(state_dir.glob("*.tmp"))

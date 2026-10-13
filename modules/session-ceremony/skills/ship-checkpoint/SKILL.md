@@ -1,5 +1,5 @@
 ---
-name: checkpoint
+name: ship-checkpoint
 description: Save anything worth preserving from this session before context is cleared — memories, plans, ship-role artifacts (tickets/queue/watch logs), and open loose ends. Use right before /clear or at the end of a long session.
 disable-model-invocation: true
 argument-hint: [optional focus note]
@@ -8,7 +8,7 @@ argument-hint: [optional focus note]
 # Checkpoint — Save Before Clear
 
 > **Action vs. file — know the difference.**
-> The `/checkpoint` *action* is the point: find durable homes for everything worth keeping — memory, plans, ship artifacts. That's steps 1–3 below, and that's where value lives.
+> The `/ship-checkpoint` *action* is the point: find durable homes for everything worth keeping — memory, plans, ship artifacts. That's steps 1–3 below, and that's where value lives.
 > The leftover `checkpoint-*.md` *file* is step 4: a thin, disposable ferry for residual loose ends — pointers and a backstop only. It is never durable history and must never be the sole record of any state. See "Hard invariant" under Loose ends.
 
 The Captain is about to `/clear` (or otherwise discard this session's context). Survey the conversation, decide what's worth keeping, and write it to durable storage. Make judgment calls — don't make the Captain enumerate everything.
@@ -59,6 +59,8 @@ If the session has open questions, half-finished decisions, or context that woul
 ```
 inbox/checkpoint-$(date +%Y-%m-%d-%H%M).md
 ```
+
+**Crew seats:** you are hook-blocked from writing under `inbox/` (`core/hooks/validate-crew-write.sh`). Put residual loose ends in your watch log under `logs/` instead — the Mate reads logs, so nothing is lost.
 
 Keep it under 30 lines. Start the file with this line so its status is unambiguous:
 
@@ -113,4 +115,4 @@ Skip this entirely if the session was clean (everything decided/landed/saved els
 
 - Session was purely exploratory and nothing was decided → reply "nothing worth saving" and stop.
 - Captain explicitly said "no memory" or "don't save this" earlier → respect it.
-- Already mid-checkpoint from a prior `/checkpoint` invocation → don't re-do it; report the prior save.
+- Already mid-checkpoint from a prior `/ship-checkpoint` invocation → don't re-do it; report the prior save.

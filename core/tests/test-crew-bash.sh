@@ -67,6 +67,25 @@ check BLOCK 'git rebase main'
 check BLOCK 'git cherry-pick abc123'
 check BLOCK 'git clean -fd'
 
+echo "=== Git branch/tag destructive + remote mutations (BLOCK — read-words with a write form) ==="
+check BLOCK 'git branch -D feature'
+check BLOCK 'git branch -d feature'
+check BLOCK 'git branch -m old new'
+check BLOCK 'git branch -f main HEAD~1'
+check BLOCK 'git tag -d v1.0'
+check BLOCK 'git remote add upstream https://example/x.git'
+check BLOCK 'git remote set-url origin https://example/x.git'
+check BLOCK 'git remote remove origin'
+check BLOCK 'git -C /path/to/repo branch -D feature'
+check BLOCK 'git -C ../other remote add evil https://example/x.git'
+# The read/list forms of the same subcommands stay ALLOWED:
+check ALLOW 'git branch'
+check ALLOW 'git branch -l'
+check ALLOW 'git branch --list'
+check ALLOW 'git remote'
+check ALLOW 'git remote -v'
+check ALLOW 'git tag -l'
+
 echo "=== Dev tools (ALLOW) ==="
 check ALLOW 'npm test'
 check ALLOW 'npm run build'
@@ -789,6 +808,36 @@ check_cwd BLOCK "$HOOKDIR" 'mv * /tmp/'              # bare wildcard writer from
 check_cwd ALLOW "$HOOKDIR" 'cat foo.sh'              # reader from inside guard dir -> armed but allowed
 check_cwd ALLOW "$HOME/code/myrepo" 'rm build/*.o'    # normal repo cwd -> NOT armed
 check_cwd ALLOW "$HOOKDIR-other" 'rm *.sh'          # sibling cwd sharing the prefix -> NOT contained, NOT armed
+
+echo "=== W5: mid-token backslashes collapse before scanning ==="
+# bash collapses `\m` -> `m` at exec time, so `gh pr \merge` RUNS as `gh pr merge`.
+# On this default-DENY hook the allow-list already blocked it, so the exit code
+# alone can't detect the miss — assert the DENY REASON fires, not the generic
+# "not on allow-list" fallback. (Real bypass on the default-ALLOW Mate hook.)
+check_reason() {
+  local want_re="$1" cmd="$2" json err
+  json=$(jq -n --arg cmd "$cmd" '{"tool_input":{"command":$cmd}}')
+  err=$(echo "$json" | bash "$HOOK" 2>&1 >/dev/null) || true
+  if printf '%s' "$err" | grep -qE "$want_re"; then
+    PASS=$((PASS + 1))
+  else
+    printf "  FAIL: expected reason /%s/ got %-5s  %s\n" "$want_re" "$err" "$cmd"
+    FAIL=$((FAIL + 1))
+  fi
+}
+check_reason 'cannot modify PRs or issues' 'gh pr \merge 5'
+check_reason 'cannot modify PRs or issues' 'gh pr c\omment 5 --body hi'
+check_reason 'cannot modify PRs or issues' 'gh issue cr\eate --title x'
+check BLOCK 'gh pr \merge 5'
+check BLOCK 'git push origin ma\in'
+# Backslashes that are genuinely data/escapes must not start blocking.
+# Upstream asserts ALLOW here; this kit denies `find -exec` outright (deliberate ship-hardened
+# deny, see the "find -exec/-delete denied" block above), so the same command BLOCKs — on the
+# -exec deny, not on the backslash. The three cases below carry the backslash-as-data check.
+check BLOCK 'find . -name "*.md" -exec grep -l x {} \;'
+check ALLOW 'printf "a\nb"'
+check ALLOW 'echo "path\to\file"'
+check ALLOW 'grep -rn "\bmain\b" src/'
 
 echo ""
 echo "---"

@@ -342,8 +342,11 @@ Confirm each before trusting the install:
       Any hit = re-render: `rm ~/.claude/agents/ship-*.md && python3 shipkit_init.py ... ` (the
       installer leaves existing defs untouched, so you must remove the stale one to refresh it).
 - [ ] **Skills installed.** `ls ~/.claude/skills/` shows the tier's skills (`ship-compound`
-      always; `ship-watch-start` + `bosun-tick` on autonomous). For an upgrade, confirm the
-      old **`ship-tick` orphan is GONE** and any copied boot skill was refreshed to a symlink.
+      always; `ship-watch-start` + `ship-watch-rotate` + `bosun-tick` on autonomous). For an
+      upgrade, confirm the old **`ship-tick` orphan is GONE** and any copied boot skill was
+      refreshed to a symlink. `ship-watch-rotate` is **new** — an upgrade from a pre-rotation
+      install adds it (and `modules/autonomous/scripts/rotation_prep.py`) with no migration
+      needed; nothing consumes it until you actually rotate a watch.
 - [ ] **State seeded.** `python3 -c "import json;print(json.load(open('state/status.json'))['tick'])"`
       prints `0` on a fresh seed (or your existing tick on an upgrade — it's a no-op if already
       seeded).

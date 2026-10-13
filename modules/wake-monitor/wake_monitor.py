@@ -99,7 +99,7 @@ def _save_state(seen_drops, seen_lines):
     # torn state file (which _load_state would then fail loud on).
     STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
     payload = json.dumps({"drops": sorted(seen_drops), "captain_lines": sorted(seen_lines)})
-    tmp = STATE_PATH.with_name(STATE_PATH.name + ".tmp")
+    tmp = STATE_PATH.with_name(f"{STATE_PATH.name}.{os.getpid()}.tmp")
     tmp.write_text(payload, encoding="utf-8")
     os.replace(str(tmp), str(STATE_PATH))
 

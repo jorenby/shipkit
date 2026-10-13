@@ -40,10 +40,7 @@ stay present for steering.
 **You read but don't own:**
 - `captain.md` — the Captain's priorities guide your decisions
 - `inbox/captain.md` — the Captain's inbox (tasks, ideas, thoughts to process)
-- `inbox/drops/` — items from external processes (hooks, automation, sensors, the **Bosun**), and
-  queue-change requests from the **Navigator** if the [navigator](../modules/navigator/navigator.md)
-  module is installed — that seat advises and shapes but never writes the queue, so its
-  judgment reaches the queue through you
+- `inbox/drops/` — items from external processes (hooks, automation, sensors, other persistent crew)
 - `logs/` — crew output; use it for status updates
 - Tickets — crew update "Current state"; you update "Status"
 

@@ -168,10 +168,19 @@ ship_seg_transparent() {
   return 1
 }
 
-# Strip quote CHARACTERS (not content) — deny-side only. Removing quote chars can
-# only ADD deny matches, never hide an invocation.
+# Strip quote CHARACTERS and BACKSLASHES (not content) — deny-side only. Removing
+# either can only ADD deny matches, never hide an invocation — with ONE exception:
+# a NEGATED condition inverts that. validate-mate-bash.sh's `gh pr create` gate
+# requires --draft to be PRESENT, so `gh pr create --title x \--draft` now matches
+# (correctly — bash runs it as --draft) where it previously did not, turning a block
+# into an allow. Semantically right, but the invariant above is not absolute.
+# BACKSLASHES ARE LOAD-BEARING HERE (reported from a v2 fork, 2026-08): bash collapses
+# `\m` to `m` at exec time, so `gh pr \merge` RUNS as `gh pr merge` while an anchored
+# scan of the literal text matches nothing. The scan must see what bash will execute.
+# On this hook that was a REAL BYPASS, not a message nit: the Mate is default-ALLOW
+# with no allow-list underneath, so an unmatched deny pattern means the op executes.
 ship_strip_quote_chars() {
-  printf '%s\n' "$1" | tr -d "'\""
+  printf '%s\n' "$1" | tr -d "'\"" | tr -d '\\'
 }
 # ========================================================== end SHIP-MATCH-LIB
 

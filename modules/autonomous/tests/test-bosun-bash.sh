@@ -193,6 +193,30 @@ echo "=== W2 N3: zero-segment commands fail CLOSED (BLOCK) ==="
 check 2 ship-bosun ';'
 check 2 ship-bosun ' ; ; '
 
+echo "=== W5: mid-token backslashes collapse before scanning ==="
+# bash collapses `\m` -> `m` at exec time, so `gh pr \merge` RUNS as `gh pr merge`.
+# On this default-DENY hook the allow-list already blocked it, so the exit code
+# alone can't detect the miss — assert the DENY REASON fires, not the generic
+# "not on allow-list" fallback. (Real bypass on the default-ALLOW Mate hook.)
+check_reason() {
+  local want_re="$1" agent="$2" cmd="$3" json err
+  json=$(jq -n --arg a "$agent" --arg c "$cmd" '{agent_type:$a, tool_input:{command:$c}}')
+  err=$(echo "$json" | bash "$HOOK" 2>&1 >/dev/null) || true
+  if printf '%s' "$err" | grep -qE "$want_re"; then
+    PASS=$((PASS+1))
+  else
+    FAIL=$((FAIL+1)); echo "  FAIL reason=/$want_re/ got=[$err] [$agent] $cmd"
+  fi
+}
+check_reason 'cannot modify PRs or issues' ship-bosun 'gh pr \merge 5'
+check_reason 'cannot modify PRs or issues' ship-bosun 'gh pr c\omment 5 --body hi'
+check_reason 'cannot modify PRs or issues' ship-bosun 'gh issue cr\eate --title x'
+check 2 ship-bosun 'gh pr \merge 5'
+check 2 ship-bosun 'git push origin ma\in'
+# Backslashes that are genuinely data/escapes must not start blocking.
+check 0 ship-bosun 'printf "a\nb"'
+check 0 ship-bosun 'echo "path\to\file"'
+
 echo "=== Non-Bosun agents pass through (ALLOW) ==="
 check 0 ship-mate 'git commit -m x'
 check 0 ''        'rm somefile'

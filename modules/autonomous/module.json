@@ -5,10 +5,10 @@
   "role_docs": ["bosun.md", "mate-event-driven.md", "bosun-loop.md"],
   "agents": ["agents/ship-mate.md", "agents/ship-bosun.md"],
   "hooks": ["hooks/validate-mate-bash.sh", "hooks/validate-mate-mcp.sh", "hooks/validate-bosun-bash.sh"],
-  "skills": ["skills/ship-watch-start", "skills/bosun-tick"],
-  "scripts": ["scripts/bosun_emit.py", "scripts/launch-bosun.sh", "scripts/ship-up.sh", "scripts/mate-lock.py"],
+  "skills": ["skills/ship-watch-start", "skills/ship-watch-rotate", "skills/bosun-tick"],
+  "scripts": ["scripts/bosun_emit.py", "scripts/launch-bosun.sh", "scripts/ship-up.sh", "scripts/mate-lock.py", "scripts/rotation_prep.py"],
   "lib": ["status_writer.py"],
   "templates": ["templates/bosun-allow-local.sh"],
-  "tests": ["tests/test_bosun_emit.py", "tests/test_mate_lock.py", "tests/test-mate-bash.sh", "tests/test-bosun-bash.sh", "tests/test-launch-bosun.sh"],
+  "tests": ["tests/test_bosun_emit.py", "tests/test_mate_lock.py", "tests/test_rotation_prep.py", "tests/test-mate-bash.sh", "tests/test-bosun-bash.sh", "tests/test-launch-bosun.sh"],
   "requires": ["core"]
 }

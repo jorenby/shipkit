@@ -64,9 +64,16 @@ in this session). A prior bg-Mate's lock is usually STALE (an event-driven Mate 
 the heartbeat) → a plain `acquire` auto-takes-over.
 
 Rotation (a REPLACEMENT Mate on a fresh context) is the session-lifecycle primitive:
-`ship-up.sh --rotate-mate`. The day/night cadence built on it — fresh daily rotation,
-economy-model overnight Mate, self-escalation license — is the
-[night-economy module](../night-economy/night-economy.md).
+`ship-up.sh --rotate-mate`. The **procedure** the outgoing Mate runs is the
+`ship-watch-rotate` skill (detect → prep the handoff → rotate → verify the successor took
+the deck) — the same core/procedure split as this doc vs `ship-watch-start`. The day/night
+cadence built on it — fresh daily rotation, economy-model overnight Mate, self-escalation
+license — is the [night-economy module](../night-economy/night-economy.md).
+
+**A rotation is not complete when `--rotate-mate` returns.** It releases the outgoing lock
+~8s after launching, without verifying the successor came up — so the verify phase (a FRESH
+lock held by the new id, the Bosun still ticking) is part of the primitive, not optional
+diligence.
 
 ## Post-compaction continuation
 

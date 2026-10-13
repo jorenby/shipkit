@@ -8,6 +8,7 @@ event-driven Mate's prior session didn't beat the heartbeat before rotating.
 
 Lock file: state/mate-lock.json  {session_id, acquired_at, heartbeat_at}
 Atomic writes: tmp file + os.replace (atomic on the same filesystem).
+Atomic ACQUIRE of a free lock: O_CREAT|O_EXCL (the kernel picks the winner).
 
 Subcommands:
   acquire   SESSION_ID            take the lock; fails if held fresh by another.
@@ -30,6 +31,7 @@ Env overrides (for testing):
 import json
 import os
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -59,6 +61,42 @@ def write_lock(data):
     tmp = LOCK_FILE.with_suffix(f".json.tmp.{os.getpid()}")
     tmp.write_text(json.dumps(data), encoding="utf-8")
     os.replace(tmp, LOCK_FILE)
+
+
+def create_lock_exclusive(data):
+    """Create the lock file ONLY if it does not already exist. True = we created it.
+
+    O_CREAT|O_EXCL is the load-bearing part: `read_lock() is None` followed by
+    `write_lock()` is check-then-act, so two sessions can both read "free" and both
+    write, and the second silently steals the first's lock. Only an exclusive create
+    lets the kernel pick a single winner.
+    (TOCTOU reported from a shipkit v2 fork, 2026-08.)
+    """
+    LOCK_FILE.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        fd = os.open(LOCK_FILE, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o644)
+    except FileExistsError:
+        return False
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(json.dumps(data))
+    except Exception:
+        delete_lock()  # never leave a zero-byte file that no reader can parse
+        raise
+    return True
+
+
+def read_lock_settled(attempts=3, delay=0.05):
+    """read_lock() with a short retry. A lock file that exists but won't parse is far
+    more often a torn read of a lock being created RIGHT NOW than a corrupt one, so
+    retry before concluding it is garbage and reclaiming it."""
+    for i in range(attempts):
+        lock = read_lock()
+        if lock is not None:
+            return lock
+        if i + 1 < attempts:
+            time.sleep(delay)
+    return None
 
 
 def delete_lock():
@@ -97,9 +135,20 @@ def cmd_acquire(session_id):
     lock = read_lock()
 
     if lock is None:
-        write_lock({"session_id": session_id, "acquired_at": now_iso(), "heartbeat_at": now_iso()})
-        print(f"ACQUIRED {session_id}")
-        return 0
+        entry = {"session_id": session_id, "acquired_at": now_iso(), "heartbeat_at": now_iso()}
+        if create_lock_exclusive(entry):
+            print(f"ACQUIRED {session_id}")
+            return 0
+        # The exclusive create lost: either a competitor won the same free-lock
+        # window, or a stale/half-written file is sitting there. Re-read and fall
+        # through to the re-entrant / stale / held-fresh paths with real state.
+        lock = read_lock_settled()
+        if lock is None:
+            # Still unparseable after retries => genuinely corrupt. Reclaim it,
+            # which is what read_lock()-returns-None did before this change.
+            write_lock(entry)
+            print(f"ACQUIRED {session_id}")
+            return 0
 
     if lock.get("session_id") == session_id:
         lock["heartbeat_at"] = now_iso()
@@ -111,6 +160,24 @@ def cmd_acquire(session_id):
         old_id = lock.get("session_id")
         hb = lock.get("heartbeat_at") or lock.get("acquired_at")
         write_lock({"session_id": session_id, "acquired_at": now_iso(), "heartbeat_at": now_iso()})
+        # Re-read-confirm. NARROWS this race; does NOT close it. Takeover is
+        # unavoidably read-decide-write (there is no atomic compare-and-swap on a
+        # filename), so two sessions can call the same lock stale in the same
+        # instant; os.replace makes the LAST writer the real holder.
+        #
+        # The confirm only fires when a competitor's write lands INSIDE our
+        # write->read window. Surviving interleaving: A writes, A confirms A, A
+        # returns 0 and starts working; THEN B writes, B confirms B, B returns 0.
+        # Two winners; the file names B; A is a ghost holder. A self-detects on its
+        # next heartbeat (exit 1) and cannot clobber B on release — but it may have
+        # acted in between. Closing this properly needs a mutex held across the whole
+        # read-decide-write (e.g. an os.mkdir sidecar, atomic on every platform).
+        confirmed = read_lock()
+        if confirmed is None or confirmed.get("session_id") != session_id:
+            winner = confirmed.get("session_id") if confirmed else "another session"
+            sys.stderr.write(f"LOST TAKEOVER RACE — {winner} claimed the stale lock first\n")
+            sys.stderr.write(f"Cannot acquire as {session_id}.\n")
+            return 1
         print(f"TAKEOVER — prior session {old_id} last heartbeat {age_string(hb)} ago (>{STALE_MINUTES}m stale)")
         print(f"ACQUIRED {session_id}")
         return 0

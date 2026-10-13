@@ -4,7 +4,7 @@
   "doc": "session-ceremony.md",
   "agents": [],
   "hooks": [],
-  "skills": ["skills/checkpoint"],
+  "skills": ["skills/ship-checkpoint"],
   "scripts": [],
   "lib": [],
   "templates": [],

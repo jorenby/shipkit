@@ -185,6 +185,34 @@ echo "=== W2 N2: \$'...' ANSI-C quoting forces the raw scan (BLOCK) ==="
 check 2 ship-mate "git push origin \$'main'"
 check 2 ship-mate "gh pr create --title \$'x'"
 
+echo "=== W5: mid-token backslashes collapse before scanning (BLOCK) ==="
+# bash collapses `\m` -> `m` at exec time, so every case below RUNS as the real op.
+# Before the fix the scan saw the literal `\merge` and matched nothing — and this
+# hook is default-ALLOW with no allow-list net, so they EXECUTED. Verified live on
+# the operator's ship (gh pr \merge / \ready / c\omment / ap\prove all allowed).
+check 2 ship-mate 'gh pr \merge 5'
+check 2 ship-mate 'gh pr \ready 5'
+check 2 ship-mate 'gh pr c\omment 5 --body hi'
+check 2 ship-mate 'gh pr ap\prove 5'
+check 2 ship-mate 'gh pr revie\w 5 --approve'
+check 2 ship-mate 'gh pr cl\ose 5'
+check 2 ship-mate 'gh issue cr\eate --title x'
+check 2 ship-mate 'gh api -X PO\ST /repos/o/r/issues'
+check 2 ship-mate 'git push origin ma\in'
+check 2 ship-mate 'git push origin mast\er'
+check 2 ship-mate 'git push \--force origin feat'
+check 2 ship-mate 'terraform ap\ply'
+check 2 ship-mate 'kubectl appl\y -f x.yaml'
+check 2 ship-mate 'cd /repo && gh pr \merge 5'
+check 2 ship-mate 'echo ok; git push origin ma\in'
+# No new false positives: backslashes that are genuinely data/escapes stay ALLOWED.
+check 0 ship-mate 'find . -name "*.md" -exec grep -l x {} \;'
+check 0 ship-mate 'printf "a\nb"'
+check 0 ship-mate 'echo done \&\& ls'
+check 0 ship-mate 'echo "path\to\file"'
+check 0 ship-mate 'grep -rn "\bmain\b" src/'
+check 0 ship-mate 'git push origin feature-branch'
+
 echo "=== W2 N1: gh api tightened (--method= and implicit-POST fields) ==="
 check 2 ship-mate 'gh api --method=POST /repos/o/r/issues'
 check 2 ship-mate 'gh api --method=DELETE /repos/o/r/pulls/5'

@@ -97,9 +97,13 @@ block, then update it after each major action:
 5. **Compound (if installed):** run `/ship-compound` over this session's logs before the
    commit — consolidate any crew "Learning candidate" blocks into `docs/knowledge/`. The
    gate, dedup, and policy are in [../compound/compound.md](../compound/compound.md).
+6. **Checkpoints (Mate only):** for each `inbox/checkpoint-*.md`, confirm every still-open item
+   has a durable home (ticket, `queue.md`, memory, log), then delete the file. This is the step
+   the `/ship-checkpoint` skill's "the Mate absorbs checkpoint files" promise relies on; an
+   event-driven Mate never re-runs the start-of-session re-anchor, so it has to live here.
 
 **Before discarding a session's context** (`/clear`, or any hand-off that drops the window),
-run the **`/checkpoint`** skill this module ships (`skills/checkpoint/`). It is a **verify**
+run the **`/ship-checkpoint`** skill this module ships (`skills/ship-checkpoint/`). It is a **verify**
 pass, not a save pass: if the event-time durable writes the role docs mandate actually
 happened, almost everything is already in a durable home and the checkpoint saves nothing.
 Two properties are load-bearing and easy to lose if you reimplement it:
