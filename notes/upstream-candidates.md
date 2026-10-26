@@ -31,4 +31,4 @@ Local-only (personal modules; keep out of the count):
 
 Send candidates (no disposition line, so they stay outstanding): the `memory-index` module and the lookout stop condition.
 
-- [ ] Upstream crew guard: the read-prefix allow in `core/hooks/validate-crew-bash.sh` (`aws <svc> get-*/list-*/describe-*`) admits credential-returning reads such as `aws secretsmanager get-secret-value`, `aws ecr get-login-password` and `aws ssm get-parameter --with-decryption`, and nothing denies credential ops before it. Found by reading the regex; not executed.
+- [~] Kit crew guard (not an upstream gap; upstream's guard has no AWS read allow): the read-prefix allow in `core/hooks/validate-crew-bash.sh` (`aws <svc> get-*/list-*/describe-*`) admitted credential-returning reads such as `aws secretsmanager get-secret-value`, `aws ecr get-login-password` and `aws ssm get-parameter --with-decryption`. Closed in the kit by a credential-read deny in `crew_check_raw`, which runs before the allow; regressions in `core/tests/test-crew-bash.sh`. Local-only, nothing to send.

@@ -410,6 +410,24 @@ crew_check_raw() {
     echo "Blocked: aws s3 cp/mv/sync/rb can write. Use aws s3 ls or aws s3api get-*/head-*/list-* for reads." >&2
     exit 2
   fi
+  # AWS credential/secret/token-returning ops. Their output authenticates OUTSIDE the guard
+  # (a DB login, an assumed role, a registry token, a decrypted secret), so a "read" that
+  # returns one is a key, not information. They are all spelled get-*/list-*/batch-get-*, so
+  # the read-prefix allow in check_allowed would admit them; this deny runs first (every
+  # segment is deny-checked before it is allow-checked). Un-anchored within the segment, so
+  # it also fires behind a wrapper (`devbox run aws ...`). A short deny-list of the known
+  # credential inventory: defense in depth, not exhaustive. Case-insensitive.
+  if echo "$seg" | grep -qiE '\baws\b[^|&;]*\b(secretsmanager[[:space:]]+(batch-)?get-secret-value|redshift[[:space:]]+get-cluster-credentials|redshift-serverless[[:space:]]+get-credentials|sts[[:space:]]+(get-session-token|get-federation-token|assume-role[a-z-]*)|ecr[[:space:]]+(get-login-password|get-authorization-token)|iam[[:space:]]+(get-credential-report|create-access-key)|kms[[:space:]]+(decrypt|generate-data-key(-pair)?)|apigateway[[:space:]]+get-api-keys?|appsync[[:space:]]+list-api-keys|cognito-idp[[:space:]]+([a-z-]*token[a-z-]*|(admin-)?(initiate-auth|respond-to-auth-challenge)))\b'; then
+    echo "Blocked: Crew cannot run AWS credential/secret/token-returning operations (the output authenticates outside the guard). Route to a Mate parent-shell." >&2
+    exit 2
+  fi
+  # ssm SecureString decryption: get-parameter / get-parameters / get-parameters-by-path /
+  # get-parameter-history with --with-decryption return plaintext secrets. Without the flag
+  # a SecureString comes back encrypted, so plain get-parameter stays allowed.
+  if echo "$seg" | grep -qiE '\baws\b[^|&;]*\bssm\b[^|&;]*\bget-parameters?\b' && echo "$seg" | grep -qiE -- '--with-decryption\b'; then
+    echo "Blocked: Crew cannot run 'aws ssm get-parameter(s) --with-decryption' (returns plaintext secrets). Route to a Mate parent-shell." >&2
+    exit 2
+  fi
   # SAM mutating verbs (sam validate stays allowed via the allow-list)
   if echo "$seg" | grep -qE '\bsam\s+(deploy|build|sync|publish|delete|package|init)\b'; then
     echo "Blocked: Crew cannot run mutating sam commands. Mate/Captain deploys." >&2
