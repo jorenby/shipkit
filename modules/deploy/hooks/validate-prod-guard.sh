@@ -12,7 +12,7 @@
 # told apart, so gate all — accepted broad tradeoff, deletes/DLQ-redrive included) + mutating
 # `sam` subcommands.
 
-FALLBACK_ASK='{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":"prod-guard: jq unavailable or input unparseable, failing closed"}}'
+FALLBACK_ASK='{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":"prod-guard: jq/perl unavailable or input unparseable, failing closed"}}'
 
 emit() {
   printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"%s","permissionDecisionReason":%s}}\n' \
@@ -42,22 +42,40 @@ if [ -z "$COMMAND" ]; then
   abstain
 fi
 
-# Normalize newlines/tabs to spaces so a verb split across lines is scanned as one unit —
-# grep is line-oriented and would otherwise miss the two-token `sam <sub>` pattern across a
-# newline. The gap class below also tolerates a stray backslash (`sam \<newline>deploy` is a
-# shell line-continuation = `sam deploy`; after normalization it reads `sam \ deploy`).
-SCAN=$(printf '%s' "$COMMAND" | tr '\n\r\t' '   ')
+# Copied verbatim from SHIP-MATCH-LIB (core/hooks/validate-*-bash.sh); keep in sync. This hook
+# must stay a single self-contained file, like those.
+ship_collapse_continuations() {
+  printf '%s\n' "$1" | perl -0777 -pe 's/(?<!\\)((?:\\\\)*)\\\n/$1/g'
+}
+ship_strip_quote_chars() {
+  printf '%s\n' "$1" | tr -d "'\"" | tr -d '\\'
+}
+
+# Scan something closer to what bash runs: `a"w"s`, `aw\s` and `sam de"p"loy` run as aws /
+# sam deploy. A `$` right before a quote is dropped first (hook-local, not in the shared lib):
+# `a$'w's` and `a$"w"s` also run as aws, but plain stripping leaves `a$ws`. Then flatten
+# newlines/tabs so a verb split across lines is one grep line. Stripping can only ADD matches
+# (over-ask), never hide one. No perl → no normaliser → fail closed.
+if ! command -v perl >/dev/null 2>&1; then
+  printf '%s\n' "$FALLBACK_ASK"
+  exit 0
+fi
+SCAN=$(ship_collapse_continuations "$COMMAND")
+SCAN=$(printf '%s\n' "$SCAN" | perl -pe 's/\$(?=[\x27"])//g')
+SCAN=$(ship_strip_quote_chars "$SCAN" | tr '\n\r\t' '   ')
 
 # aws token anywhere → ask. This over-asks on aws in prose/paths/filenames (e.g. an
 # aws-notes.md arg, `cd ~/aws`); that broad gate is an ACCEPTED tradeoff — do not narrow it
-# without re-deciding the read/write split.
-if echo "$SCAN" | grep -qE '\baws\b'; then
+# without re-deciding the read/write split. Case-insensitive: `AWS` runs aws on a
+# case-insensitive filesystem (the macOS default).
+if echo "$SCAN" | grep -qiE '\baws\b'; then
   emit ask "aws invocation — prod state-change can't be ruled out; gate all aws (deletes/DLQ-redrive are aws subcommands). Confirm this is a live-authorized run."
 fi
 
 # Mutating sam subcommands. deploy/sync push to a live stack, delete tears one down,
-# publish → Serverless App Repo, package writes to S3. build/validate/local/init defer.
-if echo "$SCAN" | grep -qE '\bsam[[:space:]\\]+(deploy|sync|publish|delete|package)\b'; then
+# publish → Serverless App Repo, package writes to S3. build/validate/local/init abstain.
+# Global flags between `sam` and the subcommand (`sam --debug deploy`) are skipped.
+if echo "$SCAN" | grep -qiE '\bsam([[:space:]]+-[^[:space:]]*)*[[:space:]]+(deploy|sync|publish|delete|package)\b'; then
   emit ask "sam mutating subcommand (deploy/sync/publish/delete/package) — changes prod state. Confirm this is a live-authorized run."
 fi
 

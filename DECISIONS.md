@@ -163,6 +163,89 @@ manifest, one installer path. The ruby `mate-lock.rb` parity was dropped at the 
 (python3 is already a hard prerequisite; two lock implementations was one to maintain and
 one to drift).
 
+## Substrate changes are pre-flight, and the maker is never the checker (2026-08)
+
+**Decision:** edits to the ship's own substrate — guards, hooks, **agent definitions**, role
+docs, skills, scheduler units — happen in a session that is **not** carrying product work, and
+they are reviewed by someone other than whoever made them.
+
+**Why, concretely — "substrate" is not one kind of file, and the kinds have different
+latencies.** Several take effect *never* until you do something else:
+
+| What | When your edit takes effect | The trap |
+|---|---|---|
+| Hooks rendered into an agent def (`core/hooks/validate-*`) | **Immediately**, for any agent whose definition names that hook | You change the rules a *currently running* crew is judged by, mid-watch |
+| A hook installed **by copy** outside the repo (e.g. `modules/substrate-integrity/hooks/`, whose header says the live copy belongs at `~/.claude/hooks/`) | **Never** — until you copy it again | You edit the version-controlled source, verify nothing, and the live copy is still the old one |
+| **Agent definitions** (`core/agents/*.md`) | **Never** — the installer leaves an existing def untouched unless you pass `--refresh-agents` | You *tighten* crew permissions in a proper pre-flight pass and it takes effect in no session, while you believe crew are more restricted than they are |
+| Role docs (`core/mate.md`, `core/crew.md`) | **Next session** — read at start | The edit is invisible in the session making it and inherited whole by the next one |
+| Skills, symlink install | Not reliably in the session that edits them | Don't rely on either answer: an author's own session is not a valid test of a skill edit |
+| Skills, **copy** install (`--install-mode copy`; the default on Windows) | **Never** — re-running the installer reports "already exists (a COPY, not a symlink) — left untouched" | You edit the repo skill, re-install to be safe, and the live copy is still the old one; the installer's staleness reporter only inspects skill dirs whose names begin `ship` (plus `bosun-tick`), so a `navigator` copy is never flagged |
+| Scheduler units (launchd/cron) | On next load, and they run **unattended** | A bad edit fails where nobody is watching |
+| Tickets, `queue.md`, notes, `DECISIONS.md` | Immediately, and harmlessly | None — these are **not** substrate; apply them mid-flight freely |
+
+"Don't change the airplane while flying." A substrate itch discovered mid-flight is a ticket
+for the next pre-flight pass, not a now-edit. Recovery, if an edit bricks a running session:
+revert with `git` from a plain shell or a fresh session.
+
+The rows that bite are the ones where the latency is **never**: the edit looks like it
+landed, nothing errors, and nothing is actually in force. An edit you cannot observe is an
+edit you have not tested — which is the whole reason this work wants a dedicated pass and a
+second pair of eyes rather than a confident author.
+
+**Rule:**
+- **Who shapes ≠ who builds ≠ who checks.** One seat shapes the change and sets the review
+  bar, another executes it in a cleared hands-on pass, and an **independent** reviewer (a
+  fresh model/session that did not write it) gates it. The load-bearing safety is
+  maker ≠ **checker**, and it holds regardless of which seat is the maker. See `core/mate.md`
+  § Maker ≠ Checker.
+- **Don't hand substrate to a crew subagent — and don't assume a guard is stopping them.**
+  Core's write guard (`core/hooks/validate-crew-write.sh`) protects `queue.md`, `captain.md`,
+  and `inbox/**` — **not** the hook scripts themselves, so on a core install a crew `Edit` of
+  `core/hooks/validate-crew-bash.sh` lands silently. **Before relying on any protection here,
+  read your own install's deny list and confirm the file you care about is in it** — each
+  guard matches its own way (core's write guard on full paths anchored at the ship root; the
+  `substrate-integrity` hook on hand-enumerated basenames), so "it's a guard, surely it's
+  covered" is exactly the assumption that fails. Measured once on a live ship: that module's
+  list covered 6 of 14 substrate files and named 7 that no longer existed. Those numbers are
+  one install's, not a property of the kit — the point is that nobody had checked, not the
+  specific count. This rule is doctrine you enforce, not a mechanism you inherit.
+- **Not the long-lived coordination session either** — keep the heavy build out of the one
+  context that is expensive to rebuild.
+
+**Lives in:** `core/mate.md` § Maker ≠ Checker (the review bar), plus the `navigator` module
+(shaping + review ownership) and
+`modules/substrate-integrity/` (detection: it ships a tamper guard and a tripwire; arming
+either is a manual step, see that module's doc).
+
+## Drops propose; promotion to Ready is a live human act (2026-08)
+
+**Decision:** a drop may file a ticket to Backlog, re-summarize a line, or re-order *within*
+Backlog. It must **never** move a ticket into **Ready**. Entry into Ready happens on a live
+human (or human-directed Navigator) pass, and on nothing else.
+
+**Why:** Ready is the dispatch surface. On an install that dispatches from Ready — the
+`autonomous` preset, or any loop that pops the top of the queue — the moment a ticket enters
+Ready is the **last point a human sees the work** before an executor acts on it. So a Ready
+promotion isn't a status edit, it's agenda-setting: it decides what the ship does next. That
+is the one thing an automated writer must not be able to do on its own.
+
+The gap this closes is unauthenticated authorship: a drop's `source:` field is free text that
+any process can write. `source: nav` is not evidence that a human passed on the work, so a
+Mate that trusts it has no gate at all — it just has a gate that is trivially spoofed by the
+next sensor someone wires up.
+
+**Rule:** a drop requesting Ready entry is a **recommendation**. Leave the ticket in Backlog,
+surface it, and let a human promote it. This is a discipline gate today, not a structural one
+— a typed non-Ready lane plus authenticated drop authorship would make it mechanical, and
+until that exists the rule lives in the role docs.
+
+**Corollary — the shovel-ready bar becomes a safety mechanism, not tidiness.** If Ready is
+auto-dispatched, an under-specified Ready ticket is an unreviewed instruction to an executor.
+Whoever promotes owns that: clear scope, explicit acceptance, and a cold-start fork-point.
+
+**Lives in:** `core/mate.md` § Processing Inbox → Drops (the Mate is the only writer who could
+apply such a drop), the `navigator` module (the seat that most often wants to).
+
 ## A rotation isn't done when `--rotate-mate` returns (2026-08)
 
 **Failures (three, all from production rotations run by hand):**

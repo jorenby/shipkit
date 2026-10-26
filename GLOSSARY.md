@@ -30,6 +30,8 @@ Ship has its own vocabulary, borrowed loosely from a ship's chain of command. Th
 
 **Scope gate** — The discipline of staying inside a watch's assigned boundary even when it would be easy to drift outside it. If a Crew subagent notices the ticket's scope is wrong, or finds adjacent work worth doing, the scope gate says: flag it, don't do it. Scope creep inside one watch is exactly the kind of silent expansion the bounded-context model is designed to prevent — so it gets named and enforced as a rule, not left to individual judgment.
 
+**Substrate** — The machinery the ship runs on, as opposed to the work it does: hooks and guards, agent definitions, role docs (`core/mate.md`, `core/crew.md`), skills, and scheduler units. Tickets, `queue.md`, logs, and `DECISIONS.md` are not substrate. Substrate edits get their own pass and a reviewer who didn't make them, because many of them take effect later than they appear to (see `DECISIONS.md` § Substrate changes are pre-flight).
+
 ## How the terms connect
 
 A **Captain** drops a task into the inbox (a **drop**). The **First Mate** triages it into a **ticket** and places it in the **queue**. When the Mate has dispatch capacity, it turns the ticket into **watch orders** and hands them to a **Crew** subagent, which works inside that **bounded context**, respects the **scope gate**, and ends the **watch** by writing a **log** — the **handoff** that lets the next watch (or the Mate) pick up cleanly.

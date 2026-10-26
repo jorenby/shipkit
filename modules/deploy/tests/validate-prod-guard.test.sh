@@ -195,6 +195,44 @@ assert "sam<tab>deploy"            ask "$(printf 'sam\tdeploy --stack-name x')"
 assert "sam sync split newline"    ask "$(printf 'sam\nsync --stack-name x')"
 
 echo ""
+echo "=== HIGH: quote / backslash / case / flag smuggles → ask (bash runs these as the verb) ==="
+assert "a\"w\"s (double-quote split)"     ask 'a"w"s ec2 terminate-instances --instance-ids i-x'
+assert "a'w's (single-quote split)"       ask "a'w's ec2 terminate-instances --instance-ids i-x"
+assert "aw\\s (backslash escape)"         ask 'aw\s ec2 terminate-instances --instance-ids i-x'
+assert "AWS (uppercase)"                  ask 'AWS ec2 terminate-instances --instance-ids i-x'
+assert "s\"a\"m deploy"                   ask 's"a"m deploy --stack-name x'
+assert "sam de\"p\"loy"                   ask 'sam de"p"loy --stack-name x'
+assert "SAM deploy (uppercase)"           ask 'SAM deploy --stack-name x'
+assert "sam --debug deploy (global flag)" ask 'sam --debug deploy --stack-name x'
+assert "sa\\<newline>m deploy (mid-word continuation)" ask "$(printf 'sa\\\nm deploy --stack-name x')"
+assert "a\$'w's (ANSI-C quote split)"     ask "a\$'w's ec2 terminate-instances --instance-ids i-x"
+assert "a\$\"w\"s (locale quote split)"   ask 'a$"w"s ec2 terminate-instances --instance-ids i-x'
+# Accepted limit: escape decoding is not modelled, so $'\x61'ws (= aws) still abstains.
+
+echo ""
+echo "=== Read forms stay abstain under the normaliser (0 false asks) ==="
+assert_abstain "sam --version"               "sam --version"
+assert_abstain "sam --info"                  "sam --info"
+assert_abstain "sam --debug build"           "sam --debug build"
+assert_abstain "sam build --debug"           "sam build --debug"
+assert_abstain "SAM build (uppercase read)"  "SAM build"
+assert_abstain "s\"a\"m build (quoted read)" 's"a"m build'
+assert_abstain "sam local invoke deploy-fn"  "sam local invoke deploy-fn"
+assert_abstain "grep -ri \"law\" ."          'grep -ri "law" .'
+
+echo ""
+echo "=== HIGH: perl unavailable → fail CLOSED (ask); the normaliser can't run ==="
+NOPERL=$(mktemp -d)
+for t in bash cat tr grep printf jq; do ln -s "$(command -v "$t")" "$NOPERL/$t"; done
+got=$(jq -nc --arg c "ls -la" '{tool_input: {command: $c}}' | PATH="$NOPERL" "$NOPERL/bash" "$HOOK" 2>/dev/null | jq -r '.hookSpecificOutput.permissionDecision // "PARSE_ERROR"' 2>/dev/null)
+rm -rf "$NOPERL"
+if [ "$got" = "ask" ]; then
+  printf "  PASS  perl-less: benign cmd → ask\n"; PASS=$((PASS + 1))
+else
+  printf "  FAIL  perl-less: benign cmd → ask (got %s)\n" "$got"; FAIL=$((FAIL + 1)); FAILED_CASES+=("perl-less → ask")
+fi
+
+echo ""
 echo "=== Non-prod → abstain (empty output, exit 0) ==="
 assert_abstain "git status"        "git status"
 assert_abstain "npm test"          "npm test"

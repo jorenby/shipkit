@@ -22,7 +22,13 @@ enable it when a deploy path exists.
 
 For a non-prod command it **abstains** (exit 0, no JSON) rather than emitting an explicit
 `defer`, so it composes cleanly with a co-matched allow-list hook. It fails **closed**
-(ask) on any tooling failure — missing `jq`, unparseable input.
+(ask) on any tooling failure — missing `jq` or `perl`, unparseable input.
+
+Before matching, it normalises the command to something closer to what bash runs, using
+the core hooks' SHIP-MATCH-LIB normaliser plus one local step: line continuations rejoined,
+a `$` before a quote dropped (local), quote characters and backslashes stripped, case ignored. So `a"w"s`, `a$'w's`,
+`aw\s`, `AWS`, `sam de"p"loy` and `sam --debug deploy` all ask. It is a tripwire for a
+non-adversarial actor: it doesn't see variable or command expansions, globs, scripts or SDK calls.
 
 The `aws` gate is deliberately broad: read and write invocations can't be told apart, so
 all `aws` is gated (deletes / DLQ-redrive are `aws` subcommands). That over-asks on `aws`
