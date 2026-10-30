@@ -1,5 +1,5 @@
 #!/bin/bash
-# Records this session's ship role for the status line and for role-restore.sh after /clear.
+# Records this session's ship role for the status line and the compaction hooks (hooks/read-role.sh).
 # Usage: ship-role.sh <Mate|Navigator|Crew|Captain>
 set -euo pipefail
 

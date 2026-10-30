@@ -117,7 +117,7 @@ This working copy carries opt-in modules upstream doesn't have (listed in
 python3 shipkit_init.py --preset personal --ship-root .
 ```
 
-Settings-level hooks (prod guard, memory-index guard, status line, role restore,
+Settings-level hooks (prod guard, memory-index guard, status line, compaction hooks,
 notifications) are not registered by the installer; each module doc has the
 `~/.claude/settings.json` snippet. `deploy-freeze-feed` stays opt-in
 (`--modules deploy-freeze-feed`), since it needs a signal source before it does anything useful.

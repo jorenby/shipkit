@@ -7,9 +7,17 @@
   "hooks": {
     "SessionStart": [
       {
-        "matcher": "clear",
+        "matcher": "compact",
         "hooks": [
-          { "type": "command", "command": "__SHIP_ROOT__/modules/session-ux/hooks/role-restore.sh" }
+          { "type": "command", "command": "__SHIP_ROOT__/modules/session-ux/hooks/compact-recover.sh" }
+        ]
+      }
+    ],
+    "PostCompact": [
+      {
+        "matcher": "manual|auto",
+        "hooks": [
+          { "type": "command", "command": "__SHIP_ROOT__/modules/session-ux/hooks/compact-log.sh" }
         ]
       }
     ],
