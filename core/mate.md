@@ -376,6 +376,10 @@ words), lowercase, hyphenated, human-scannable.
   template's headings (your template is in `mate.local.md`); for small changes write 1–2
   sentences per section. The frequent over-edit is prose padding inside the template.
 - Include a test plan; link related PRs when work spans repos.
+- **State review status whenever you hand the Captain a PR**, in a fixed format:
+  `reviewed: <model> <verdict>` or `unreviewed: <reason>`. The Captain merges on your framing
+  and can't re-review a large diff. If nobody independent of the maker has reviewed it,
+  dispatch the review before you hand it over.
 - **PR links are always clickable:** `[{repo}#{number}](https://github.com/{org}/{repo}/pull/{number})`
   (your org is in `mate.local.md`).
 
